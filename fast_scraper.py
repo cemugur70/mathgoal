@@ -474,45 +474,60 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
             for sheet_name in sheets:
                 bm = sheet_name  # bookmaker name
                 
-                # Create a COPY of df for this bookmaker
-                bm_df = df.copy()
-                
-                # Build ordered columns for THIS bookmaker only
-                ordered_eng_cols = []
-                
-                # First add basic columns (these are already in Turkish)
-                for col in basic_cols:
-                    if col in bm_df.columns:
-                        ordered_eng_cols.append(col)
-                
-                # Then add odds columns for THIS bookmaker using pattern
-                for pattern in odds_order:
-                    col_name = pattern.format(bm=bm)
-                    if col_name in bm_df.columns:
-                        ordered_eng_cols.append(col_name)
-                
-                # Add any remaining columns for this bookmaker
-                bm_lower = bm.lower()
-                for col in bm_df.columns:
-                    if bm_lower in col.lower() and col not in ordered_eng_cols:
-                        ordered_eng_cols.append(col)
-                
-                # Select only these columns and fill NaN
-                if ordered_eng_cols:
-                    sheet_df = bm_df[[c for c in ordered_eng_cols if c in bm_df.columns]].copy()
+                if FIXED_COLUMNS:
+                    # Use FIXED 763 columns template for ALL sheets
+                    # Step 1: Build translation map for this bookmaker's columns
+                    # Map: Turkish column name -> Original English column name
+                    tr_to_eng = {}
+                    
+                    # For this bookmaker's columns, apply turkishify and save mapping
+                    bm_lower = bm.lower()
+                    for col in df.columns:
+                        # Check if this column belongs to this bookmaker or is a basic column
+                        if col in basic_cols:
+                            tr_to_eng[col] = col
+                        elif bm_lower in col.lower():
+                            turkish_name = turkishify(col)
+                            tr_to_eng[turkish_name] = col
+                    
+                    # Step 2: For each template column, find matching data
+                    rows_data = []
+                    for idx in range(len(df)):
+                        row_dict = {}
+                        for template_col in FIXED_COLUMNS:
+                            if template_col in tr_to_eng:
+                                # Found matching column - get data
+                                eng_col = tr_to_eng[template_col]
+                                row_dict[template_col] = df.iloc[idx].get(eng_col, '0')
+                            else:
+                                # No matching data for this template column
+                                row_dict[template_col] = '0'
+                        rows_data.append(row_dict)
+                    
+                    sheet_df = pd.DataFrame(rows_data, columns=FIXED_COLUMNS)
                     sheet_df = sheet_df.fillna('0')
                     
-                    # Now apply turkishify to column names for display
-                    turkish_cols = [turkishify(col) for col in sheet_df.columns]
-                    sheet_df.columns = turkish_cols
-                    
-                    # Write to Excel
-                    sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
-                    
-                    # Write headers at row 4
-                    ws = writer.sheets[sheet_name]
-                    for col_num, col_name in enumerate(sheet_df.columns):
-                        ws.write(3, col_num, col_name)
+                else:
+                    # Fallback - dynamic columns
+                    ordered_eng_cols = []
+                    for col in basic_cols:
+                        if col in df.columns:
+                            ordered_eng_cols.append(col)
+                    bm_lower = bm.lower()
+                    for col in df.columns:
+                        if bm_lower in col.lower() and col not in ordered_eng_cols:
+                            ordered_eng_cols.append(col)
+                    sheet_df = df[[c for c in ordered_eng_cols if c in df.columns]].copy()
+                    sheet_df.columns = [turkishify(c) for c in sheet_df.columns]
+                    sheet_df = sheet_df.fillna('0')
+                
+                # Write to Excel
+                sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
+                
+                # Write headers at row 4
+                ws = writer.sheets[sheet_name]
+                for col_num, col_name in enumerate(sheet_df.columns):
+                    ws.write(3, col_num, col_name)
         
         write_time = (datetime.now() - write_start).total_seconds()
         logger.info(f"✅ Excel yazımı tamamlandı ({write_time:.1f}s) - {len(RESULTS)/max(write_time, 0.1):.0f} kayıt/s")
