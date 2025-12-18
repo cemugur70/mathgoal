@@ -421,15 +421,6 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
             """Convert English column names to Turkish - MUST match all_columns.txt format"""
             tr = col_name
             
-            # Basic columns that should NOT be modified (keep dots!)
-            basic_keep = ['2.5 ALT ÜST', '3.5 ÜST', 'İY 0.5 ALT ÜST', 'İY 1.5 ALT ÜST', 
-                          'KG VAR/YOK', 'İY-MS', 'İY SONUCU', 'MS SONUCU']
-            if col_name in basic_keep:
-                return col_name
-            
-            # Check if this is an odds column (contains bookmaker prefix)
-            is_odds_col = any(bm in col_name.lower() for bm in ['bet365', 'betmgm', 'betfred', 'unibetuk', 'betway', 'midnite', 'ladbrokes', 'betfair', '7bet', 'opening_'])
-            
             translations = [
                 ("_home", " 1"), ("_away", " 2"), ("_draw", " X"),
                 ("_over", " Üst"), ("_under", " Alt"),
@@ -438,6 +429,7 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                 ("first_half_", "İY "), ("second_half_", "2Y "),
                 ("_first_half", " İY"), ("_second_half", " 2Y"),
                 ("home_draw_odds", "1X"), ("home_away_odds", "12"), ("away_draw", "X2"),
+                # NOTE: dnb stays as "dnb" (not "GS") to match template
             ]
             for eng, tur in translations:
                 tr = tr.replace(eng, tur)
@@ -450,9 +442,8 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
             
             tr = tr.replace("_", " ")
             
-            # Convert dots to spaces ONLY for odds columns (not basic columns)
-            if is_odds_col:
-                tr = tr.replace(".", " ")
+            # Convert dots in numbers to spaces to match template (0.5 -> 0 5)
+            tr = tr.replace(".", " ")
             
             while "  " in tr:
                 tr = tr.replace("  ", " ")
@@ -489,17 +480,17 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                                 col_data = col_data.iloc[:, 0]
                             template_data[col] = col_data.values.tolist()
                         else:
-                            # Column not in data - fill with '-'
-                            template_data[col] = ['-'] * len(df)
+                            # Column not in data - fill with '0'
+                            template_data[col] = ['0'] * len(df)
                     
                     sheet_df = pd.DataFrame(template_data)
                     # Reorder columns to match template order
                     sheet_df = sheet_df[FIXED_COLUMNS]
-                    sheet_df = sheet_df.fillna('-')
+                    sheet_df = sheet_df.fillna('0')
                     
                 else:
                     # Fallback - dynamic columns (shouldn't happen)
-                    sheet_df = df.fillna('-')
+                    sheet_df = df.fillna('0')
                 
                 # Write to Excel
                 sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
