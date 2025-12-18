@@ -452,7 +452,7 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
         # STEP 1: Rename ALL DataFrame columns to Turkish
         df.columns = [turkishify(col) for col in df.columns]
         
-        # STEP 2: Load FIXED 763 column template
+        # STEP 2: Load FIXED 763 column template (THIS IS THE MASTER ORDER)
         import os
         template_path = os.path.join(os.path.dirname(__file__), 'all_columns.txt')
         try:
@@ -463,47 +463,38 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
             FIXED_COLUMNS = None
             logger.warning(f"⚠️ all_columns.txt yüklenemedi: {e}")
         
-        # STEP 3: Add ALL missing columns with '-' value
-        if FIXED_COLUMNS:
-            existing_cols = set(df.columns)
-            missing_cols = [col for col in FIXED_COLUMNS if col not in existing_cols]
-            if missing_cols:
-                # Create all missing columns at once
-                missing_data = {col: ['-'] * len(df) for col in missing_cols}
-                missing_df = pd.DataFrame(missing_data)
-                df = pd.concat([df, missing_df], axis=1)
-            logger.info(f"📊 {len(missing_cols)} eksik kolon '-' ile eklendi")
-        
         with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
             for sheet_name in sheets:
-                bm = sheet_name
-                
                 if FIXED_COLUMNS:
-                    # Use fixed 763 column order
-                    ordered_cols = [c for c in FIXED_COLUMNS if c in df.columns]
-                else:
-                    # Fallback to dynamic
-                    ordered_cols = []
-                    for col in basic_cols:
-                        tr_col = turkishify(col)
-                        if tr_col in df.columns:
-                            ordered_cols.append(tr_col)
-                    bm_lower = bm.lower()
-                    for col in df.columns:
-                        if col not in ordered_cols:
-                            ordered_cols.append(col)
-                
-                # Create sheet with data
-                if ordered_cols:
-                    sheet_df = df[[c for c in ordered_cols if c in df.columns]]
-                    # Fill any remaining NaN with '-'
-                    sheet_df = sheet_df.fillna('-')
-                    sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
+                    # Create a NEW DataFrame with EXACTLY the template columns in EXACT order
+                    # This ensures column 320 is ALWAYS the same thing in all Excel files
                     
-                    # Write Turkish headers at row 4 (row index 3)
-                    ws = writer.sheets[sheet_name]
-                    for col_num, col_name in enumerate(sheet_df.columns):
-                        ws.write(3, col_num, col_name)
+                    # Build a mapping: column_name -> data values
+                    data_map = {col: df[col].values if col in df.columns else None for col in FIXED_COLUMNS}
+                    
+                    # Create new DataFrame with template columns
+                    template_data = {}
+                    for col in FIXED_COLUMNS:
+                        if col in df.columns:
+                            template_data[col] = df[col].values
+                        else:
+                            # Column not in data - fill with '-'
+                            template_data[col] = ['-'] * len(df)
+                    
+                    sheet_df = pd.DataFrame(template_data, columns=FIXED_COLUMNS)
+                    sheet_df = sheet_df.fillna('-')
+                    
+                else:
+                    # Fallback - dynamic columns (shouldn't happen)
+                    sheet_df = df.fillna('-')
+                
+                # Write to Excel
+                sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
+                
+                # Write headers at row 4 (these are already Turkish from template)
+                ws = writer.sheets[sheet_name]
+                for col_num, col_name in enumerate(sheet_df.columns):
+                    ws.write(3, col_num, col_name)
         
         write_time = (datetime.now() - write_start).total_seconds()
         logger.info(f"✅ Excel yazımı tamamlandı ({write_time:.1f}s) - {len(RESULTS)/max(write_time, 0.1):.0f} kayıt/s")
