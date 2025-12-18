@@ -416,29 +416,46 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
         # Bookmaker sheets
         sheets = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]
         
+        # Load FIXED column template from all_columns.txt
+        # This ensures ALL Excel files have EXACT same 763 columns
+        import os
+        template_path = os.path.join(os.path.dirname(__file__), 'all_columns.txt')
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                FIXED_COLUMNS = [line.strip() for line in f if line.strip()]
+            logger.info(f"📋 Sabit kolon şablonu yüklendi: {len(FIXED_COLUMNS)} kolon")
+        except:
+            FIXED_COLUMNS = None
+            logger.warning("⚠️ all_columns.txt bulunamadı, dinamik kolon kullanılacak")
+        
         with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
             for sheet_name in sheets:
                 bm = sheet_name
                 
-                # Build ordered column list for this bookmaker
-                ordered_cols = []
-                
-                # First add basic columns
-                for col in basic_cols:
-                    if col in df.columns:
-                        ordered_cols.append(col)
-                
-                # Then add odds columns in mapping order
-                for pattern in odds_order:
-                    col_name = pattern.format(bm=bm)
-                    if col_name in df.columns:
-                        ordered_cols.append(col_name)
-                
-                # Add any remaining columns for this bookmaker that weren't in pattern
-                bm_lower = bm.lower()
-                for col in df.columns:
-                    if bm_lower in col.lower() and col not in ordered_cols:
-                        ordered_cols.append(col)
+                if FIXED_COLUMNS:
+                    # Use fixed template - ensure ALL columns exist
+                    # Add missing columns at once (avoid fragmentation warning)
+                    missing_cols = [col for col in FIXED_COLUMNS if col not in df.columns]
+                    if missing_cols:
+                        missing_df = pd.DataFrame({col: [''] * len(df) for col in missing_cols})
+                        df = pd.concat([df, missing_df], axis=1)
+                    
+                    # Reorder to match fixed template
+                    ordered_cols = [c for c in FIXED_COLUMNS if c in df.columns]
+                else:
+                    # Fallback to dynamic column building
+                    ordered_cols = []
+                    for col in basic_cols:
+                        if col in df.columns:
+                            ordered_cols.append(col)
+                    for pattern in odds_order:
+                        col_name = pattern.format(bm=bm)
+                        if col_name in df.columns:
+                            ordered_cols.append(col_name)
+                    bm_lower = bm.lower()
+                    for col in df.columns:
+                        if bm_lower in col.lower() and col not in ordered_cols:
+                            ordered_cols.append(col)
                 
                 # Create sheet
                 if ordered_cols:

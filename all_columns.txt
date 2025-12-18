@@ -1,0 +1,763 @@
+ide
+TARİH
+GÜN
+SAAT
+HAFTA
+EV SAHİBİ
+DEPLASMAN
+İY
+MS
+İY SONUCU
+MS SONUCU
+İY-MS
+2.5 ALT ÜST
+3.5 ÜST
+KG VAR/YOK
+İY 0.5 ALT ÜST
+İY 1.5 ALT ÜST
+ÜLKE
+LİG
+AÇ 1
+AÇ X
+AÇ 2
+1
+X
+2
+AÇ İY 1
+AÇ İY X
+AÇ İY 2
+İY 1
+İY X
+İY 2
+AÇ 2Y 1
+AÇ 2Y X
+AÇ 2Y 2
+2Y 1
+2Y X
+2Y 2
+AÇ dnb 1
+AÇ dnb 2
+dnb 1
+dnb 2
+AÇ Tek
+AÇ Çift
+Tek
+Çift
+AÇ İY 0 5 Üst
+İY 0 5 Üst
+AÇ İY 1 0 Üst
+İY 1 0 Üst
+AÇ İY 1 25 Üst
+İY 1 25 Üst
+AÇ İY 1 5 Üst
+İY 1 5 Üst
+AÇ İY 2 5 Üst
+İY 2 5 Üst
+AÇ İY 3 5 Üst
+İY 3 5 Üst
+AÇ İY 0 5 Alt
+İY 0 5 Alt
+AÇ İY 1 0 Alt
+İY 1 0 Alt
+AÇ İY 1 25 Alt
+İY 1 25 Alt
+AÇ İY 1 5 Alt
+İY 1 5 Alt
+AÇ İY 2 5 Alt
+İY 2 5 Alt
+AÇ İY 3 5 Alt
+İY 3 5 Alt
+AÇ 0 5 Üst
+0 5 Üst
+AÇ 1 5 Üst
+1 5 Üst
+AÇ 2 5 Üst
+2 5 Üst
+AÇ 2 75 Üst
+2 75 Üst
+AÇ 3 5 Üst
+3 5 Üst
+AÇ 4 5 Üst
+4 5 Üst
+AÇ 5 5 Üst
+5 5 Üst
+AÇ 6 5 Üst
+6 5 Üst
+AÇ 7 5 Üst
+7 5 Üst
+AÇ 0 5 Alt
+0 5 Alt
+AÇ 1 5 Alt
+1 5 Alt
+AÇ 2 5 Alt
+2 5 Alt
+AÇ 2 75 Alt
+2 75 Alt
+AÇ 3 5 Alt
+3 5 Alt
+AÇ 4 5 Alt
+4 5 Alt
+AÇ 5 5 Alt
+5 5 Alt
+AÇ 6 5 Alt
+6 5 Alt
+AÇ 7 5 Alt
+7 5 Alt
+AÇ 2Y 0 5 Üst
+2Y 0 5 Üst
+AÇ 2Y 1 5 Üst
+2Y 1 5 Üst
+AÇ 2Y 2 5 Üst
+2Y 2 5 Üst
+AÇ 2Y 3 5 Üst
+2Y 3 5 Üst
+AÇ 2Y 4 5 Üst
+2Y 4 5 Üst
+AÇ 2Y 0 5 Alt
+2Y 0 5 Alt
+AÇ 2Y 1 5 Alt
+2Y 1 5 Alt
+AÇ 2Y 2 5 Alt
+2Y 2 5 Alt
+AÇ 2Y 3 5 Alt
+2Y 3 5 Alt
+AÇ 2Y 4 5 Alt
+2Y 4 5 Alt
+AÇ İY ah 0 0 1
+İY ah 0 0 1
+AÇ İY ah 0 0 2
+İY ah 0 0 2
+AÇ İY ah 0 5 1
+İY ah 0 5 1
+AÇ İY ah minus 0 5 2
+İY ah minus 0 5 2
+AÇ İY ah minus 0 5 1
+İY ah minus 0 5 1
+AÇ İY ah 0 5 2
+İY ah 0 5 2
+AÇ İY ah minus 0 75 2
+İY ah minus 0 75 2
+AÇ İY ah minus 0 75 1
+İY ah minus 0 75 1
+AÇ İY ah minus 1 0 2
+İY ah minus 1 0 2
+AÇ İY ah minus 1 0 1
+İY ah minus 1 0 1
+AÇ İY ah minus 1 25 2
+İY ah minus 1 25 2
+AÇ İY ah minus 1 25 1
+İY ah minus 1 25 1
+AÇ İY ah minus 1 5 2
+İY ah minus 1 5 2
+AÇ İY ah minus 1 5 1
+İY ah minus 1 5 1
+AÇ İY ah minus 1 75 2
+İY ah minus 1 75 2
+AÇ İY ah minus 1 75 1
+İY ah minus 1 75 1
+AÇ İY ah 0 25 1
+İY ah 0 25 1
+AÇ İY ah minus 0 25 2
+İY ah minus 0 25 2
+AÇ İY ah minus 0 25 1
+İY ah minus 0 25 1
+AÇ İY ah 0 25 2
+İY ah 0 25 2
+AÇ ah 0 0 1
+ah 0 0 1
+AÇ ah 0 0 2
+ah 0 0 2
+AÇ ah 0 5 1
+ah 0 5 1
+AÇ ah minus 0 5 2
+ah minus 0 5 2
+AÇ ah minus 0 5 1
+ah minus 0 5 1
+AÇ ah 0 5 2
+ah 0 5 2
+AÇ ah minus 0 75 2
+ah minus 0 75 2
+AÇ ah minus 0 75 1
+ah minus 0 75 1
+AÇ ah minus 1 0 2
+ah minus 1 0 2
+AÇ ah minus 1 0 1
+ah minus 1 0 1
+AÇ ah minus 1 25 2
+ah minus 1 25 2
+AÇ ah minus 1 25 1
+ah minus 1 25 1
+AÇ ah minus 1 5 2
+ah minus 1 5 2
+AÇ ah minus 1 5 1
+ah minus 1 5 1
+AÇ ah minus 1 75 2
+ah minus 1 75 2
+AÇ ah minus 1 75 1
+ah minus 1 75 1
+AÇ ah minus 2 0 2
+ah minus 2 0 2
+AÇ ah minus 2 0 1
+ah minus 2 0 1
+AÇ ah minus 2 25 2
+ah minus 2 25 2
+AÇ ah minus 2 25 1
+ah minus 2 25 1
+AÇ ah minus 2 5 2
+ah minus 2 5 2
+AÇ ah minus 2 5 1
+ah minus 2 5 1
+AÇ ah minus 2 75 2
+ah minus 2 75 2
+AÇ ah minus 2 75 1
+ah minus 2 75 1
+AÇ ah 0 25 1
+ah 0 25 1
+AÇ ah minus 0 25 2
+ah minus 0 25 2
+AÇ ah minus 0 25 1
+ah minus 0 25 1
+AÇ ah 0 25 2
+ah 0 25 2
+AÇ İY eh minus1 2
+İY eh minus1 2
+AÇ İY eh minus1 1
+İY eh minus1 1
+AÇ İY eh minus1 X
+İY eh minus1 X
+AÇ eh minus1 2
+eh minus1 2
+AÇ eh minus1 1
+eh minus1 1
+AÇ eh minus1 X
+eh minus1 X
+AÇ İY dc X2
+İY dc X2
+AÇ İY dc 1X
+İY dc 1X
+AÇ İY dc 12
+İY dc 12
+AÇ dc X2
+dc X2
+AÇ dc 1X
+dc 1X
+AÇ dc 12
+dc 12
+AÇ ht ft 1 1
+ht ft 1 1
+AÇ ht ft X 1
+ht ft X 1
+AÇ ht ft 2 1
+ht ft 2 1
+AÇ ht ft 1 X
+ht ft 1 X
+AÇ ht ft X X
+ht ft X X
+AÇ ht ft 2 X
+ht ft 2 X
+AÇ ht ft 1 2
+ht ft 1 2
+AÇ ht ft X 2
+ht ft X 2
+AÇ ht ft 2 2
+ht ft 2 2
+AÇ İY 3 1
+İY 3 1
+AÇ İY 3 2
+İY 3 2
+AÇ İY 2 3
+İY 2 3
+AÇ İY 1 3
+İY 1 3
+AÇ İY 0 3
+İY 0 3
+AÇ İY 4 0
+İY 4 0
+AÇ İY 4 1
+İY 4 1
+AÇ İY 4 2
+İY 4 2
+AÇ İY 0 0
+İY 0 0
+AÇ İY 5 0
+İY 5 0
+AÇ İY 5 1
+İY 5 1
+AÇ İY 1 0
+İY 1 0
+AÇ İY 1 1
+İY 1 1
+AÇ İY 0 1
+İY 0 1
+AÇ İY 2 0
+İY 2 0
+AÇ İY 2 1
+İY 2 1
+AÇ İY 2 2
+İY 2 2
+AÇ İY 1 2
+İY 1 2
+AÇ İY 0 2
+İY 0 2
+AÇ İY 3 0
+İY 3 0
+AÇ full time 3 1
+full time 3 1
+AÇ full time 3 2
+full time 3 2
+AÇ full time 3 3
+full time 3 3
+AÇ full time 2 3
+full time 2 3
+AÇ full time 1 3
+full time 1 3
+AÇ full time 0 3
+full time 0 3
+AÇ full time 4 4
+full time 4 4
+AÇ full time 4 0
+full time 4 0
+AÇ full time 4 1
+full time 4 1
+AÇ full time 4 2
+full time 4 2
+AÇ full time 4 3
+full time 4 3
+AÇ full time 3 4
+full time 3 4
+AÇ full time 2 4
+full time 2 4
+AÇ full time 1 4
+full time 1 4
+AÇ full time 0 4
+full time 0 4
+AÇ full time 0 0
+full time 0 0
+AÇ full time 5 0
+full time 5 0
+AÇ full time 5 1
+full time 5 1
+AÇ full time 6 0
+full time 6 0
+AÇ full time 6 1
+full time 6 1
+AÇ full time 5 2
+full time 5 2
+AÇ full time 5 3
+full time 5 3
+AÇ full time 6 2
+full time 6 2
+AÇ full time 6 3
+full time 6 3
+AÇ full time 7 0
+full time 7 0
+AÇ full time 7 1
+full time 7 1
+AÇ full time 7 2
+full time 7 2
+AÇ full time 1 0
+full time 1 0
+AÇ full time 1 1
+full time 1 1
+AÇ full time 0 1
+full time 0 1
+AÇ full time 2 0
+full time 2 0
+AÇ full time 2 1
+full time 2 1
+AÇ full time 2 2
+full time 2 2
+AÇ full time 1 2
+full time 1 2
+AÇ full time 0 2
+full time 0 2
+AÇ full time 3 0
+full time 3 0
+AÇ İY Tek
+İY Tek
+AÇ İY Çift
+İY Çift
+AÇ 2Y Tek
+2Y Tek
+AÇ 2Y Çift
+2Y Çift
+AÇ İY btts true
+İY btts true
+AÇ İY btts false
+İY btts false
+AÇ btts true
+btts true
+AÇ btts false
+btts false
+AÇ 2Y btts true
+2Y btts true
+AÇ 2Y btts false
+2Y btts false
+AÇ 3 0 Üst
+3 0 Üst
+AÇ 3 0 Alt
+3 0 Alt
+AÇ İY ah 0 75 1
+İY ah 0 75 1
+AÇ İY ah 0 75 2
+İY ah 0 75 2
+AÇ ah 0 75 1
+ah 0 75 1
+AÇ ah 0 75 2
+ah 0 75 2
+AÇ ah minus 3 0 2
+ah minus 3 0 2
+AÇ ah minus 3 0 1
+ah minus 3 0 1
+AÇ ah minus 3 25 2
+ah minus 3 25 2
+AÇ ah minus 3 25 1
+ah minus 3 25 1
+AÇ full time 1 5
+full time 1 5
+AÇ full time 5 4
+full time 5 4
+AÇ full time 2 5
+full time 2 5
+AÇ full time 8 0
+full time 8 0
+AÇ full time 8 1
+full time 8 1
+AÇ İY 1 4
+İY 1 4
+AÇ İY 0 4
+İY 0 4
+AÇ full time 0 5
+full time 0 5
+AÇ full time 3 5
+full time 3 5
+AÇ 3 25 Üst
+3 25 Üst
+AÇ 8 5 Üst
+8 5 Üst
+AÇ 3 25 Alt
+3 25 Alt
+AÇ 8 5 Alt
+8 5 Alt
+AÇ İY 4 5 Üst
+İY 4 5 Üst
+AÇ İY 4 5 Alt
+İY 4 5 Alt
+AÇ 2Y 5 5 Üst
+2Y 5 5 Üst
+AÇ 2Y 5 5 Alt
+2Y 5 5 Alt
+AÇ İY ah 1 0 1
+İY ah 1 0 1
+AÇ İY ah 1 0 2
+İY ah 1 0 2
+AÇ İY ah 1 25 1
+İY ah 1 25 1
+AÇ İY ah 1 25 2
+İY ah 1 25 2
+AÇ İY ah 1 5 1
+İY ah 1 5 1
+AÇ İY ah 1 5 2
+İY ah 1 5 2
+AÇ ah 1 0 1
+ah 1 0 1
+AÇ ah 1 0 2
+ah 1 0 2
+AÇ ah 1 25 1
+ah 1 25 1
+AÇ ah 1 25 2
+ah 1 25 2
+AÇ ah 1 5 1
+ah 1 5 1
+AÇ ah 1 5 2
+ah 1 5 2
+AÇ ah 1 75 1
+ah 1 75 1
+AÇ ah 1 75 2
+ah 1 75 2
+AÇ ah 2 0 1
+ah 2 0 1
+AÇ ah 2 0 2
+ah 2 0 2
+AÇ ah 2 25 1
+ah 2 25 1
+AÇ ah 2 25 2
+ah 2 25 2
+AÇ ah 2 5 1
+ah 2 5 1
+AÇ ah 2 5 2
+ah 2 5 2
+AÇ İY eh plus1 1
+İY eh plus1 1
+AÇ İY eh plus1 2
+İY eh plus1 2
+AÇ İY eh plus1 X
+İY eh plus1 X
+AÇ eh plus1 1
+eh plus1 1
+AÇ eh plus1 2
+eh plus1 2
+AÇ eh plus1 X
+eh plus1 X
+AÇ İY 3 3
+İY 3 3
+AÇ İY 2 4
+İY 2 4
+AÇ İY 0 5
+İY 0 5
+AÇ İY 1 5
+İY 1 5
+AÇ full time 0 6
+full time 0 6
+AÇ full time 1 6
+full time 1 6
+AÇ full time 4 5
+full time 4 5
+AÇ full time 2 6
+full time 2 6
+AÇ full time 3 6
+full time 3 6
+AÇ full time 1 7
+full time 1 7
+AÇ İY ah 1 75 1
+İY ah 1 75 1
+AÇ İY ah 1 75 2
+İY ah 1 75 2
+AÇ ah 2 75 1
+ah 2 75 1
+AÇ ah 2 75 2
+ah 2 75 2
+AÇ ah 3 0 1
+ah 3 0 1
+AÇ ah 3 0 2
+ah 3 0 2
+AÇ full time 0 7
+full time 0 7
+AÇ full time 2 7
+full time 2 7
+AÇ 2 25 Üst
+2 25 Üst
+AÇ 2 25 Alt
+2 25 Alt
+AÇ İY ah 2 0 1
+İY ah 2 0 1
+AÇ İY ah 2 0 2
+İY ah 2 0 2
+AÇ ah 3 25 1
+ah 3 25 1
+AÇ ah 3 25 2
+ah 3 25 2
+AÇ ah 3 5 1
+ah 3 5 1
+AÇ ah 3 5 2
+ah 3 5 2
+AÇ ah 3 75 1
+ah 3 75 1
+AÇ ah 3 75 2
+ah 3 75 2
+AÇ eh plus2 1
+eh plus2 1
+AÇ eh plus2 2
+eh plus2 2
+AÇ eh plus2 X
+eh plus2 X
+AÇ İY 0 6
+İY 0 6
+AÇ full time 0 8
+full time 0 8
+AÇ full time 1 8
+full time 1 8
+AÇ full time 0 9
+full time 0 9
+AÇ full time 2 8
+full time 2 8
+AÇ 3 75 Üst
+3 75 Üst
+AÇ 9 5 Üst
+9 5 Üst
+AÇ 3 75 Alt
+3 75 Alt
+AÇ 9 5 Alt
+9 5 Alt
+AÇ İY ah minus 2 0 2
+İY ah minus 2 0 2
+AÇ İY ah minus 2 0 1
+İY ah minus 2 0 1
+AÇ İY ah minus 2 25 2
+İY ah minus 2 25 2
+AÇ İY ah minus 2 25 1
+İY ah minus 2 25 1
+AÇ İY ah minus 2 5 2
+İY ah minus 2 5 2
+AÇ İY ah minus 2 5 1
+İY ah minus 2 5 1
+AÇ ah minus 3 5 2
+ah minus 3 5 2
+AÇ ah minus 3 5 1
+ah minus 3 5 1
+AÇ ah minus 3 75 2
+ah minus 3 75 2
+AÇ ah minus 3 75 1
+ah minus 3 75 1
+AÇ ah minus 4 0 2
+ah minus 4 0 2
+AÇ ah minus 4 0 1
+ah minus 4 0 1
+AÇ ah minus 4 25 2
+ah minus 4 25 2
+AÇ ah minus 4 25 1
+ah minus 4 25 1
+AÇ eh minus2 2
+eh minus2 2
+AÇ eh minus2 1
+eh minus2 1
+AÇ eh minus3 2
+eh minus3 2
+AÇ eh minus3 1
+eh minus3 1
+AÇ eh minus2 X
+eh minus2 X
+AÇ eh minus3 X
+eh minus3 X
+AÇ İY 6 0
+İY 6 0
+AÇ İY 6 1
+İY 6 1
+AÇ full time 9 0
+full time 9 0
+AÇ full time 10 0
+full time 10 0
+AÇ full time 8 2
+full time 8 2
+AÇ full time 7 3
+full time 7 3
+AÇ full time 9 1
+full time 9 1
+AÇ İY 0 75 Üst
+İY 0 75 Üst
+AÇ İY 0 75 Alt
+İY 0 75 Alt
+AÇ 2 0 Üst
+2 0 Üst
+AÇ 2 0 Alt
+2 0 Alt
+AÇ İY 4 4
+İY 4 4
+AÇ İY 4 3
+İY 4 3
+AÇ İY 3 4
+İY 3 4
+AÇ İY 1 6
+İY 1 6
+AÇ İY 5 2
+İY 5 2
+AÇ İY 5 3
+İY 5 3
+AÇ İY 6 2
+İY 6 2
+AÇ İY 7 0
+İY 7 0
+AÇ İY 2 5
+İY 2 5
+AÇ İY 3 5
+İY 3 5
+AÇ İY 2 6
+İY 2 6
+AÇ İY 7 1
+İY 7 1
+AÇ İY 0 7
+İY 0 7
+AÇ İY 7 2
+İY 7 2
+AÇ İY 8 0
+İY 8 0
+AÇ İY 1 7
+İY 1 7
+AÇ İY 0 8
+İY 0 8
+AÇ İY 8 1
+İY 8 1
+AÇ İY 6 3
+İY 6 3
+AÇ İY 1 75 Üst
+İY 1 75 Üst
+AÇ İY 2 0 Üst
+İY 2 0 Üst
+AÇ İY 1 75 Alt
+İY 1 75 Alt
+AÇ İY 2 0 Alt
+İY 2 0 Alt
+AÇ 4 25 Üst
+4 25 Üst
+AÇ 4 25 Alt
+4 25 Alt
+AÇ full time 9 2
+full time 9 2
+AÇ full time 11 0
+full time 11 0
+AÇ full time 10 1
+full time 10 1
+AÇ full time 11 1
+full time 11 1
+AÇ full time 12 0
+full time 12 0
+AÇ 4 0 Üst
+4 0 Üst
+AÇ 4 0 Alt
+4 0 Alt
+AÇ ah minus 4 5 2
+ah minus 4 5 2
+AÇ ah minus 4 5 1
+ah minus 4 5 1
+AÇ İY ah 2 25 1
+İY ah 2 25 1
+AÇ İY ah 2 25 2
+İY ah 2 25 2
+AÇ ah 4 0 1
+ah 4 0 1
+AÇ ah 4 0 2
+ah 4 0 2
+AÇ ah 4 25 1
+ah 4 25 1
+AÇ ah 4 25 2
+ah 4 25 2
+AÇ full time 1 9
+full time 1 9
+AÇ İY ah minus 2 75 2
+İY ah minus 2 75 2
+AÇ İY ah minus 2 75 1
+İY ah minus 2 75 1
+AÇ ah minus 4 75 2
+ah minus 4 75 2
+AÇ ah minus 4 75 1
+ah minus 4 75 1
+AÇ İY 5 5 Üst
+İY 5 5 Üst
+AÇ İY 5 5 Alt
+İY 5 5 Alt
+AÇ 10 5 Üst
+10 5 Üst
+AÇ 4 75 Üst
+4 75 Üst
+AÇ 10 5 Alt
+10 5 Alt
+AÇ 4 75 Alt
+4 75 Alt
+AÇ 2Y 6 5 Üst
+2Y 6 5 Üst
+AÇ 2Y 6 5 Alt
+2Y 6 5 Alt
+AÇ İY ah 2 5 1
+İY ah 2 5 1
+AÇ İY ah 2 5 2
+İY ah 2 5 2
+AÇ full time 3 7
+full time 3 7
+AÇ ah minus 5 0 2
+ah minus 5 0 2
+AÇ ah minus 5 0 1
+ah minus 5 0 1
+AÇ ah minus 5 25 2
+ah minus 5 25 2
+AÇ ah minus 5 25 1
+ah minus 5 25 1
