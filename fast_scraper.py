@@ -469,19 +469,19 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                     # Create a NEW DataFrame with EXACTLY the template columns in EXACT order
                     # This ensures column 320 is ALWAYS the same thing in all Excel files
                     
-                    # Build a mapping: column_name -> data values
-                    data_map = {col: df[col].values if col in df.columns else None for col in FIXED_COLUMNS}
-                    
                     # Create new DataFrame with template columns
                     template_data = {}
                     for col in FIXED_COLUMNS:
                         if col in df.columns:
-                            template_data[col] = df[col].values
+                            # Use tolist() to ensure 1-dimensional array
+                            template_data[col] = df[col].tolist()
                         else:
                             # Column not in data - fill with '-'
                             template_data[col] = ['-'] * len(df)
                     
-                    sheet_df = pd.DataFrame(template_data, columns=FIXED_COLUMNS)
+                    sheet_df = pd.DataFrame(template_data)
+                    # Reorder columns to match template order
+                    sheet_df = sheet_df[FIXED_COLUMNS]
                     sheet_df = sheet_df.fillna('-')
                     
                 else:
