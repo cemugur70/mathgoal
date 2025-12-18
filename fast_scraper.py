@@ -416,90 +416,90 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
         # Bookmaker sheets
         sheets = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]
         
+        # Turkish column name translator
+        def turkishify(col_name):
+            """Convert English column names to Turkish"""
+            tr = col_name
+            
+            translations = [
+                ("_home", " 1"), ("_away", " 2"), ("_draw", " X"),
+                ("_over", " Üst"), ("_under", " Alt"),
+                ("_yes", " Var"), ("_no", " Yok"),
+                ("_odd", " Tek"), ("_even", " Çift"),
+                ("first_half_", "İY "), ("second_half_", "2Y "),
+                ("_first_half", " İY"), ("_second_half", " 2Y"),
+                ("home_draw_odds", "1X"), ("home_away_odds", "12"), ("away_draw", "X2"),
+                ("dnb_", "GS "),
+            ]
+            for eng, tur in translations:
+                tr = tr.replace(eng, tur)
+            
+            tr = tr.replace("opening_", "AÇ ")
+            
+            for bm_name in ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]:
+                tr = tr.replace(f"{bm_name} ", "")
+                tr = tr.replace(f"{bm_name}_", "")
+            
+            tr = tr.replace("_", " ")
+            while "  " in tr:
+                tr = tr.replace("  ", " ")
+            return tr.strip()
+        
+        # STEP 1: Rename ALL DataFrame columns to Turkish
+        df.columns = [turkishify(col) for col in df.columns]
+        
+        # STEP 2: Load FIXED 763 column template
+        import os
+        template_path = os.path.join(os.path.dirname(__file__), 'all_columns.txt')
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                FIXED_COLUMNS = [line.strip() for line in f if line.strip()]
+            logger.info(f"📋 Sabit şablon yüklendi: {len(FIXED_COLUMNS)} kolon")
+        except Exception as e:
+            FIXED_COLUMNS = None
+            logger.warning(f"⚠️ all_columns.txt yüklenemedi: {e}")
+        
+        # STEP 3: Add ALL missing columns with '-' value
+        if FIXED_COLUMNS:
+            existing_cols = set(df.columns)
+            missing_cols = [col for col in FIXED_COLUMNS if col not in existing_cols]
+            if missing_cols:
+                # Create all missing columns at once
+                missing_data = {col: ['-'] * len(df) for col in missing_cols}
+                missing_df = pd.DataFrame(missing_data)
+                df = pd.concat([df, missing_df], axis=1)
+            logger.info(f"📊 {len(missing_cols)} eksik kolon '-' ile eklendi")
+        
         with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
             for sheet_name in sheets:
                 bm = sheet_name
                 
-                # Dynamic column building (fixed template disabled - Turkish/English mismatch)
-                ordered_cols = []
+                if FIXED_COLUMNS:
+                    # Use fixed 763 column order
+                    ordered_cols = [c for c in FIXED_COLUMNS if c in df.columns]
+                else:
+                    # Fallback to dynamic
+                    ordered_cols = []
+                    for col in basic_cols:
+                        tr_col = turkishify(col)
+                        if tr_col in df.columns:
+                            ordered_cols.append(tr_col)
+                    bm_lower = bm.lower()
+                    for col in df.columns:
+                        if col not in ordered_cols:
+                            ordered_cols.append(col)
                 
-                # First add basic columns
-                for col in basic_cols:
-                    if col in df.columns:
-                        ordered_cols.append(col)
-                
-                # Then add odds columns in mapping order
-                for pattern in odds_order:
-                    col_name = pattern.format(bm=bm)
-                    if col_name in df.columns:
-                        ordered_cols.append(col_name)
-                
-                # Add any remaining columns for this bookmaker that weren't in pattern
-                bm_lower = bm.lower()
-                for col in df.columns:
-                    if bm_lower in col.lower() and col not in ordered_cols:
-                        ordered_cols.append(col)
-                
-                # Create sheet
+                # Create sheet with data
                 if ordered_cols:
                     sheet_df = df[[c for c in ordered_cols if c in df.columns]]
+                    # Fill any remaining NaN with '-'
+                    sheet_df = sheet_df.fillna('-')
                     sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
                     
-                    # Turkish translations for column headers
-                    def turkishify(col_name):
-                        """Convert English column names to Turkish"""
-                        tr = col_name
-                        
-                        # Step 1: Main translations (do these FIRST, before removing prefixes)
-                        translations = [
-                            # 1X2 outcomes
-                            ("_home", " 1"),
-                            ("_away", " 2"), 
-                            ("_draw", " X"),
-                            # Over/Under
-                            ("_over", " Üst"),
-                            ("_under", " Alt"),
-                            # BTTS
-                            ("_yes", " Var"),
-                            ("_no", " Yok"),
-                            # Odd/Even  
-                            ("_odd", " Tek"),
-                            ("_even", " Çift"),
-                            # Periods
-                            ("first_half_", "İY "),
-                            ("second_half_", "2Y "),
-                            ("_first_half", " İY"),
-                            ("_second_half", " 2Y"),
-                            # Double Chance
-                            ("home_draw_odds", "1X"),
-                            ("home_away_odds", "12"),
-                            ("away_draw", "X2"),
-                            # DNB
-                            ("dnb_", "GS "),
-                        ]
-                        for eng, tur in translations:
-                            tr = tr.replace(eng, tur)
-                        
-                        # Step 2: Opening/Closing handling
-                        tr = tr.replace("opening_", "AÇ ")
-                        
-                        # Step 3: Remove bookmaker prefix (keep bookmaker name at start)
-                        for bm_name in ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]:
-                            # "bet365 AÇ 2.5 Üst" -> "AÇ 2.5 Üst" (remove bm name for cleaner headers)
-                            tr = tr.replace(f"{bm_name} ", "")
-                            tr = tr.replace(f"{bm_name}_", "")
-                        
-                        # Clean up
-                        tr = tr.replace("_", " ")
-                        while "  " in tr:
-                            tr = tr.replace("  ", " ")
-                        return tr.strip()
-                    
-                    # Add headers with Turkish names
+                    # Write Turkish headers at row 4 (row index 3)
                     ws = writer.sheets[sheet_name]
                     for col_num, col_name in enumerate(sheet_df.columns):
-                        turkish_name = turkishify(col_name)
-                        ws.write(3, col_num, turkish_name)
+                        ws.write(3, col_num, col_name)
         
         write_time = (datetime.now() - write_start).total_seconds()
         logger.info(f"✅ Excel yazımı tamamlandı ({write_time:.1f}s) - {len(RESULTS)/max(write_time, 0.1):.0f} kayıt/s")
