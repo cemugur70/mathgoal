@@ -197,6 +197,11 @@ def scrape_match_data(match_id: str, bookmakers: list, bet_types: dict, logger) 
                         iy_code = result['İY SONUCU'].replace('İY ', '')
                         ms_code = result['MS SONUCU'].replace('MS ', '')
                         result['İY-MS'] = f"İY {iy_code}/MS {ms_code}"
+                    
+                    # İY 0.5 ALT/ÜST ve İY 1.5 ALT/ÜST hesapla
+                    iy_total = ht_home + ht_away
+                    result['İY 0.5 ALT ÜST'] = '0,5 ÜST' if iy_total > 0.5 else '0,5 ALT'
+                    result['İY 1.5 ALT ÜST'] = '1,5 ÜST' if iy_total > 1.5 else '1,5 ALT'
         except:
             pass  # İY will be empty if API fails
         
