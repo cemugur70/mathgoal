@@ -419,6 +419,15 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
         # Turkish column name translator
         def turkishify(col_name):
             """Convert English column names to Turkish - MUST match all_columns.txt format"""
+            # Basic columns that are already in Turkish - don't modify
+            basic_turkish = ['ide', 'TARİH', 'GÜN', 'SAAT', 'HAFTA', 'EV SAHİBİ', 'DEPLASMAN', 
+                           'İY', 'MS', 'İY SONUCU', 'MS SONUCU', 'İY-MS', '2.5 ALT ÜST', 
+                           '3.5 ÜST', 'KG VAR/YOK', 'İY 0.5 ALT ÜST', 'İY 1.5 ALT ÜST', 
+                           'ÜLKE', 'LİG', 'YIL', 'AY', 'SEZON', 'GÜN ADI', 
+                           'HOME PARTICIPANT ID', 'AWAY PARTICIPANT ID']
+            if col_name in basic_turkish:
+                return col_name
+            
             tr = col_name
             
             translations = [
@@ -429,7 +438,6 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                 ("first_half_", "İY "), ("second_half_", "2Y "),
                 ("_first_half", " İY"), ("_second_half", " 2Y"),
                 ("home_draw_odds", "1X"), ("home_away_odds", "12"), ("away_draw", "X2"),
-                # NOTE: dnb stays as "dnb" (not "GS") to match template
             ]
             for eng, tur in translations:
                 tr = tr.replace(eng, tur)
@@ -443,6 +451,7 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
             tr = tr.replace("_", " ")
             
             # Convert dots in numbers to spaces to match template (0.5 -> 0 5)
+            # Only for odds columns, not basic columns
             tr = tr.replace(".", " ")
             
             while "  " in tr:
