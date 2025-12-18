@@ -500,13 +500,13 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                             if eng_col in df.columns:
                                 template_data[template_col] = df[eng_col].values
                             else:
-                                template_data[template_col] = ['0'] * len(df)
+                                template_data[template_col] = ['-'] * len(df)
                         else:
                             # No matching data - fill with zeros
-                            template_data[template_col] = ['0'] * len(df)
+                            template_data[template_col] = ['-'] * len(df)
                     
                     sheet_df = pd.DataFrame(template_data, columns=FIXED_COLUMNS)
-                    sheet_df = sheet_df.fillna('0')
+                    sheet_df = sheet_df.fillna('-')
                     
                 else:
                     # Fallback - dynamic columns
@@ -520,7 +520,7 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                             ordered_eng_cols.append(col)
                     sheet_df = df[[c for c in ordered_eng_cols if c in df.columns]].copy()
                     sheet_df.columns = [turkishify(c) for c in sheet_df.columns]
-                    sheet_df = sheet_df.fillna('0')
+                    sheet_df = sheet_df.fillna('-')
                 
                 # Write to Excel
                 sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
