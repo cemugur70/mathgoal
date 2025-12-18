@@ -473,8 +473,8 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                     template_data = {}
                     for col in FIXED_COLUMNS:
                         if col in df.columns:
-                            # Use tolist() to ensure 1-dimensional array
-                            template_data[col] = df[col].tolist()
+                            # Use values.tolist() to handle both Series and DataFrame
+                            template_data[col] = df[col].values.tolist()
                         else:
                             # Column not in data - fill with '-'
                             template_data[col] = ['-'] * len(df)
