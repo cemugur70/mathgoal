@@ -473,8 +473,12 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                     template_data = {}
                     for col in FIXED_COLUMNS:
                         if col in df.columns:
-                            # Use values.tolist() to handle both Series and DataFrame
-                            template_data[col] = df[col].values.tolist()
+                            # Handle duplicate columns - take first occurrence only
+                            col_data = df[col]
+                            if isinstance(col_data, pd.DataFrame):
+                                # Multiple columns with same name - take first
+                                col_data = col_data.iloc[:, 0]
+                            template_data[col] = col_data.values.tolist()
                         else:
                             # Column not in data - fill with '-'
                             template_data[col] = ['-'] * len(df)

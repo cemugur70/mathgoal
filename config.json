@@ -19,14 +19,14 @@
     "bet_types": {
         "1x2": true,
         "over-under": true,
-        "asian-handicap": true,
-        "both-teams-to-score": true,
-        "double-chance": true,
-        "draw-no-bet": true,
-        "ht-ft": true,
-        "correct-score": true,
-        "odd-even": true,
-        "european-handicap": true
+        "asian-handicap": false,
+        "both-teams-to-score": false,
+        "double-chance": false,
+        "draw-no-bet": false,
+        "ht-ft": false,
+        "correct-score": false,
+        "odd-even": false,
+        "european-handicap": false
     },
     "num_workers": 100
 }
