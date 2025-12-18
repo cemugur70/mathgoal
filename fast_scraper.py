@@ -490,21 +490,22 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                             turkish_name = turkishify(col)
                             tr_to_eng[turkish_name] = col
                     
-                    # Step 2: For each template column, find matching data
-                    rows_data = []
-                    for idx in range(len(df)):
-                        row_dict = {}
-                        for template_col in FIXED_COLUMNS:
-                            if template_col in tr_to_eng:
-                                # Found matching column - get data
-                                eng_col = tr_to_eng[template_col]
-                                row_dict[template_col] = df.iloc[idx].get(eng_col, '0')
+                    # Step 2: Build DataFrame with template columns (VECTORIZED - FAST!)
+                    # Create empty DataFrame with template columns
+                    template_data = {}
+                    for template_col in FIXED_COLUMNS:
+                        if template_col in tr_to_eng:
+                            # Found matching column - copy entire column at once
+                            eng_col = tr_to_eng[template_col]
+                            if eng_col in df.columns:
+                                template_data[template_col] = df[eng_col].values
                             else:
-                                # No matching data for this template column
-                                row_dict[template_col] = '0'
-                        rows_data.append(row_dict)
+                                template_data[template_col] = ['0'] * len(df)
+                        else:
+                            # No matching data - fill with zeros
+                            template_data[template_col] = ['0'] * len(df)
                     
-                    sheet_df = pd.DataFrame(rows_data, columns=FIXED_COLUMNS)
+                    sheet_df = pd.DataFrame(template_data, columns=FIXED_COLUMNS)
                     sheet_df = sheet_df.fillna('0')
                     
                 else:
