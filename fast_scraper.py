@@ -394,6 +394,25 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
         
         df = pd.DataFrame(RESULTS)
         
+        # Convert decimal points to commas for Turkish Excel compatibility
+        # This allows Excel calculations (SUM, AVERAGE, etc.) to work correctly
+        def convert_decimal_to_comma(val):
+            if isinstance(val, str) and '.' in val:
+                # Check if it looks like a number (e.g., "1.50", "2.75")
+                try:
+                    float(val)
+                    return val.replace('.', ',')
+                except ValueError:
+                    return val
+            return val
+        
+        # Apply to all odds columns (columns containing bookmaker names)
+        bookmaker_names = ["bet365", "betmgm", "betfred", "unibetuk", "betway", "midnite", "ladbrokes", "betfair", "7bet"]
+        for col in df.columns:
+            col_lower = col.lower()
+            if any(bm in col_lower for bm in bookmaker_names):
+                df[col] = df[col].apply(convert_decimal_to_comma)
+        
         # Bookmaker sheets
         sheets = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]
         

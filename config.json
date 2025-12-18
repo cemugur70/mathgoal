@@ -1,6 +1,6 @@
 {
     "ligler": [
-        "Turkey - Super Lig"
+        "England - Premier League"
     ],
     "bookmakers": [
         "bet365",
@@ -15,7 +15,7 @@
         "BetUK"
     ],
     "baslangic": "2024",
-    "bitis": "2025",
+    "bitis": "2026",
     "bet_types": {
         "1x2": true,
         "over-under": true,
