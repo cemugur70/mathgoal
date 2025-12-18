@@ -1,0 +1,411 @@
+"""
+ULTRA FAST SCRAPER - Collects to memory, writes to Excel at END
+No Excel lock contention = 10-20x faster
+"""
+import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from bs4 import BeautifulSoup
+import re
+from datetime import datetime
+import threading
+
+# Shared session for connection pooling
+SESSION = requests.Session()
+SESSION.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+})
+
+# Thread-safe results list
+RESULTS = []
+RESULTS_LOCK = threading.Lock()
+
+# Progress counter
+PROGRESS = {"done": 0, "total": 0}
+PROGRESS_LOCK = threading.Lock()
+
+
+def fetch_match_details(match_id: str) -> dict:
+    """
+    Fetch HT score and time from Flashscore df_sui API.
+    Returns dict with 'SAAT', 'İY', 'İY SONUCU' keys.
+    """
+    result = {'SAAT': '', 'İY': '', 'İY SONUCU': ''}
+    
+    try:
+        # Get match events API
+        url = f'https://www.flashscore.com/x/feed/df_sui_1_{match_id}'
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://www.flashscore.com/',
+            'X-Fsign': 'SW9D1eZo',
+        }
+        
+        resp = SESSION.get(url, headers=headers, timeout=5)
+        if resp.status_code != 200:
+            return result
+        
+        raw = resp.text
+        if 'IK÷Goal' not in raw:
+            return result  # No goals, HT is 0-0
+        
+        # Parse goals from first half
+        # Split by events and track cumulative score
+        ht_home = 0
+        ht_away = 0
+        
+        # Find position of 2nd Half marker
+        pos_2nd = raw.find('AC÷2nd Half')
+        if pos_2nd > 0:
+            first_half_data = raw[:pos_2nd]
+        else:
+            first_half_data = raw  # All data if no 2nd half marker
+        
+        # Find all goals in first half section
+        # Each goal has INX (home cumulative) and IOX (away cumulative)
+        import re
+        goal_events = re.findall(r'IK÷Goal.*?(?=~|$)', first_half_data)
+        
+        for goal in goal_events:
+            inx = re.search(r'INX÷(\d+)', goal)
+            iox = re.search(r'IOX÷(\d+)', goal)
+            if inx:
+                ht_home = int(inx.group(1))
+            if iox:
+                ht_away = int(iox.group(1))
+        
+        if ht_home > 0 or ht_away > 0:
+            result['İY'] = f'{ht_home}-{ht_away}'
+            if ht_home > ht_away:
+                result['İY SONUCU'] = 'İY 1'
+            elif ht_away > ht_home:
+                result['İY SONUCU'] = 'İY 2'
+            else:
+                result['İY SONUCU'] = 'İY 0'
+    except:
+        pass
+    
+    return result
+
+
+def scrape_match_data(match_id: str, bookmakers: list, bet_types: dict, logger) -> dict:
+    """Scrape summary + odds for a single match - returns dict or None"""
+    
+    url = f'https://www.flashscore.com/match/{match_id}/'
+    
+    try:
+        # Get summary
+        response = SESSION.get(url, timeout=8)
+        if response.status_code != 200:
+            return None
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        og_title = soup.select_one('meta[property="og:title"]')
+        og_desc = soup.select_one('meta[property="og:description"]')
+        description = soup.select_one('meta[name="description"]')
+        
+        result = {"ide": match_id}
+        
+        # Parse title
+        if og_title:
+            title = og_title.get('content', '')
+            match = re.match(r'^(.+?)\s+-\s+(.+?)\s+(\d+):(\d+)$', title)
+            if match:
+                result['EV SAHİBİ'] = match.group(1).strip()
+                result['DEPLASMAN'] = match.group(2).strip()
+                h_s, a_s = int(match.group(3)), int(match.group(4))
+                result['MS'] = f"{h_s}-{a_s}"
+                result['MS SONUCU'] = 'MS 1' if h_s > a_s else 'MS 2' if a_s > h_s else 'MS 0'
+                total = h_s + a_s
+                result['2.5 ALT ÜST'] = '2.5 ÜST' if total > 2.5 else '2.5 ALT'
+                result['3.5 ÜST'] = '3.5 ÜST' if total > 3.5 else '3.5 ALT'
+                result['KG VAR/YOK'] = 'KG VAR' if (h_s > 0 and a_s > 0) else 'KG YOK'
+            else:
+                match = re.match(r'^(.+?)\s+-\s+(.+?)$', title)
+                if match:
+                    result['EV SAHİBİ'] = match.group(1).strip()
+                    result['DEPLASMAN'] = match.group(2).strip()
+                else:
+                    return None
+        else:
+            return None
+        
+        # Parse description
+        if og_desc:
+            desc = og_desc.get('content', '')
+            round_match = re.search(r'Round\s*(\d+)', desc)
+            if round_match:
+                result['HAFTA'] = round_match.group(1)
+            league_match = re.match(r'^([^:]+):\s*(.+?)(?:\s*-\s*Round|\s*$)', desc)
+            if league_match:
+                result['ÜLKE'] = league_match.group(1).strip()
+                result['LİG'] = league_match.group(2).strip()
+        
+        # Parse date and TIME from description
+        if description:
+            desc_text = description.get('content', '')
+            date_match = re.search(r'(\d{2})/(\d{2})/(\d{4})', desc_text)
+            if date_match:
+                day, month, year = date_match.group(1), date_match.group(2), date_match.group(3)
+                result['TARİH'] = f"{day}.{month}.{year}"
+                result['GÜN'] = day
+                result['AY'] = month
+                result['YIL'] = year
+                try:
+                    date_obj = datetime.strptime(f"{day}/{month}/{year}", "%d/%m/%Y")
+                    gun_adlari = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
+                    result['GÜN_ADI'] = gun_adlari[date_obj.weekday()]
+                    if date_obj.month >= 8:
+                        result['SEZON'] = f"{date_obj.year}-{date_obj.year+1}"
+                    else:
+                        result['SEZON'] = f"{date_obj.year-1}-{date_obj.year}"
+                except:
+                    pass
+            
+            # Extract TIME (SAAT) - format: "16:30" in description
+            time_match = re.search(r'(\d{1,2}:\d{2})', desc_text)
+            if time_match:
+                result['SAAT'] = time_match.group(1)
+        
+        # İY (Half-Time) score extraction disabled - HTTP can't get this data
+        # Flashscore renders İY score with JavaScript, not in initial HTML
+        # To enable İY: Need Playwright to visit detail page and extract from
+        # [data-testid="wcl-scores-overline-02"] elements ("1ST HALF" -> next = score)
+        # For now İY will be empty
+        
+        
+        
+        # Defaults
+        for key in ['SAAT', 'İY', 'HAFTA', 'SEZON', 'İY SONUCU', 'MS SONUCU', 'İY-MS', 
+                    '2.5 ALT ÜST', '3.5 ÜST', 'KG VAR/YOK', 'İY 0.5 ALT ÜST', 'İY 1.5 ALT ÜST']:
+            result.setdefault(key, '')
+        
+        # Get odds (fast)
+        odds = fetch_odds_fast(match_id, bookmakers, bet_types)
+        result.update(odds)
+        
+        return result
+        
+    except Exception as e:
+        return None
+
+
+def fetch_odds_fast(event_id: str, bookmakers: list, bet_types: dict) -> dict:
+    """Fast odds fetch"""
+    from config import API_URL, BOOKMAKER_MAPPING
+    
+    api_url = f"{API_URL}?_hash=oce&eventId={event_id}&projectId=5&geoIpCode=US&geoIpSubdivisionCode=USCA"
+    headers = {"Origin": "https://www.flashscore.com", "Referer": "https://www.flashscore.com/"}
+    
+    try:
+        response = SESSION.get(api_url, headers=headers, timeout=8)
+        if response.status_code == 200:
+            data = response.json()
+            from common_scraper import parse_odds_data
+            all_odds = {}
+            for bm in bookmakers:
+                bm_id = BOOKMAKER_MAPPING.get(bm)
+                if bm_id:
+                    all_odds.update(parse_odds_data(data, bm, bm_id, bet_types))
+            return all_odds
+    except:
+        pass
+    return {}
+
+
+def worker(match_id: str, bookmakers: list, bet_types: dict, logger, datetime_str: str = ''):
+    """
+    Single worker - scrapes and adds to RESULTS list
+    datetime_str: Pre-extracted datetime like "15.12. 20:00" from listing page
+    """
+    global RESULTS, PROGRESS
+    
+    start = datetime.now()
+    data = scrape_match_data(match_id, bookmakers, bet_types, logger)
+    elapsed = (datetime.now() - start).total_seconds()
+    
+    # Apply pre-extracted datetime (SAAT) if available
+    if data and datetime_str:
+        # Parse datetime_str: "15.12. 20:00" -> SAAT = "20:00"
+        import re
+        time_match = re.search(r'(\d{1,2}:\d{2})', datetime_str)
+        if time_match:
+            data['SAAT'] = time_match.group(1)
+        # Also can extract date parts if needed: "15.12." -> day=15, month=12
+        date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.', datetime_str)
+        if date_match and not data.get('GÜN'):
+            data['GÜN'] = date_match.group(1).zfill(2)
+            data['AY'] = date_match.group(2).zfill(2)
+    
+    with PROGRESS_LOCK:
+        PROGRESS["done"] += 1
+        done = PROGRESS["done"]
+        total = PROGRESS["total"]
+    
+    if data:
+        with RESULTS_LOCK:
+            RESULTS.append(data)
+        
+        if done % 10 == 0 or done == total:
+            logger.info(f"✅ [{done}/{total}] {match_id} ({elapsed:.1f}s)")
+        return True
+    else:
+        if done % 10 == 0:
+            logger.warning(f"❌ [{done}/{total}] {match_id}")
+        return False
+
+
+def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, excel_filename: str, logger, max_workers: int = 30, datetime_map: dict = None):
+    """
+    ULTRA FAST: Scrape all to memory, then batch write to Excel
+    datetime_map: Optional dict {match_id: "15.12. 20:00"} for pre-extracted datetime
+    """
+    global RESULTS, PROGRESS
+    
+    if datetime_map is None:
+        datetime_map = {}
+    
+    # Reset
+    RESULTS = []
+    PROGRESS = {"done": 0, "total": len(match_ids)}
+    
+    logger.info(f"🚀 Hızlı tarama: {len(match_ids)} maç, {max_workers} worker, {len(datetime_map)} datetime")
+    start_time = datetime.now()
+    
+    failed = []
+    
+    # Phase 1: Scrape all matches in parallel (NO EXCEL WRITES!)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(worker, mid, bookmakers, bet_types, logger, datetime_map.get(mid, '')): mid 
+            for mid in match_ids
+        }
+        
+        for future in as_completed(futures):
+            mid = futures[future]
+            try:
+                if not future.result():
+                    failed.append(mid)
+            except:
+                failed.append(mid)
+    
+    scrape_time = (datetime.now() - start_time).total_seconds()
+    logger.info(f"📊 Tarama tamamlandı: {len(RESULTS)} başarılı, {len(failed)} başarısız ({scrape_time:.1f}s)")
+    
+    # Phase 2: FAST Excel write with pandas - Column order based on mapping.py
+    if RESULTS:
+        logger.info(f"📝 Excel'e yazılıyor: {len(RESULTS)} kayıt (pandas - mapping sırası)...")
+        write_start = datetime.now()
+        
+        import pandas as pd
+        
+        # Column order from mapping.py (same as TEMPLATE_FLASHSCORE.xlsx)
+        basic_cols = ["ide", "TARİH", "GÜN", "SAAT", "HAFTA", "HAKEM", 
+                      "EV SAHİBİ", "DEPLASMAN", "İY", "MS", "İY SONUCU", "MS SONUCU", 
+                      "İY-MS", "2.5 ALT ÜST", "3.5 ÜST", "KG VAR/YOK", 
+                      "İY 0.5 ALT ÜST", "İY 1.5 ALT ÜST", "ÜLKE", "LİG"]
+        
+        # Odds column order from mapping.py (proper structure)
+        # 1X2 Full Time: opening_home, opening_draw, opening_away, home, draw, away
+        # 1X2 First Half: opening_first_half_home, etc.
+        # Over/Under: opening_0.5_over, opening_0.5_under, 0.5_over, 0.5_under, etc.
+        
+        odds_order = [
+            # 1X2 FULL TIME (AÇILIŞ + KAPANIŞ)
+            "opening_{bm}_home", "opening_{bm}_draw", "opening_{bm}_away",
+            "{bm}_home", "{bm}_draw", "{bm}_away",
+            # 1X2 FIRST HALF
+            "opening_{bm}_first_half_home", "opening_{bm}_first_half_draw", "opening_{bm}_first_half_away",
+            "{bm}_first_half_home", "{bm}_first_half_draw", "{bm}_first_half_away",
+            # 1X2 SECOND HALF  
+            "opening_{bm}_second_half_home", "opening_{bm}_second_half_draw", "opening_{bm}_second_half_away",
+            "{bm}_second_half_home", "{bm}_second_half_draw", "{bm}_second_half_away",
+            # OVER/UNDER (0.5 - 5.5)
+            "opening_{bm}_0.5_over", "opening_{bm}_0.5_under", "{bm}_0.5_over", "{bm}_0.5_under",
+            "opening_{bm}_1.5_over", "opening_{bm}_1.5_under", "{bm}_1.5_over", "{bm}_1.5_under",
+            "opening_{bm}_2.5_over", "opening_{bm}_2.5_under", "{bm}_2.5_over", "{bm}_2.5_under",
+            "opening_{bm}_3.5_over", "opening_{bm}_3.5_under", "{bm}_3.5_over", "{bm}_3.5_under",
+            "opening_{bm}_4.5_over", "opening_{bm}_4.5_under", "{bm}_4.5_over", "{bm}_4.5_under",
+            "opening_{bm}_5.5_over", "opening_{bm}_5.5_under", "{bm}_5.5_over", "{bm}_5.5_under",
+            # FIRST HALF OVER/UNDER
+            "opening_{bm}_first_half_0.5_over", "opening_{bm}_first_half_0.5_under",
+            "{bm}_first_half_0.5_over", "{bm}_first_half_0.5_under",
+            "opening_{bm}_first_half_1.5_over", "opening_{bm}_first_half_1.5_under",
+            "{bm}_first_half_1.5_over", "{bm}_first_half_1.5_under",
+            "opening_{bm}_first_half_2.5_over", "opening_{bm}_first_half_2.5_under",
+            "{bm}_first_half_2.5_over", "{bm}_first_half_2.5_under",
+            # ASIAN HANDICAP
+            "opening_{bm}_+0.5_home", "opening_{bm}_+0.5_away", "{bm}_+0.5_home", "{bm}_+0.5_away",
+            "opening_{bm}_-0.5_home", "opening_{bm}_-0.5_away", "{bm}_-0.5_home", "{bm}_-0.5_away",
+            "opening_{bm}_+1.5_home", "opening_{bm}_+1.5_away", "{bm}_+1.5_home", "{bm}_+1.5_away",
+            "opening_{bm}_-1.5_home", "opening_{bm}_-1.5_away", "{bm}_-1.5_home", "{bm}_-1.5_away",
+            # BTTS
+            "opening_{bm}_yes", "opening_{bm}_no", "{bm}_yes", "{bm}_no",
+            "opening_{bm}_first_half_yes", "opening_{bm}_first_half_no",
+            "{bm}_first_half_yes", "{bm}_first_half_no",
+            # DOUBLE CHANCE
+            "opening_{bm}_home_draw_odds", "opening_{bm}_home_away_odds", "opening_{bm}_away_draw",
+            "{bm}_home_draw_odds", "{bm}_home_away_odds", "{bm}_away_draw",
+            # DNB
+            "opening_{bm}_dnb_home", "opening_{bm}_dnb_away", "{bm}_dnb_home", "{bm}_dnb_away",
+            # ODD/EVEN
+            "opening_{bm}_odd", "opening_{bm}_even", "{bm}_odd", "{bm}_even",
+            # HT/FT
+            "opening_{bm}_1/1_odd", "opening_{bm}_1/X_odd", "opening_{bm}_1/2_odd",
+            "opening_{bm}_X/1_odd", "opening_{bm}_X/X_odd", "opening_{bm}_X/2_odd",
+            "opening_{bm}_2/1_odd", "opening_{bm}_2/X_odd", "opening_{bm}_2/2_odd",
+            # CORRECT SCORE
+            "opening_{bm}_1:0_odd", "opening_{bm}_2:0_odd", "opening_{bm}_2:1_odd",
+            "opening_{bm}_3:0_odd", "opening_{bm}_3:1_odd", "opening_{bm}_3:2_odd",
+            "opening_{bm}_0:0_odd", "opening_{bm}_1:1_odd", "opening_{bm}_2:2_odd",
+            "opening_{bm}_0:1_odd", "opening_{bm}_0:2_odd", "opening_{bm}_1:2_odd",
+        ]
+        
+        df = pd.DataFrame(RESULTS)
+        
+        # Bookmaker sheets
+        sheets = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]
+        
+        with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
+            for sheet_name in sheets:
+                bm = sheet_name
+                
+                # Build ordered column list for this bookmaker
+                ordered_cols = []
+                
+                # First add basic columns
+                for col in basic_cols:
+                    if col in df.columns:
+                        ordered_cols.append(col)
+                
+                # Then add odds columns in mapping order
+                for pattern in odds_order:
+                    col_name = pattern.format(bm=bm)
+                    if col_name in df.columns:
+                        ordered_cols.append(col_name)
+                
+                # Add any remaining columns for this bookmaker that weren't in pattern
+                bm_lower = bm.lower()
+                for col in df.columns:
+                    if bm_lower in col.lower() and col not in ordered_cols:
+                        ordered_cols.append(col)
+                
+                # Create sheet
+                if ordered_cols:
+                    sheet_df = df[[c for c in ordered_cols if c in df.columns]]
+                    sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
+                    
+                    # Add headers
+                    ws = writer.sheets[sheet_name]
+                    for col_num, col_name in enumerate(sheet_df.columns):
+                        ws.write(3, col_num, col_name)
+        
+        write_time = (datetime.now() - write_start).total_seconds()
+        logger.info(f"✅ Excel yazımı tamamlandı ({write_time:.1f}s) - {len(RESULTS)/max(write_time, 0.1):.0f} kayıt/s")
+    
+    total_time = (datetime.now() - start_time).total_seconds()
+    logger.info(f"⏱️ Toplam süre: {total_time:.1f}s ({len(match_ids)/max(total_time,1):.1f} maç/s)")
+    
+    # Return both failed list AND results for team analysis
+    return failed, RESULTS.copy()
+

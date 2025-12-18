@@ -1,0 +1,32 @@
+{
+    "ligler": [
+        "Turkey - Super Lig"
+    ],
+    "bookmakers": [
+        "bet365",
+        "BetMGM",
+        "Betfred",
+        "Unibetuk",
+        "Betway",
+        "Midnite",
+        "Ladbrokes",
+        "7Bet",
+        "Betfair",
+        "BetUK"
+    ],
+    "baslangic": "2024",
+    "bitis": "2025",
+    "bet_types": {
+        "1x2": true,
+        "over-under": true,
+        "asian-handicap": true,
+        "both-teams-to-score": true,
+        "double-chance": true,
+        "draw-no-bet": true,
+        "ht-ft": true,
+        "correct-score": true,
+        "odd-even": true,
+        "european-handicap": true
+    },
+    "num_workers": 100
+}

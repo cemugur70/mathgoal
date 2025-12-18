@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Large files / Data
+*.xlsx
+*.log
+*.json
+!config.json
+!league_list.json
+sonuc*.txt
+sample_match.html
+sample_match_info.txt
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
