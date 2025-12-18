@@ -303,8 +303,7 @@ async def main():
         
         logger.info(f"Phase 2: {len(match_ids)} maç işlenecek (Threading mode)")
         
-        # Run threaded scraper
-        import asyncio
+        # Run threaded scraper (asyncio is already imported at top)
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None, 
