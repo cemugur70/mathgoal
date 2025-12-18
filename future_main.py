@@ -289,48 +289,40 @@ async def main():
             await browser.close()
             return
             
-        # --- PHASE 2: Parallel Match Data Scraping ---
+        # --- PHASE 2: FAST THREADED SCRAPING ---
         # Excel dosyasını tarih/saat ile oluştur
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         excel_filename = get_user_data_path(f"yeni-mac-{timestamp}.xlsx")
         logger.info(f"📊 Excel dosyası: {excel_filename}")
         
-        # Excel dosyasını scraping başlamadan önce hazırla
-        logger.info("📊 Template Excel dosyası hazırlanıyor...")
-        prepare_excel_file(excel_filename)
-        logger.info("✅ Template Excel hazır!")
-        
-        logger.info(f"Phase 2: Processing {len(match_ids)} matches with {num_scraper_workers} workers...")
-        match_queue = asyncio.Queue()
-        for match_id in match_ids:
-            await match_queue.put(match_id)
-
-        # Semaphore for concurrency control (limiting active navigations)
-        semaphore = asyncio.Semaphore(20) # Max 20 concurrent navigations
-
-        scraper_pages = [await context.new_page() for _ in range(num_scraper_workers)]
-        scraper_tasks = []
-        for i in range(num_scraper_workers):
-            # Pass semaphore to worker
-            task = asyncio.create_task(scrape_worker(
-                scraper_pages[i], match_queue, i + 1, bookmakers, excel_filename, bet_types, semaphore
-            ))
-            scraper_tasks.append(task)
-            # Small delay to prevent thundering herd
-            await asyncio.sleep(0.1)
-            
-        await match_queue.join()
-
-        for task in scraper_tasks:
-            task.cancel()
-        await asyncio.gather(*scraper_tasks, return_exceptions=True)
-
+        # Close browser - we'll use HTTP for fast scraping
         await browser.close()
         
-        # Scraping bitti, Excel'i sırala
-        sort_excel_file(excel_filename)
+        # Use fast threaded scraper (same as season scraper)
+        from fast_future_scraper import run_future_scraper
         
-        logger.info(f"All matches processed. Excel file: {excel_filename}")
+        logger.info(f"Phase 2: {len(match_ids)} maç işlenecek (Threading mode)")
+        
+        # Run threaded scraper
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None, 
+            run_future_scraper,
+            match_ids, bookmakers, bet_types, excel_filename, logger, 20, {}
+        )
+        failed_matches, all_results = result
+        
+        # Retry failed matches once
+        if failed_matches:
+            logger.info(f"🔄 {len(failed_matches)} başarısız maç yeniden deneniyor...")
+            retry_result = await loop.run_in_executor(
+                None,
+                run_future_scraper,
+                failed_matches, bookmakers, bet_types, excel_filename, logger, 10, {}
+            )
+        
+        logger.info(f"✅ İşlem tamamlandı! Dosya: {excel_filename}")
         print(f"\n✅ İşlem tamamlandı! Dosya: {excel_filename}")
 
 if __name__ == "__main__":
