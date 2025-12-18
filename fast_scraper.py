@@ -167,12 +167,38 @@ def scrape_match_data(match_id: str, bookmakers: list, bet_types: dict, logger) 
             if time_match:
                 result['SAAT'] = time_match.group(1)
         
-        # İY (Half-Time) score extraction disabled - HTTP can't get this data
-        # Flashscore renders İY score with JavaScript, not in initial HTML
-        # To enable İY: Need Playwright to visit detail page and extract from
-        # [data-testid="wcl-scores-overline-02"] elements ("1ST HALF" -> next = score)
-        # For now İY will be empty
-        
+        # İY (Half-Time) score from Flashscore API
+        # API endpoint: df_su_1_{match_id} returns match summary with period scores
+        # Pattern: AC÷1st Half¬IG÷{home_goals}¬IH÷{away_goals}
+        try:
+            api_url = f'https://d.flashscore.com/x/feed/df_su_1_{match_id}'
+            api_headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://www.flashscore.com/',
+                'Origin': 'https://www.flashscore.com',
+                'x-fsign': 'SW9D1eZo',
+            }
+            api_response = SESSION.get(api_url, headers=api_headers, timeout=5)
+            if api_response.status_code == 200:
+                api_text = api_response.text
+                # Pattern: AC÷1st Half¬IG÷3¬IH÷0 -> home=3, away=0
+                ht_match = re.search(r'AC÷1st Half¬IG÷(\d+)¬IH÷(\d+)', api_text)
+                if ht_match:
+                    ht_home, ht_away = int(ht_match.group(1)), int(ht_match.group(2))
+                    result['İY'] = f'{ht_home}-{ht_away}'
+                    if ht_home > ht_away:
+                        result['İY SONUCU'] = 'İY 1'
+                    elif ht_away > ht_home:
+                        result['İY SONUCU'] = 'İY 2'
+                    else:
+                        result['İY SONUCU'] = 'İY 0'
+                    # Calculate İY-MS
+                    if result.get('MS SONUCU'):
+                        iy_code = result['İY SONUCU'].replace('İY ', '')
+                        ms_code = result['MS SONUCU'].replace('MS ', '')
+                        result['İY-MS'] = f"İY {iy_code}/MS {ms_code}"
+        except:
+            pass  # İY will be empty if API fails
         
         
         # Defaults
@@ -395,10 +421,61 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
                     sheet_df = df[[c for c in ordered_cols if c in df.columns]]
                     sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
                     
-                    # Add headers
+                    # Turkish translations for column headers
+                    def turkishify(col_name):
+                        """Convert English column names to Turkish"""
+                        tr = col_name
+                        
+                        # Step 1: Main translations (do these FIRST, before removing prefixes)
+                        translations = [
+                            # 1X2 outcomes
+                            ("_home", " 1"),
+                            ("_away", " 2"), 
+                            ("_draw", " X"),
+                            # Over/Under
+                            ("_over", " Üst"),
+                            ("_under", " Alt"),
+                            # BTTS
+                            ("_yes", " Var"),
+                            ("_no", " Yok"),
+                            # Odd/Even  
+                            ("_odd", " Tek"),
+                            ("_even", " Çift"),
+                            # Periods
+                            ("first_half_", "İY "),
+                            ("second_half_", "2Y "),
+                            ("_first_half", " İY"),
+                            ("_second_half", " 2Y"),
+                            # Double Chance
+                            ("home_draw_odds", "1X"),
+                            ("home_away_odds", "12"),
+                            ("away_draw", "X2"),
+                            # DNB
+                            ("dnb_", "GS "),
+                        ]
+                        for eng, tur in translations:
+                            tr = tr.replace(eng, tur)
+                        
+                        # Step 2: Opening/Closing handling
+                        tr = tr.replace("opening_", "AÇ ")
+                        
+                        # Step 3: Remove bookmaker prefix (keep bookmaker name at start)
+                        for bm_name in ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]:
+                            # "bet365 AÇ 2.5 Üst" -> "AÇ 2.5 Üst" (remove bm name for cleaner headers)
+                            tr = tr.replace(f"{bm_name} ", "")
+                            tr = tr.replace(f"{bm_name}_", "")
+                        
+                        # Clean up
+                        tr = tr.replace("_", " ")
+                        while "  " in tr:
+                            tr = tr.replace("  ", " ")
+                        return tr.strip()
+                    
+                    # Add headers with Turkish names
                     ws = writer.sheets[sheet_name]
                     for col_num, col_name in enumerate(sheet_df.columns):
-                        ws.write(3, col_num, col_name)
+                        turkish_name = turkishify(col_name)
+                        ws.write(3, col_num, turkish_name)
         
         write_time = (datetime.now() - write_start).total_seconds()
         logger.info(f"✅ Excel yazımı tamamlandı ({write_time:.1f}s) - {len(RESULTS)/max(write_time, 0.1):.0f} kayıt/s")
