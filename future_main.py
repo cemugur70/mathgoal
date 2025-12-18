@@ -117,16 +117,15 @@ async def date_collector_worker(page: Page, date_queue: asyncio.Queue, found_ids
                         break
                 
                 if match_found:
-                    # Use JS to traverse siblings efficiently - also extract datetime
+                    # Use JS to traverse siblings and collect match ID + datetime
                     def get_ids_with_datetime_js(header):
                         return """(header) => {
                             const wrapper = header.parentElement;
-                            const matches = [];
+                            const matches = {};  // {match_id: datetime_str}
                             let sibling = wrapper.nextElementSibling;
                             while (sibling) {
-                                // Stop ONLY if we hit the NEXT league header wrapper
+                                // Stop if we hit the NEXT league header wrapper
                                 if (sibling.classList.contains('headerLeague__wrapper')) {
-                                    // Check if this wrapper actually contains a league header
                                     if (sibling.querySelector('[data-testid="wcl-headerLeague"]')) {
                                         break;
                                     }
@@ -136,7 +135,7 @@ async def date_collector_worker(page: Page, date_queue: asyncio.Queue, found_ids
                                     const matchId = sibling.id.split('_').pop();
                                     const timeEl = sibling.querySelector('.event__time');
                                     const datetime = timeEl ? timeEl.textContent.trim() : '';
-                                    matches.push({id: matchId, datetime: datetime});
+                                    matches[matchId] = datetime;
                                 }
                                 sibling = sibling.nextElementSibling;
                             }
@@ -144,7 +143,7 @@ async def date_collector_worker(page: Page, date_queue: asyncio.Queue, found_ids
                         }"""
 
                     matches_data = await header.evaluate(get_ids_with_datetime_js(header))
-                    ids = [m['id'] for m in matches_data]
+                    ids = list(matches_data.keys()) if matches_data else []
                     
                     if not ids:
                         # If no IDs, maybe collapsed? Try to click header to expand
@@ -156,18 +155,20 @@ async def date_collector_worker(page: Page, date_queue: asyncio.Queue, found_ids
                             await header.click(timeout=2000)
                             await asyncio.sleep(1.0) # wait for animation
                             
-                            # Try getting IDs again with new function
+                            # Try getting IDs again
                             matches_data = await header.evaluate(get_ids_with_datetime_js(header))
-                            ids = [m['id'] for m in matches_data]
+                            ids = list(matches_data.keys()) if matches_data else []
                             logger.info(f"[Collector {worker_id}] After expansion, found {len(ids)} matches.")
                         except Exception as e:
                             logger.warning(f"[Collector {worker_id}] Failed to expand header: {e}")
 
-                    if matches_data:
-                        logger.info(f"[Collector {worker_id}] FOUND {len(matches_data)} MATCHES for header '{header_text}'")
-                        # Store match_id -> datetime mapping
-                        for m in matches_data:
-                            found_ids[m['id']] = m['datetime']
+                    if ids:
+                        logger.info(f"[Collector {worker_id}] FOUND {len(ids)} MATCHES for header '{header_text}'")
+                        # Update found_ids dict with datetime info
+                        if isinstance(matches_data, dict):
+                            found_ids.update(matches_data)
+                        else:
+                            found_ids.update({mid: '' for mid in ids})
                             
         except Exception as e:
             logger.debug(f"[Collector {worker_id}] Tarih {date_url_format} için maç bulunamadı veya bir hata oluştu: {e}")
@@ -263,7 +264,7 @@ async def main():
             await date_queue.put(current_date)
             current_date += timedelta(days=1)
             
-        found_ids = {}  # match_id -> datetime string
+        found_ids = {}  # dict: {match_id: datetime_str}
         
         # Parse filters into (Country, League) tuples
         parsed_filters = []
@@ -289,8 +290,8 @@ async def main():
         for page in collector_pages:
             await page.close()
 
-        match_ids = list(found_ids.keys())  # Get IDs from dict keys
-        datetime_map = found_ids  # found_ids is now {id: datetime}
+        match_ids = list(found_ids.keys())
+        datetime_map = found_ids  # The dict already maps match_id -> datetime
         if not match_ids:
             logger.info("No match IDs found for the selected criteria. Exiting.")
             await browser.close()
@@ -301,7 +302,6 @@ async def main():
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         excel_filename = get_user_data_path(f"yeni-mac-{timestamp}.xlsx")
         logger.info(f"📊 Excel dosyası: {excel_filename}")
-        logger.info(f"⏰ {len(datetime_map)} maç için saat bilgisi mevcut")
         
         # Close browser - we'll use HTTP for fast scraping
         await browser.close()
