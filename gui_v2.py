@@ -572,44 +572,7 @@ class FlashscoreApp(ctk.CTk):
         ctk.CTkLabel(control_row, text="v2.0 | CTRL+/- Zoom", 
                     text_color=COLORS["text_dim"]).pack(side="right")
         
-        # ===== ANALİZ SATIRI =====
-        analysis_row = ctk.CTkFrame(footer, fg_color=COLORS["bg"], corner_radius=8)
-        analysis_row.pack(fill="x", padx=15, pady=(5, 10))
-        
-        # Takım 1 dropdown
-        ctk.CTkLabel(analysis_row, text="Takım 1:", font=("Roboto", 12),
-                    text_color=COLORS["text_dim"]).pack(side="left", padx=(10, 5))
-        self.team1_var = ctk.StringVar(value="")
-        self.team1_combo = ctk.CTkComboBox(analysis_row, values=["Önce tarama yapın..."], 
-                                           variable=self.team1_var, width=180, state="disabled")
-        self.team1_combo.pack(side="left", padx=5)
-        
-        # Takım 2 dropdown
-        ctk.CTkLabel(analysis_row, text="Takım 2:", font=("Roboto", 12),
-                    text_color=COLORS["text_dim"]).pack(side="left", padx=(15, 5))
-        self.team2_var = ctk.StringVar(value="")
-        self.team2_combo = ctk.CTkComboBox(analysis_row, values=["Önce tarama yapın..."], 
-                                           variable=self.team2_var, width=180, state="disabled")
-        self.team2_combo.pack(side="left", padx=5)
-        
-        # Tek Takım Analizi butonu (mavi)
-        self.single_team_btn = ctk.CTkButton(analysis_row, text="📋 TEK TAKIM", 
-                                              command=self.do_single_team_analysis,
-                                              fg_color="#3b82f6", hover_color="#2563eb",
-                                              text_color="white", width=130, height=32,
-                                              state="disabled")
-        self.single_team_btn.pack(side="left", padx=(15, 5))
-        
-        # Karşılaştır butonu (yeşil)
-        self.compare_btn = ctk.CTkButton(analysis_row, text="⚔️ KARŞILAŞTIR", 
-                                          command=self.do_compare_teams,
-                                          fg_color=COLORS["accent"], hover_color="#00b894",
-                                          text_color="white", width=130, height=32,
-                                          state="disabled")
-        self.compare_btn.pack(side="left", padx=5)
-        
-        # Store results reference
-        self.analysis_results = []
+
     
     
     def toggle_pause(self):
