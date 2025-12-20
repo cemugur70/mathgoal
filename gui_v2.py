@@ -905,226 +905,30 @@ class FlashscoreApp(ctk.CTk):
         self.append_terminal("[BASLADI] Retry...")
     
     def show_completion_popup(self):
-        """Show completion popup with Analiz Çıkart option"""
+        """Show simple completion popup"""
         popup = ctk.CTkToplevel(self)
         popup.title("✅ İşlem Tamamlandı")
-        popup.geometry("400x200")
+        popup.geometry("350x150")
         popup.resizable(False, False)
         popup.transient(self)
         popup.grab_set()
         
         # Center popup
         popup.update_idletasks()
-        x = (popup.winfo_screenwidth() - 400) // 2
-        y = (popup.winfo_screenheight() - 200) // 2
-        popup.geometry(f"400x200+{x}+{y}")
+        x = (popup.winfo_screenwidth() - 350) // 2
+        y = (popup.winfo_screenheight() - 150) // 2
+        popup.geometry(f"350x150+{x}+{y}")
         
         # Content
         ctk.CTkLabel(popup, text="✅ İşlem Tamamlandı!", font=("Roboto", 20, "bold"),
                     text_color=COLORS["success"]).pack(pady=20)
         
-        ctk.CTkLabel(popup, text="Veriler başarıyla Excel'e aktarıldı.\nTakım analizi yapmak ister misiniz?",
+        ctk.CTkLabel(popup, text="Veriler başarıyla Excel'e aktarıldı.",
                     font=("Roboto", 14), text_color=COLORS["text_dim"]).pack(pady=10)
         
-        # Buttons
-        btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
-        btn_frame.pack(pady=20)
-        
-        def open_analysis():
-            popup.destroy()
-            self.open_analysis_window()
-        
-        ctk.CTkButton(btn_frame, text="📊 Analiz Çıkart", width=140, height=40,
+        ctk.CTkButton(popup, text="Tamam", width=120, height=40,
                      fg_color=COLORS["accent"], hover_color="#00b894",
-                     command=open_analysis).pack(side="left", padx=10)
-        
-        ctk.CTkButton(btn_frame, text="Tamam", width=100, height=40,
-                     fg_color=COLORS["card"], hover_color="#1e293b",
-                     command=popup.destroy).pack(side="left", padx=10)
-    
-    def open_analysis_window(self):
-        """Open team analysis window - bigger and centered"""
-        import json
-        from team_analysis import get_unique_teams, filter_h2h_matches, calculate_h2h_stats, format_h2h_report, get_team_last_matches, format_team_report
-        
-        # Load results from JSON
-        results_file = get_user_data_path("last_results.json")
-        try:
-            with open(results_file, 'r', encoding='utf-8') as f:
-                results = json.load(f)
-        except:
-            messagebox.showerror("Hata", "Analiz dosyası bulunamadı!")
-            return
-        
-        if not results:
-            messagebox.showwarning("Uyarı", "Analiz için veri bulunamadı!")
-            return
-        
-        # Get unique teams
-        teams = [""] + get_unique_teams(results)  # Add empty option for single team analysis
-        
-        # Create analysis window - BIGGER and CENTERED
-        analysis_win = ctk.CTkToplevel(self)
-        analysis_win.title("🔍 Takım Analizi")
-        
-        # Calculate center position
-        win_width, win_height = 900, 700
-        screen_width = analysis_win.winfo_screenwidth()
-        screen_height = analysis_win.winfo_screenheight()
-        x = (screen_width - win_width) // 2
-        y = (screen_height - win_height) // 2
-        analysis_win.geometry(f"{win_width}x{win_height}+{x}+{y}")
-        analysis_win.resizable(False, False)
-        analysis_win.grab_set()  # Make modal
-        
-        # Header
-        ctk.CTkLabel(analysis_win, text="🔍 TAKIM ANALİZİ", font=("Roboto", 24, "bold"),
-                    text_color=COLORS["accent"]).pack(pady=15)
-        
-        # Team selection frame
-        select_frame = ctk.CTkFrame(analysis_win, fg_color=COLORS["card"])
-        select_frame.pack(fill="x", padx=30, pady=15)
-        
-        # Row 1: Team 1
-        row1 = ctk.CTkFrame(select_frame, fg_color="transparent")
-        row1.pack(fill="x", pady=10, padx=15)
-        ctk.CTkLabel(row1, text="Takım 1:", font=("Roboto", 14), width=80).pack(side="left")
-        team1_var = ctk.StringVar(value=teams[1] if len(teams) > 1 else "")
-        team1_combo = ctk.CTkComboBox(row1, values=teams, variable=team1_var, width=350)
-        team1_combo.pack(side="left", padx=10)
-        
-        # Row 2: Team 2 (optional)
-        row2 = ctk.CTkFrame(select_frame, fg_color="transparent")
-        row2.pack(fill="x", pady=10, padx=15)
-        ctk.CTkLabel(row2, text="Takım 2:", font=("Roboto", 14), width=80).pack(side="left")
-        team2_var = ctk.StringVar(value="")
-        team2_combo = ctk.CTkComboBox(row2, values=teams, variable=team2_var, width=350)
-        team2_combo.pack(side="left", padx=10)
-        ctk.CTkLabel(row2, text="(Boş bırakırsan tek takım analizi)", font=("Roboto", 11),
-                    text_color=COLORS["text_dim"]).pack(side="left", padx=10)
-        
-        # Buttons frame
-        btn_frame = ctk.CTkFrame(analysis_win, fg_color="transparent")
-        btn_frame.pack(pady=15)
-        
-        # Results text area
-        result_text = ctk.CTkTextbox(analysis_win, font=("Consolas", 13), fg_color=COLORS["card"],
-                                     text_color=COLORS["text"])
-        result_text.pack(fill="both", expand=True, padx=30, pady=10)
-        result_text.insert("1.0", "👆 Takım seçin ve analiz butonuna tıklayın\n\n• Tek takım: Sadece Takım 1 seçin, son 10 maçını gösterir\n• İkili analiz: Takım 1 ve 2 seçin, head-to-head istatistik gösterir")
-        
-        def do_h2h_analysis():
-            t1 = team1_var.get()
-            t2 = team2_var.get()
-            
-            if not t1:
-                messagebox.showwarning("Uyarı", "Lütfen en az bir takım seçin!")
-                return
-            
-            if t2 and t1 == t2:
-                messagebox.showwarning("Uyarı", "Farklı takımlar seçin!")
-                return
-            
-            if t2:
-                # H2H Analysis
-                h2h_matches = filter_h2h_matches(results, t1, t2)
-                stats = calculate_h2h_stats(h2h_matches, t1, t2)
-                report = format_h2h_report(stats)
-            else:
-                # Single team analysis
-                matches = get_team_last_matches(results, t1, limit=10)
-                report = format_team_report(matches, t1)
-            
-            result_text.delete("1.0", "end")
-            result_text.insert("1.0", report)
-        
-        ctk.CTkButton(btn_frame, text="📊 ANALİZ YAP", width=200, height=45,
-                     font=("Roboto", 16, "bold"), fg_color=COLORS["accent"],
-                     hover_color="#00b894", command=do_h2h_analysis).pack(side="left", padx=10)
-        
-        ctk.CTkButton(btn_frame, text="❌ Kapat", width=120, height=45,
-                     fg_color=COLORS["danger"], hover_color="#dc2626",
-                     command=analysis_win.destroy).pack(side="left", padx=10)
-    
-    def enable_analysis_buttons(self):
-        """Enable analysis buttons and populate dropdowns after scraping completes"""
-        import json
-        from team_analysis import get_unique_teams
-        
-        # Load results from JSON
-        results_file = get_user_data_path("last_results.json")
-        try:
-            with open(results_file, 'r', encoding='utf-8') as f:
-                self.analysis_results = json.load(f)
-        except:
-            messagebox.showinfo("Tamamlandı", "İşlem tamamlandı!\nAnaliz için veri bulunamadı.")
-            return
-        
-        if not self.analysis_results:
-            messagebox.showinfo("Tamamlandı", "İşlem tamamlandı!")
-            return
-        
-        # Get unique teams
-        teams = get_unique_teams(self.analysis_results)
-        
-        if teams:
-            # Update dropdowns
-            self.team1_combo.configure(values=teams, state="normal")
-            self.team2_combo.configure(values=teams, state="normal")
-            self.team1_var.set(teams[0] if teams else "")
-            self.team2_var.set(teams[1] if len(teams) > 1 else "")
-            
-            # Enable buttons
-            self.single_team_btn.configure(state="normal")
-            self.compare_btn.configure(state="normal")
-            
-            messagebox.showinfo("✅ Tamamlandı", 
-                f"İşlem tamamlandı!\n\n{len(self.analysis_results)} maç analiz için hazır.\n\nAşağıdaki dropdown'lardan takım seçip analiz yapabilirsiniz.")
-        else:
-            messagebox.showinfo("Tamamlandı", "İşlem tamamlandı!")
-    
-    def do_single_team_analysis(self):
-        """Single team analysis - show last 10 matches"""
-        from team_analysis import get_team_last_matches, format_team_report
-        
-        team = self.team1_var.get()
-        if not team:
-            messagebox.showwarning("Uyarı", "Lütfen Takım 1 seçin!")
-            return
-        
-        # Clear terminal and show results
-        self.clear_terminal()
-        matches = get_team_last_matches(self.analysis_results, team, limit=10)
-        report = format_team_report(matches, team)
-        self.append_terminal(report)
-        
-        # Switch to terminal tab
-        self.tabview.set("Terminal")
-    
-    def do_compare_teams(self):
-        """Compare two teams - H2H analysis"""
-        from team_analysis import filter_h2h_matches, calculate_h2h_stats, format_h2h_report
-        
-        team1 = self.team1_var.get()
-        team2 = self.team2_var.get()
-        
-        if not team1 or not team2:
-            messagebox.showwarning("Uyarı", "Lütfen her iki takımı da seçin!")
-            return
-        
-        if team1 == team2:
-            messagebox.showwarning("Uyarı", "Farklı takımlar seçin!")
-            return
-        
-        # Clear terminal and show results
-        self.clear_terminal()
-        h2h_matches = filter_h2h_matches(self.analysis_results, team1, team2)
-        stats = calculate_h2h_stats(h2h_matches, team1, team2)
-        report = format_h2h_report(stats)
-        self.append_terminal(report)
-        
-        # Switch to terminal tab
-        self.tabview.set("Terminal")
+                     command=popup.destroy).pack(pady=15)
 
 
 if __name__ == "__main__":
