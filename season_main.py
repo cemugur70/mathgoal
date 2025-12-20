@@ -56,7 +56,7 @@ async def get_all_match_urls(page, leagues, start_date, end_date):
                         # BAŞLANGIÇ yılını al (2024/2025 → 2024)
                         season_text = season_text_raw.strip()
                         
-                        # "/" ile ayrılmış yılları bul
+                        # "/" ile ayrılmış yılları bul VEYA tek yıl
                         if '/' in season_text:
                             parts = season_text.split('/')
                             # Başlangıç yılını bul (ilk 4 haneli sayı)
@@ -66,7 +66,12 @@ async def get_all_match_urls(page, leagues, start_date, end_date):
                             else:
                                 continue
                         else:
-                            continue
+                            # Tek yıl formatı: "Primera Division 2024"
+                            single_year_match = re.search(r'(\d{4})', season_text)
+                            if single_year_match:
+                                year = int(single_year_match.group(1))
+                            else:
+                                continue
 
                         # Kullanıcının seçtiği yıl aralığına uygun mu?
                         # Örnek: baslangic=2024, bitis=2025 için sadece 2024/2025 sezonu
