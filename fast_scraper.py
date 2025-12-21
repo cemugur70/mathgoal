@@ -169,7 +169,7 @@ def scrape_match_data(match_id: str, bookmakers: list, bet_types: dict, logger) 
         
         # İY (Half-Time) score from Flashscore API
         # API endpoint: df_su_1_{match_id} returns match summary with period scores
-        # Pattern: AC÷1st Half¬IG÷{home_goals}¬IH÷{away_goals}
+        # Pattern: API format varies: can be AC÷1st Half¬IH÷{away}¬IG÷{home} or AC÷1st Half¬IG÷{home}¬IH÷{away}
         try:
             api_url = f'https://d.flashscore.com/x/feed/df_su_1_{match_id}'
             api_headers = {
@@ -181,10 +181,21 @@ def scrape_match_data(match_id: str, bookmakers: list, bet_types: dict, logger) 
             api_response = SESSION.get(api_url, headers=api_headers, timeout=5)
             if api_response.status_code == 200:
                 api_text = api_response.text
-                # Pattern: AC÷1st Half¬IG÷3¬IH÷0 -> home=3, away=0
-                ht_match = re.search(r'AC÷1st Half¬IG÷(\d+)¬IH÷(\d+)', api_text)
+                # Pattern: AC÷1st Half¬IH÷{away}¬IG÷{home} (order varies, away is IH, home is IG)
+                # Try both orderings since API format can vary
+                ht_home, ht_away = None, None
+                
+                # Order 1: IH (away) first, IG (home) second 
+                ht_match = re.search(r'AC÷1st Half¬IH÷(\d+)¬IG÷(\d+)', api_text)
                 if ht_match:
-                    ht_home, ht_away = int(ht_match.group(1)), int(ht_match.group(2))
+                    ht_away, ht_home = int(ht_match.group(1)), int(ht_match.group(2))
+                else:
+                    # Order 2: IG (home) first, IH (away) second
+                    ht_match = re.search(r'AC÷1st Half¬IG÷(\d+)¬IH÷(\d+)', api_text)
+                    if ht_match:
+                        ht_home, ht_away = int(ht_match.group(1)), int(ht_match.group(2))
+                
+                if ht_home is not None and ht_away is not None:
                     result['İY'] = f'{ht_home}-{ht_away}'
                     if ht_home > ht_away:
                         result['İY SONUCU'] = 'İY 1'
