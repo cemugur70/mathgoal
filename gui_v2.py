@@ -830,16 +830,18 @@ class FlashscoreApp(ctk.CTk):
                     if line.strip():
                         self.output_queue.put(line.strip())
                 
-                self.current_process.wait()
+                # Null check before wait - process may be terminated
+                if self.current_process:
+                    self.current_process.wait()
                 
-                if not self.should_stop:
+                if not self.should_stop and self.current_process:
                     if self.current_process.returncode == 0:
                         self.status_label.configure(text="Tamamlandi!", text_color=COLORS["success"])
                         self.progress.set(1)
                         self.percent_label.configure(text="100%")
                         self.append_terminal(f"[TAMAMLANDI] {datetime.now().strftime('%H:%M:%S')}")
-                        # Enable analysis buttons and populate dropdowns
-                        self.after(500, self.enable_analysis_buttons)
+                        # Show completion popup
+                        self.after(500, self.show_completion_popup)
                     else:
                         self.status_label.configure(text="Hata!", text_color=COLORS["danger"])
                         self.append_terminal(f"[HATA] Return code: {self.current_process.returncode}")
