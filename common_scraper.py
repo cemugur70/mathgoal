@@ -2,7 +2,12 @@ import asyncio
 import httpx
 import json
 import re
-from playwright.async_api import Page
+from typing import TYPE_CHECKING
+
+# Lazy import: playwright only needed for browser-based scraping
+# This allows parse_odds_data to work without playwright installed
+if TYPE_CHECKING:
+    from playwright.async_api import Page
 from bs4 import BeautifulSoup
 from datetime import datetime
 from utils import get_logger
@@ -196,7 +201,7 @@ async def block_agressive(route):
     else:
         await route.continue_()
 
-async def scrape_summary_page(page: Page, match_id: str, max_retries: int = 3):
+async def scrape_summary_page(page: "Page", match_id: str, max_retries: int = 3):
     """
     Scrapes the summary page of a match to get basic info.
     This still requires Playwright because the summary data is not in the odds API.
