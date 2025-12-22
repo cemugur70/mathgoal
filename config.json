@@ -1,6 +1,6 @@
 {
     "ligler": [
-        "Chile - Liga de Primera"
+        "Turkey - Super Lig"
     ],
     "bookmakers": [
         "bet365",
@@ -14,7 +14,7 @@
         "Betfair",
         "BetUK"
     ],
-    "baslangic": "2024",
+    "baslangic": "2019",
     "bitis": "2025",
     "bet_types": {
         "1x2": true,

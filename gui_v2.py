@@ -873,7 +873,7 @@ class FlashscoreApp(ctk.CTk):
         """Show simple completion popup"""
         popup = ctk.CTkToplevel(self)
         popup.title("✅ İşlem Tamamlandı")
-        popup.geometry("350x150")
+        popup.geometry("350x200")
         popup.resizable(False, False)
         popup.transient(self)
         popup.grab_set()
@@ -881,8 +881,8 @@ class FlashscoreApp(ctk.CTk):
         # Center popup
         popup.update_idletasks()
         x = (popup.winfo_screenwidth() - 350) // 2
-        y = (popup.winfo_screenheight() - 150) // 2
-        popup.geometry(f"350x150+{x}+{y}")
+        y = (popup.winfo_screenheight() - 200) // 2
+        popup.geometry(f"350x200+{x}+{y}")
         
         # Content
         ctk.CTkLabel(popup, text="✅ İşlem Tamamlandı!", font=("Roboto", 20, "bold"),

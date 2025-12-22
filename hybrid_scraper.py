@@ -301,11 +301,6 @@ async def run_hybrid_scraper(match_ids: list, bookmakers: list, bet_types: dict,
     if RESULTS:
         write_results_to_excel(RESULTS, excel_filename)
     
-    # Save for analysis
-    results_file = get_user_data_path("last_results.json")
-    with open(results_file, 'w', encoding='utf-8') as f:
-        json.dump(RESULTS, f, ensure_ascii=False, indent=2)
-    
     PROGRESS["status"] = "completed"
     return failed, RESULTS.copy()
 

@@ -428,11 +428,6 @@ async def main():
         # Excel sırala
         sort_excel_file(excel_filename)
         
-        # Sonuçları JSON olarak kaydet (analiz için)
-        results_file = get_user_data_path("last_results.json")
-        with open(results_file, 'w', encoding='utf-8') as f:
-            json.dump(all_results, f, ensure_ascii=False, indent=2)
-        
         # SONUC RAPORU
         total = len(match_ids)
         success = len(all_results)
@@ -444,7 +439,6 @@ async def main():
         logger.info(f"Toplam Mac: {total}")
         logger.info(f"Basarili: {success} ({100*success//max(total,1)}%)")
         logger.info(f"Basarisiz: {len(failed_matches)}")
-        logger.info(f"📊 Analiz için: {results_file}")
         logger.info("=" * 50)
         
         print(f"\n{'='*50}")

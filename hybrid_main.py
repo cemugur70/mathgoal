@@ -180,11 +180,6 @@ async def main():
             max_concurrent=max_concurrent
         )
         
-        # Save results for analysis
-        results_file = get_user_data_path("last_results.json")
-        with open(results_file, 'w', encoding='utf-8') as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
-        
         success = len(results)
         
         finish_progress(status="completed")
@@ -194,7 +189,6 @@ async def main():
         logger.info(f"Toplam Maç: {total}")
         logger.info(f"Başarılı: {success} ({100*success//max(total,1)}%)")
         logger.info(f"Başarısız: {len(failed)}")
-        logger.info(f"📊 Analiz için: {results_file}")
         logger.info("=" * 50)
         
         print(f"\n{'='*50}")
