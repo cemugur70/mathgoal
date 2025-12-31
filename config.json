@@ -14,8 +14,8 @@
         "Betfair",
         "BetUK"
     ],
-    "baslangic": "2019",
-    "bitis": "2025",
+    "baslangic": "24.11.2025",
+    "bitis": "30.11.2025",
     "bet_types": {
         "1x2": true,
         "over-under": true,

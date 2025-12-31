@@ -1,6 +1,7 @@
 """
 OLD MAIN - Eski Maçlar (Geçmiş Tarihli)
-Uses fast_scraper for HTTP-based scraping (same as season_main.py)
+Uses league results pages instead of date picker (more reliable)
+Then uses fast_scraper for HTTP-based scraping
 """
 import asyncio
 import json
@@ -15,116 +16,105 @@ from progress_tracker import init_progress, finish_progress
 logger = get_logger(__name__)
 
 
-async def collect_match_ids_by_date(page, leagues, start_date, end_date):
+async def collect_match_ids_from_results(page, leagues, start_date, end_date):
     """
-    Collect match IDs from Flashscore main page by navigating through dates.
-    Uses date picker arrows to go back/forward in time.
+    Collect match IDs from league RESULTS pages (not main page date picker).
+    This is more reliable for past matches.
     """
     all_match_ids = {}  # {match_id: datetime_str}
     
-    # Build league filters
-    league_filters = set()
+    base_url = "https://www.flashscore.co.uk"
+    
+    # Build league URLs
+    league_urls = []
     for league in leagues:
         parts = league.split(' - ')
         if len(parts) >= 2:
-            # Format: "COUNTRY: League Name"
-            league_filters.add(f"{parts[0]}: {parts[1]}")
+            country = parts[0].lower().replace(' ', '-')
+            league_name = parts[1].lower().replace(' ', '-')
+            url = f"{base_url}/football/{country}/{league_name}/results/"
+            league_urls.append((league, url))
     
-    logger.info(f"📋 {len(league_filters)} lig filtresi oluşturuldu")
+    logger.info(f"📋 {len(league_urls)} lig sonuç URL'si oluşturuldu")
     
-    # Navigate to main page
-    await page.goto("https://www.flashscore.co.uk/", timeout=60000, wait_until="domcontentloaded")
-    
-    # Accept cookies if present
-    try:
-        consent_button = page.locator("#onetrust-accept-btn-handler")
-        await consent_button.click(timeout=5000)
-        await page.wait_for_timeout(1000)
-    except:
-        pass
-    
-    # Iterate through dates
-    current_date = start_date
-    while current_date <= end_date:
-        date_str = current_date.strftime("%d.%m.%Y")
-        logger.info(f"🔍 Tarih taranıyor: {date_str}")
-        
+    for league_name, league_url in league_urls:
         try:
-            # Calculate days from today
-            today = datetime.now().date()
-            target_date = current_date.date()
-            delta_days = (target_date - today).days
+            logger.info(f"🔍 Lig taranıyor: {league_name}")
+            await page.goto(league_url, timeout=45000, wait_until="domcontentloaded")
             
-            if delta_days != 0:
-                # Navigate to target date using arrows
-                if delta_days < 0:
-                    button_selector = '[data-day-picker-arrow="prev"]'
-                    clicks = abs(delta_days)
-                else:
-                    button_selector = '[data-day-picker-arrow="next"]'
-                    clicks = delta_days
-                
-                arrow_button = page.locator(button_selector)
-                for _ in range(clicks):
-                    await arrow_button.click()
-                    await page.wait_for_timeout(300)
+            # Wait for matches
+            try:
+                await page.wait_for_selector('.event__match', timeout=15000)
+            except:
+                logger.warning(f"  ⚠️ Maç bulunamadı: {league_name}")
+                continue
             
-            # Wait for matches to load
-            await page.wait_for_selector('[data-testid="wcl-headerLeague"]', timeout=10000)
-            
-            # Expand collapsed leagues
-            collapsed = await page.locator(".event__header--closed").all()
-            for cl in collapsed:
+            # Click "Show more" to load all matches
+            click_count = 0
+            max_clicks = 30
+            while click_count < max_clicks:
                 try:
-                    await cl.click(timeout=1000)
-                    await page.wait_for_timeout(100)
+                    show_more = page.locator('[data-testid="wcl-buttonLink"]')
+                    await show_more.wait_for(state="visible", timeout=3000)
+                    await show_more.click()
+                    await page.wait_for_timeout(500)
+                    click_count += 1
                 except:
-                    pass
+                    break
             
-            # Get match IDs from matching leagues
-            event_headers = await page.locator('[data-testid="wcl-headerLeague"]').all()
+            if click_count > 0:
+                logger.info(f"  ↻ {click_count} kez 'Show more' tıklandı")
             
-            for header in event_headers:
-                header_text = (await header.text_content() or "").strip().lower()
-                
-                # Check if header matches any of our league filters
-                matched = any(f.lower() in header_text for f in league_filters)
-                
-                if matched:
-                    # Get match IDs using JS traversal
-                    ids = await header.evaluate("""(header) => {
-                        const wrapper = header.parentElement;
-                        const matchIds = [];
-                        let el = wrapper.nextElementSibling;
-                        
-                        while (el) {
-                            if (el.classList.contains('headerLeague__wrapper')) {
-                                const hasHeader = el.querySelector('[data-testid="wcl-headerLeague"]');
-                                if (hasHeader) break;
-                            }
-                            if (el.classList.contains('event__match') && el.id) {
-                                matchIds.push(el.id.split('_').pop());
-                            }
-                            el = el.nextElementSibling;
+            # Get match data with dates
+            match_data = await page.evaluate("""
+                () => {
+                    const matches = document.querySelectorAll('.event__match');
+                    const data = [];
+                    matches.forEach(match => {
+                        const id = match.id?.replace('g_1_', '');
+                        const timeEl = match.querySelector('.event__time');
+                        const time = timeEl ? timeEl.innerText.trim() : '';
+                        if (id && id.length === 8) {
+                            data.push({id: id, datetime: time});
                         }
-                        return matchIds;
-                    }""")
-                    
-                    if ids:
-                        logger.info(f"  ✅ {header_text[:50]}... -> {len(ids)} maç")
-                        for match_id in ids:
-                            if match_id not in all_match_ids:
-                                all_match_ids[match_id] = date_str
+                    });
+                    return data;
+                }
+            """)
             
-            # Go back to today for next iteration
-            if delta_days != 0:
-                await page.goto("https://www.flashscore.co.uk/", timeout=60000, wait_until="domcontentloaded")
-                await page.wait_for_timeout(500)
+            # Filter by date range
+            for item in match_data:
+                match_id = item['id']
+                datetime_str = item['datetime']  # Format: "DD.MM. HH:MM"
                 
+                # Parse date from datetime string
+                try:
+                    # Expected format: "28.12. 17:30" or "28.12.2024 17:30"
+                    date_match = re.search(r'(\d{2})\.(\d{2})\.(\d{4})?', datetime_str)
+                    if date_match:
+                        day = int(date_match.group(1))
+                        month = int(date_match.group(2))
+                        year = int(date_match.group(3)) if date_match.group(3) else datetime.now().year
+                        
+                        match_date = datetime(year, month, day)
+                        
+                        # Check if within date range
+                        if start_date <= match_date <= end_date:
+                            if match_id not in all_match_ids:
+                                all_match_ids[match_id] = datetime_str
+                    else:
+                        # If date parsing fails, include the match anyway
+                        if match_id not in all_match_ids:
+                            all_match_ids[match_id] = datetime_str
+                except:
+                    # Include match if date parsing fails
+                    if match_id not in all_match_ids:
+                        all_match_ids[match_id] = datetime_str
+            
+            logger.info(f"  ✅ {len(match_data)} maç bulundu, filtreleme sonrası toplam: {len(all_match_ids)}")
+            
         except Exception as e:
-            logger.warning(f"Tarih {date_str} için hata: {e}")
-        
-        current_date += timedelta(days=1)
+            logger.warning(f"Lig {league_name} için hata: {e}")
     
     logger.info(f"✅ TOPLAM {len(all_match_ids)} BENZERSİZ MAÇ BULUNDU")
     return all_match_ids
@@ -156,15 +146,17 @@ async def main():
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         
-        # Phase 1: Collect match IDs
-        logger.info("🔍 Phase 1: Maç ID'leri toplanıyor...")
-        match_ids = await collect_match_ids_by_date(page, leagues, start_date, end_date)
+        # Phase 1: Collect match IDs from results pages
+        logger.info("🔍 Phase 1: Maç ID'leri toplanıyor (sonuç sayfalarından)...")
+        match_ids = await collect_match_ids_from_results(page, leagues, start_date, end_date)
         
         await page.close()
         await browser.close()
         
         if not match_ids:
             logger.error("❌ Hiç maç bulunamadı!")
+            print("\n❌ Seçilen tarih aralığında maç bulunamadı!")
+            print("İpucu: Tarihlerin geçmişte olduğundan emin olun.")
             return
         
         match_id_list = list(match_ids.keys())
