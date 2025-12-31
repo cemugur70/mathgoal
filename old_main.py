@@ -1,295 +1,228 @@
+"""
+OLD MAIN - Eski Maçlar (Geçmiş Tarihli)
+Uses fast_scraper for HTTP-based scraping (same as season_main.py)
+"""
 import asyncio
 import json
-from playwright.async_api import async_playwright, Page, expect
-from utils import get_logger, get_resource_path, get_user_data_path
-from common_scraper import scrape_summary_page, fetch_all_odds_data, block_agressive
-from excel_writer import write_to_excel, prepare_excel_file, sort_excel_file
-from data_processor import merge_data
-from failed_matches_manager import add_failed_match, remove_successful_match
-from datetime import datetime, timedelta
 import re
+from datetime import datetime, timedelta
+from playwright.async_api import async_playwright
+
+from utils import get_logger, get_user_data_path
+from excel_writer import prepare_excel_file, sort_excel_file
+from progress_tracker import init_progress, finish_progress
 
 logger = get_logger(__name__)
 
-async def date_collector_worker(page: Page, date_queue: asyncio.Queue, found_ids: set, league_filters: set, worker_id: int):
-    """Tarih kuyruğundan tarihleri alır ve ileri/geri oklarını kullanarak o tarihe gider."""
-    while not date_queue.empty():
-        current_date = await date_queue.get()
-        date_url_format = current_date.strftime("%Y-%m-%d")
-        logger.info(f"[Collector {worker_id}] İşlenen tarih: {date_url_format}")
+
+async def collect_match_ids_by_date(page, leagues, start_date, end_date):
+    """
+    Collect match IDs from Flashscore main page by navigating through dates.
+    Uses date picker arrows to go back/forward in time.
+    """
+    all_match_ids = {}  # {match_id: datetime_str}
+    
+    # Build league filters
+    league_filters = set()
+    for league in leagues:
+        parts = league.split(' - ')
+        if len(parts) >= 2:
+            # Format: "COUNTRY: League Name"
+            league_filters.add(f"{parts[0]}: {parts[1]}")
+    
+    logger.info(f"📋 {len(league_filters)} lig filtresi oluşturuldu")
+    
+    # Navigate to main page
+    await page.goto("https://www.flashscore.co.uk/", timeout=60000, wait_until="domcontentloaded")
+    
+    # Accept cookies if present
+    try:
+        consent_button = page.locator("#onetrust-accept-btn-handler")
+        await consent_button.click(timeout=5000)
+        await page.wait_for_timeout(1000)
+    except:
+        pass
+    
+    # Iterate through dates
+    current_date = start_date
+    while current_date <= end_date:
+        date_str = current_date.strftime("%d.%m.%Y")
+        logger.info(f"🔍 Tarih taranıyor: {date_str}")
         
         try:
-            # Her tarih için ana sayfaya gitmek, "bugün"den başlamayı garantiler
-            await page.goto("https://www.flashscore.co.uk/", timeout=60000, wait_until="domcontentloaded")
-
-            # Çerez onay penceresini kontrol et ve kabul et
-            try:
-                consent_button = page.locator("#onetrust-accept-btn-handler")
-                await consent_button.click(timeout=5000)
-                await page.wait_for_selector("#onetrust-accept-btn-handler", state="hidden", timeout=5000)
-                logger.info(f"[Collector {worker_id}] Çerez onayı kabul edildi ve pencere kapandı.")
-            except Exception:
-                logger.debug(f"[Collector {worker_id}] Çerez penceresi bulunamadı veya zaten kabul edilmiş.")
-
-            # Bugünden hedef tarihe gitmek için gün farkını hesapla
+            # Calculate days from today
             today = datetime.now().date()
             target_date = current_date.date()
             delta_days = (target_date - today).days
-
+            
             if delta_days != 0:
-                date_picker_button = page.locator('[data-testid="wcl-dayPickerButton"]')
-                
+                # Navigate to target date using arrows
                 if delta_days < 0:
                     button_selector = '[data-day-picker-arrow="prev"]'
                     clicks = abs(delta_days)
-                    direction = "geri"
-                else: # delta_days > 0
+                else:
                     button_selector = '[data-day-picker-arrow="next"]'
                     clicks = delta_days
-                    direction = "ileri"
-
-                logger.info(f"[Collector {worker_id}] Hedef tarihe ulaşmak için {clicks} gün {direction} gidiliyor...")
+                
                 arrow_button = page.locator(button_selector)
-                date_stepper = today
-                for i in range(clicks):
-                    # Bir sonraki adımda beklenen tarihi hesapla
-                    if direction == "geri":
-                        date_stepper -= timedelta(days=1)
-                    else:
-                        date_stepper += timedelta(days=1)
-                    
-                    expected_intermediate_date_str = date_stepper.strftime("%d/%m")
-                    
+                for _ in range(clicks):
                     await arrow_button.click()
-                    # Buton metninin güncellenmesini bekleyerek sayfanın durumunun değiştiğini onayla
-                    await expect(date_picker_button).to_contain_text(expected_intermediate_date_str, timeout=15000)
-
-            # Son bir kez doğru tarihte olduğumuzu onayla
-            expected_date_str = current_date.strftime("%d/%m")
-            date_picker_button = page.locator('[data-testid="wcl-dayPickerButton"]')
-            await expect(date_picker_button).to_contain_text(expected_date_str, timeout=20000)
+                    await page.wait_for_timeout(300)
             
-            # Maçları topla
-            await page.wait_for_selector('[data-testid="wcl-headerLeague"]', timeout=30000)
+            # Wait for matches to load
+            await page.wait_for_selector('[data-testid="wcl-headerLeague"]', timeout=10000)
             
             # Expand collapsed leagues
-            collapsed_leagues = await page.locator(".event__header--closed").all()
-            if collapsed_leagues:
-                logger.info(f"[Collector {worker_id}] {len(collapsed_leagues)} kapalı lig bulundu, hepsi açılıyor...")
-                for cl in collapsed_leagues:
-                    try:
-                        await cl.click(timeout=2000)
-                        await page.wait_for_timeout(200)
-                    except:
-                        pass
+            collapsed = await page.locator(".event__header--closed").all()
+            for cl in collapsed:
+                try:
+                    await cl.click(timeout=1000)
+                    await page.wait_for_timeout(100)
+                except:
+                    pass
             
+            # Get match IDs from matching leagues
             event_headers = await page.locator('[data-testid="wcl-headerLeague"]').all()
             
-            found_headers_text = [await h.text_content() for h in event_headers]
-            logger.debug(f"[Collector {worker_id}] Sayfada bulunan lig başlıkları: {found_headers_text}")
-
             for header in event_headers:
-                header_text = (await header.text_content() or "").strip()
-                header_text_norm = header_text.lower().replace('\xa0', ' ')
+                header_text = (await header.text_content() or "").strip().lower()
                 
-                # Check if any filter matches
-                match_found = False
-                for filter_name in league_filters:
-                    filter_name_norm = filter_name.lower().replace('\xa0', ' ')
-                    if filter_name_norm in header_text_norm:
-                        match_found = True
-                        break
+                # Check if header matches any of our league filters
+                matched = any(f.lower() in header_text for f in league_filters)
                 
-                if match_found:
-                    # Use JS to traverse siblings efficiently - UPDATED LOGIC
+                if matched:
+                    # Get match IDs using JS traversal
                     ids = await header.evaluate("""(header) => {
-                        const wrapperSource = header.parentElement;
+                        const wrapper = header.parentElement;
                         const matchIds = [];
+                        let el = wrapper.nextElementSibling;
                         
-                        // Flashscore yapısında bazen header bir wrapper içinde, bazen direkt var.
-                        // Garanti olsun diye, header'ın içinde bulunduğu en dış wrapper'dan sonrasına bakacağız.
-                        // Ancak genellikle headerLeague__wrapper -> headerLeague yapısı var.
-                        
-                        let currentElement = wrapperSource.nextElementSibling;
-                        
-                        while (currentElement) {
-                            // Eğer yeni bir lig başlığı wrapper'ına gelirsek dur
-                            if (currentElement.classList.contains('headerLeague__wrapper')) {
-                                // Ancak bu wrapper boş olabilir veya sadece banner olabilir.
-                                // İçinde gerçek bir header var mı kontrol etmeli miyiz?
-                                // Basit mantık: Her wrapper yeni bir bölüm demek.
-                                const hasHeader = currentElement.querySelector('[data-testid="wcl-headerLeague"]');
-                                if (hasHeader) {
-                                    break;
-                                }
-                                // Header yoksa (reklam vs) devam et
+                        while (el) {
+                            if (el.classList.contains('headerLeague__wrapper')) {
+                                const hasHeader = el.querySelector('[data-testid="wcl-headerLeague"]');
+                                if (hasHeader) break;
                             }
-                            
-                            // event__match sınıfı varsa ID'yi al
-                            if (currentElement.classList.contains('event__match') && currentElement.id) {
-                                matchIds.push(currentElement.id.split('_').pop());
+                            if (el.classList.contains('event__match') && el.id) {
+                                matchIds.push(el.id.split('_').pop());
                             }
-                            
-                            currentElement = currentElement.nextElementSibling;
+                            el = el.nextElementSibling;
                         }
                         return matchIds;
                     }""")
                     
                     if ids:
-                        logger.info(f"[Collector {worker_id}] HEADER MATCH: '{header_text}' -> {len(ids)} maç bulundu.")
-                        found_ids.update(ids)
-                            
-        except Exception as e:
-            logger.debug(f"[Collector {worker_id}] Tarih {date_url_format} için maç bulunamadı veya bir hata oluştu: {e}")
-        finally:
-            date_queue.task_done()
-
-async def scrape_worker(page: Page, queue: asyncio.Queue, worker_id: int, bookmakers: list, excel_filename: str, bet_types: dict, semaphore: asyncio.Semaphore):
-    # Kaynak engelleme aktiflestir
-    await page.route("**/*", block_agressive)
-    
-    while True:
-        try:
-            match_id = queue.get_nowait()
-        except asyncio.QueueEmpty:
-            break
-        
-        logger.info(f"[Scraper {worker_id}] Processing match {match_id}")
-        
-        try:
-            # Semaphore ile eszamanli islemleri sinirla
-            async with semaphore:
-                summary_data = await scrape_summary_page(page, match_id)
-                if not summary_data:
-                    logger.warning(f"Skipping match {match_id} due to missing summary.")
-                    add_failed_match(match_id, "MISSING_SUMMARY", "No summary data", ["ALL"])
-                    continue
-                
-                # API calls are lighter on browser, but still good to keep inside to limit total net usage
-                odds_data = await fetch_all_odds_data(match_id, bookmakers, bet_types)
-
-            match_id_dict = {"ide": match_id}
-            common_data = merge_data(match_id_dict, summary_data)
+                        logger.info(f"  ✅ {header_text[:50]}... -> {len(ids)} maç")
+                        for match_id in ids:
+                            if match_id not in all_match_ids:
+                                all_match_ids[match_id] = date_str
             
-            write_to_excel(excel_filename, common_data, odds_data)
-            remove_successful_match(match_id)
-            logger.info(f"[Scraper {worker_id}] Successfully wrote data for match {match_id}")
-
+            # Go back to today for next iteration
+            if delta_days != 0:
+                await page.goto("https://www.flashscore.co.uk/", timeout=60000, wait_until="domcontentloaded")
+                await page.wait_for_timeout(500)
+                
         except Exception as e:
-            logger.error(f"[Scraper {worker_id}] Error processing match {match_id}: {e}")
-            add_failed_match(match_id, "EXCEPTION", str(e), ["ALL"])
-        finally:
-            queue.task_done()
+            logger.warning(f"Tarih {date_str} için hata: {e}")
+        
+        current_date += timedelta(days=1)
+    
+    logger.info(f"✅ TOPLAM {len(all_match_ids)} BENZERSİZ MAÇ BULUNDU")
+    return all_match_ids
+
 
 async def main():
+    # Load config
     with open(get_user_data_path("config.json"), "r", encoding="utf-8-sig") as f:
         config = json.load(f)
-
+    
     leagues = config["ligler"]
     start_date_str = config["baslangic"]
     end_date_str = config["bitis"]
-    year_str = config.get("yil") or str(datetime.now().year)
     bookmakers = config["bookmakers"]
     bet_types = config.get("bet_types", {})
-    num_scraper_workers = min(config.get("num_workers", 32), 32)  # Max 32
-    num_collector_workers = min(config.get("num_workers", 32), 32)  # Use same as scraper
-
+    
+    # Parse dates (format: DD.MM.YYYY)
+    try:
+        start_date = datetime.strptime(start_date_str, "%d.%m.%Y")
+        end_date = datetime.strptime(end_date_str, "%d.%m.%Y")
+    except ValueError as e:
+        logger.error(f"Tarih format hatası: {e}. Beklenen: DD.MM.YYYY")
+        return
+    
+    logger.info(f"📅 Tarih aralığı: {start_date_str} - {end_date_str}")
+    logger.info(f"📋 Seçilen ligler: {len(leagues)}")
+    
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         
-        # --- PHASE 1: Parallel Match ID Collection ---
-        logger.info(f"Phase 1: Collecting match IDs with {num_collector_workers} parallel collectors...")
+        # Phase 1: Collect match IDs
+        logger.info("🔍 Phase 1: Maç ID'leri toplanıyor...")
+        match_ids = await collect_match_ids_by_date(page, leagues, start_date, end_date)
         
-        try:
-            # Try full date format first (DD.MM.YYYY from GUI)
-            if len(start_date_str) > 5 and '.' in start_date_str:
-                start_date = datetime.strptime(start_date_str, "%d.%m.%Y")
-            else:
-                start_date = datetime.strptime(f"{start_date_str}.{year_str}", "%d.%m.%Y")
-            
-            if len(end_date_str) > 5 and '.' in end_date_str:
-                end_date = datetime.strptime(end_date_str, "%d.%m.%Y")
-            else:
-                end_date = datetime.strptime(f"{end_date_str}.{year_str}", "%d.%m.%Y")
-        except ValueError as e:
-            logger.error(f"Tarih formati hatasi: {e}. Beklenen: DD.MM.YYYY")
-            await browser.close()
-            return
-
-        date_queue = asyncio.Queue()
-        current_date = start_date
-        while current_date <= end_date:
-            await date_queue.put(current_date)
-            current_date += timedelta(days=1)
-            
-        found_ids = set()
-        league_name_filters = {f"{l.split(' - ')[0]}: {l.split(' - ')[1]}" for l in leagues}
-
-        collector_pages = [await context.new_page() for _ in range(num_collector_workers)]
-        collector_tasks = [
-            asyncio.create_task(
-                date_collector_worker(collector_pages[i], date_queue, found_ids, league_name_filters, i + 1)
-            ) for i in range(num_collector_workers)
-        ]
-        
-        await date_queue.join()
-
-        for task in collector_tasks:
-            task.cancel()
-        await asyncio.gather(*collector_tasks, return_exceptions=True)
-        for page in collector_pages:
-            await page.close()
-
-        match_ids = list(found_ids)
-        if not match_ids:
-            logger.info("No match IDs found for the selected criteria. Exiting.")
-            await browser.close()
-            return
-            
-        # --- PHASE 2: Parallel Match Data Scraping ---
-        # Excel dosyasını tarih/saat ile oluştur
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        excel_filename = get_user_data_path(f"eski-mac-{timestamp}.xlsx")
-        logger.info(f"📊 Excel dosyası: {excel_filename}")
-        
-        # Excel dosyasını scraping başlamadan önce hazırla
-        logger.info("📊 Template Excel dosyası hazırlanıyor...")
-        prepare_excel_file(excel_filename)
-        logger.info("✅ Template Excel hazır!")
-        
-        logger.info(f"Phase 2: Processing {len(match_ids)} matches with {num_scraper_workers} workers...")
-        match_queue = asyncio.Queue()
-        for match_id in match_ids:
-            await match_queue.put(match_id)
-
-        # Semaphore for concurrency control (limiting active navigations)
-        semaphore = asyncio.Semaphore(20) # Max 20 concurrent navigations
-
-        scraper_pages = [await context.new_page() for _ in range(num_scraper_workers)]
-        scraper_tasks = []
-        for i in range(num_scraper_workers):
-            # Pass semaphore to worker
-            task = asyncio.create_task(scrape_worker(
-                scraper_pages[i], match_queue, i + 1, bookmakers, excel_filename, bet_types, semaphore
-            ))
-            scraper_tasks.append(task)
-            # Small delay to prevent thundering herd
-            await asyncio.sleep(0.1)
-            
-        await match_queue.join()
-
-        for task in scraper_tasks:
-            task.cancel()
-        await asyncio.gather(*scraper_tasks, return_exceptions=True)
-
+        await page.close()
         await browser.close()
         
-        # Scraping bitti, Excel'i sırala
+        if not match_ids:
+            logger.error("❌ Hiç maç bulunamadı!")
+            return
+        
+        match_id_list = list(match_ids.keys())
+        datetime_map = match_ids
+        
+        # Setup Excel
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        excel_filename = get_user_data_path(f"eski-mac-{timestamp}.xlsx")
+        logger.info(f"📁 Excel: {excel_filename}")
+        prepare_excel_file(excel_filename)
+        init_progress(len(match_id_list), "Old Matches Scraping")
+        
+        # Phase 2: Fast threaded scraping
+        logger.info(f"⚡ Phase 2: {len(match_id_list)} maç işlenecek (Threading mode)")
+        
+        from fast_scraper import run_threaded_scraper
+        
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            run_threaded_scraper,
+            match_id_list, bookmakers, bet_types, excel_filename, logger, 20, datetime_map
+        )
+        failed_matches, all_results = result
+        
+        # Retry failed
+        if failed_matches:
+            logger.info(f"🔄 {len(failed_matches)} başarısız maç yeniden deneniyor...")
+            retry_result = await loop.run_in_executor(
+                None,
+                run_threaded_scraper,
+                failed_matches, bookmakers, bet_types, excel_filename, logger, 10, datetime_map
+            )
+            failed_matches, retry_results = retry_result
+            all_results.extend(retry_results)
+        
+        # Sort Excel
         sort_excel_file(excel_filename)
         
-        logger.info(f"All matches processed. Excel file: {excel_filename}")
-        print(f"\n✅ İşlem tamamlandı! Dosya: {excel_filename}")
+        # Report
+        total = len(match_ids)
+        success = len(all_results)
+        
+        finish_progress(status="completed")
+        
+        logger.info("=" * 50)
+        logger.info("SONUÇ RAPORU")
+        logger.info(f"Toplam Maç: {total}")
+        logger.info(f"Başarılı: {success} ({100*success//max(total,1)}%)")
+        logger.info(f"Başarısız: {len(failed_matches)}")
+        logger.info("=" * 50)
+        
+        print(f"\n{'='*50}")
+        print(f"✅ İŞLEM TAMAMLANDI!")
+        print(f"Başarılı: {success}/{total}")
+        print(f"Dosya: {excel_filename}")
+        print(f"{'='*50}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
