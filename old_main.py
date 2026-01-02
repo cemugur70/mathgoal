@@ -31,7 +31,7 @@ async def collect_match_ids_from_results(page, leagues, start_date, end_date):
         parts = league.split(' - ')
         if len(parts) >= 2:
             country = parts[0].lower().replace(' ', '-')
-            league_name = parts[1].lower().replace(' ', '-')
+            league_name = parts[1].lower().replace('. ', '-').replace('.', '').replace(' ', '-')
             url = f"{base_url}/football/{country}/{league_name}/results/"
             league_urls.append((league, url))
     

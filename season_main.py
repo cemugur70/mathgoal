@@ -29,7 +29,8 @@ async def get_all_match_urls(page, leagues, start_date, end_date):
         parts = league.split(' - ')
         if len(parts) >= 2:
             country = parts[0].lower().replace(' ', '-')
-            league_name = parts[1].lower().replace(' ', '-')
+            # Handle dots in league names (e.g., "2. Bundesliga" -> "2-bundesliga")
+            league_name = parts[1].lower().replace('. ', '-').replace('.', '').replace(' ', '-')
             url = f"https://www.flashscore.co.uk/football/{country}/{league_name}/archive/"
             league_urls.append(url)
     
