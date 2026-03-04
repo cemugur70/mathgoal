@@ -1,6 +1,10 @@
 {
     "ligler": [
-        "Germany - 2. Bundesliga"
+        "England - Premier League",
+        "England - Championship",
+        "England - League One",
+        "England - League Two",
+        "England - National League"
     ],
     "bookmakers": [
         "bet365",
@@ -14,8 +18,8 @@
         "Betfair",
         "BetUK"
     ],
-    "baslangic": "2024",
-    "bitis": "2025",
+    "baslangic": "24.01.2026",
+    "bitis": "31.01.2026",
     "bet_types": {
         "1x2": true,
         "over-under": true,
@@ -28,5 +32,6 @@
         "odd-even": true,
         "european-handicap": true
     },
-    "num_workers": 100
+    "num_workers": 100,
+    "odds_option": "opening"
 }

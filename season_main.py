@@ -7,7 +7,7 @@ import httpx
 from playwright.async_api import async_playwright
 from utils import get_logger, get_resource_path, get_user_data_path
 from common_scraper import scrape_summary_page, scrape_summary_http, fetch_all_odds_data, fetch_odds_single_call, block_agressive
-from excel_writer import write_to_excel, prepare_excel_file, sort_excel_file
+from excel_writer import write_to_excel, write_to_excel_separate, prepare_excel_file, prepare_excel_files, sort_excel_file, sort_excel_files
 from data_processor import merge_data
 from progress_tracker import (init_progress, increment_progress, update_progress, 
                               finish_progress, add_failed_match, remove_failed_match,
@@ -363,6 +363,7 @@ async def main():
     bookmakers = config["bookmakers"]
     bet_types = config.get("bet_types", {})
     num_workers = config.get("num_workers", 16)
+    odds_option = config.get("odds_option", "both")  # "both", "opening", "closing"
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -390,11 +391,11 @@ async def main():
         logger.info(f"📋 İlk 10 maç: {[(mid, datetime_map.get(mid, '')) for mid in match_id_list[:10]]}")
         logger.info(f"⚡ Phase 2: {len(match_id_list)} maç işlenecek")
         
-        # Excel Setup
+        # Excel Setup - Klasör yapısı (9 ayrı dosya)
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        excel_filename = get_user_data_path(f"yeni-sonuc-Season-{timestamp}.xlsx")
-        logger.info(f"📁 Excel: {excel_filename}")
-        prepare_excel_file(excel_filename)
+        excel_folder = get_user_data_path(f"yeni-sonuc-Season-{timestamp}")
+        logger.info(f"📁 Excel Klasörü: {excel_folder}")
+        prepare_excel_files(excel_folder)
         init_progress(len(match_id_list), "Season Scraping")
         
         # --- PHASE 2: FAST THREADED SCRAPING ---
@@ -410,8 +411,9 @@ async def main():
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None, 
-            run_threaded_scraper,
-            match_id_list, bookmakers, bet_types, excel_filename, logger, 20, datetime_map
+            lambda: run_threaded_scraper(
+                match_id_list, bookmakers, bet_types, excel_folder, logger, 20, datetime_map, odds_option
+            )
         )
         failed_matches, all_results = result  # Unpack tuple
         
@@ -420,14 +422,15 @@ async def main():
             logger.info(f"🔄 {len(failed_matches)} başarısız maç yeniden deneniyor...")
             retry_result = await loop.run_in_executor(
                 None,
-                run_threaded_scraper,
-                failed_matches, bookmakers, bet_types, excel_filename, logger, 10, datetime_map
+                lambda: run_threaded_scraper(
+                    failed_matches, bookmakers, bet_types, excel_folder, logger, 10, datetime_map, odds_option
+                )
             )
             failed_matches, retry_results = retry_result
             all_results.extend(retry_results)  # Add retry results
         
-        # Excel sırala
-        sort_excel_file(excel_filename)
+        # Excel dosyalarını sırala
+        sort_excel_files(excel_folder)
         
         # SONUC RAPORU
         total = len(match_ids)
@@ -445,7 +448,7 @@ async def main():
         print(f"\n{'='*50}")
         print(f"✅ ISLEM TAMAMLANDI!")
         print(f"Basarili: {success}/{total}")
-        print(f"Dosya: {excel_filename}")
+        print(f"Klasör: {excel_folder}")
         print(f"{'='*50}")
 
 if __name__ == "__main__":

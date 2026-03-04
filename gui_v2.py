@@ -112,6 +112,7 @@ class FlashscoreApp(ctk.CTk):
         
         self.bookmakers = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", 
                           "Midnite", "Ladbrokes", "7Bet", "Betfair", "BetUK"]
+
         
         self.bet_types = [
             ("1X2", "1x2"), ("O/U", "over-under"), ("AH", "asian-handicap"),
@@ -338,6 +339,22 @@ class FlashscoreApp(ctk.CTk):
                      command=clear_all_bets,
                      fg_color="#64748b", height=22, width=60).pack(side="left")
         
+        # ORAN SEÇENEKLERİ (Açılış/Kapanış)
+        ctk.CTkLabel(right, text="ORAN SEÇENEKLERİ", 
+                    font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(10,5))
+        
+        odds_option_frame = ctk.CTkFrame(right, fg_color=COLORS["bg"])
+        odds_option_frame.pack(fill="x", pady=5)
+        
+        odds_option_var = ctk.StringVar(value="both")  # "both", "opening", "closing"
+        
+        ctk.CTkRadioButton(odds_option_frame, text="Tümü", variable=odds_option_var, 
+                          value="both", fg_color=COLORS["accent"]).pack(side="left", padx=10)
+        ctk.CTkRadioButton(odds_option_frame, text="Sadece Açılış", variable=odds_option_var,
+                          value="opening", fg_color=COLORS["accent"]).pack(side="left", padx=10)
+        ctk.CTkRadioButton(odds_option_frame, text="Sadece Kapanış", variable=odds_option_var,
+                          value="closing", fg_color=COLORS["accent"]).pack(side="left", padx=10)
+        
         # Date
         date_widgets = date_widget_creator(right)
         
@@ -360,7 +377,7 @@ class FlashscoreApp(ctk.CTk):
         ctk.CTkButton(btn_row, text="Retry", command=self.run_retry,
                      fg_color=COLORS["warning"], text_color="black", height=30).pack(side="left", fill="x", expand=True, padx=2)
         
-        return worker_var, bet_vars, date_widgets
+        return worker_var, bet_vars, date_widgets, odds_option_var
     
     def create_season_tab(self, tab):
         tab.grid_columnconfigure(0, weight=1)
@@ -370,11 +387,11 @@ class FlashscoreApp(ctk.CTk):
         listbox, bookie_vars = self.create_common_left_panel(tab, "season")
         
         def create_date(parent):
-            ctk.CTkLabel(parent, text="SEZON (2015-2026)", 
+            ctk.CTkLabel(parent, text="SEZON (2010-2026)", 
                         font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(10,5))
             frame = ctk.CTkFrame(parent, fg_color="transparent")
             frame.pack(fill="x", pady=5)
-            years = [str(y) for y in range(2015, 2027)]
+            years = [str(y) for y in range(2010, 2027)]
             
             ctk.CTkLabel(frame, text="Baslangic:").pack(side="left")
             start = ctk.CTkOptionMenu(frame, values=years, width=80,
@@ -389,12 +406,13 @@ class FlashscoreApp(ctk.CTk):
             end.pack(side="left", padx=5)
             return {"start": start, "end": end}
         
-        worker_var, bet_vars, date_widgets = self.create_common_right_panel(
+        worker_var, bet_vars, date_widgets, odds_option_var = self.create_common_right_panel(
             tab, "season", "season_main.py", create_date)
         
         self.tab_widgets["season"] = {
             "lig_listbox": listbox, "bookie_vars": bookie_vars,
-            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets
+            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets,
+            "odds_option_var": odds_option_var
         }
     
     def create_hybrid_tab(self, tab):
@@ -415,11 +433,11 @@ class FlashscoreApp(ctk.CTk):
                         font=ctk.CTkFont(size=11),
                         text_color=COLORS["text_dim"]).pack(anchor="w", pady=(0,10))
             
-            ctk.CTkLabel(parent, text="SEZON (2015-2026)", 
+            ctk.CTkLabel(parent, text="SEZON (2010-2026)", 
                         font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(10,5))
             frame = ctk.CTkFrame(parent, fg_color="transparent")
             frame.pack(fill="x", pady=5)
-            years = [str(y) for y in range(2015, 2027)]
+            years = [str(y) for y in range(2010, 2027)]
             
             ctk.CTkLabel(frame, text="Baslangic:").pack(side="left")
             start = ctk.CTkOptionMenu(frame, values=years, width=80,
@@ -434,12 +452,13 @@ class FlashscoreApp(ctk.CTk):
             end.pack(side="left", padx=5)
             return {"start": start, "end": end}
         
-        worker_var, bet_vars, date_widgets = self.create_common_right_panel(
+        worker_var, bet_vars, date_widgets, odds_option_var = self.create_common_right_panel(
             tab, "hybrid", "hybrid_main.py", create_date)
         
         self.tab_widgets["hybrid"] = {
             "lig_listbox": listbox, "bookie_vars": bookie_vars,
-            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets
+            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets,
+            "odds_option_var": odds_option_var
         }
     
     def create_future_tab(self, tab):
@@ -469,12 +488,13 @@ class FlashscoreApp(ctk.CTk):
             end.pack(side="left", padx=5)
             return {"start": start, "end": end}
         
-        worker_var, bet_vars, date_widgets = self.create_common_right_panel(
+        worker_var, bet_vars, date_widgets, odds_option_var = self.create_common_right_panel(
             tab, "future", "future_main.py", create_date)
         
         self.tab_widgets["future"] = {
             "lig_listbox": listbox, "bookie_vars": bookie_vars,
-            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets
+            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets,
+            "odds_option_var": odds_option_var
         }
     
     def create_old_tab(self, tab):
@@ -504,12 +524,13 @@ class FlashscoreApp(ctk.CTk):
             end.pack(side="left", padx=5)
             return {"start": start, "end": end}
         
-        worker_var, bet_vars, date_widgets = self.create_common_right_panel(
+        worker_var, bet_vars, date_widgets, odds_option_var = self.create_common_right_panel(
             tab, "old", "old_main.py", create_date)
         
         self.tab_widgets["old"] = {
             "lig_listbox": listbox, "bookie_vars": bookie_vars,
-            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets
+            "worker_var": worker_var, "bet_vars": bet_vars, "date_widgets": date_widgets,
+            "odds_option_var": odds_option_var
         }
     
     def create_footer(self, parent):
@@ -757,13 +778,18 @@ class FlashscoreApp(ctk.CTk):
         start_val = date_w["start"].get()
         end_val = date_w["end"].get()
         
+        # Oran seçeneği (açılış/kapanış)
+        odds_option = widgets.get("odds_option_var")
+        odds_option_val = odds_option.get() if odds_option else "both"
+        
         config = {
             "ligler": selected,
             "bookmakers": bookies,
             "baslangic": start_val,
             "bitis": end_val,
             "bet_types": bets,
-            "num_workers": widgets["worker_var"].get()
+            "num_workers": widgets["worker_var"].get(),
+            "odds_option": odds_option_val
         }
         
         with open(get_user_data_path("config.json"), "w", encoding="utf-8") as f:

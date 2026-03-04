@@ -21,3 +21,11 @@ sample_match_info.txt
 .vscode/
 .idea/
 .DS_Store
+
+# Node / Web
+node_modules/
+.env
+
+# Keep deploy/runtime manifests tracked
+!package.json
+!package-lock.json

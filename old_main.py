@@ -130,6 +130,7 @@ async def main():
     end_date_str = config["bitis"]
     bookmakers = config["bookmakers"]
     bet_types = config.get("bet_types", {})
+    odds_option = config.get("odds_option", "both")  # both, opening, closing
     
     # Parse dates (format: DD.MM.YYYY)
     try:
@@ -162,11 +163,12 @@ async def main():
         match_id_list = list(match_ids.keys())
         datetime_map = match_ids
         
-        # Setup Excel
+        # Setup Excel folder (fast_scraper creates separate file per bookmaker)
+        import os
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        excel_filename = get_user_data_path(f"eski-mac-{timestamp}.xlsx")
-        logger.info(f"📁 Excel: {excel_filename}")
-        prepare_excel_file(excel_filename)
+        excel_folder = get_user_data_path(f"eski-mac-{timestamp}")
+        os.makedirs(excel_folder, exist_ok=True)
+        logger.info(f"📁 Excel klasörü: {excel_folder}")
         init_progress(len(match_id_list), "Old Matches Scraping")
         
         # Phase 2: Fast threaded scraping
@@ -178,7 +180,7 @@ async def main():
         result = await loop.run_in_executor(
             None,
             run_threaded_scraper,
-            match_id_list, bookmakers, bet_types, excel_filename, logger, 20, datetime_map
+            match_id_list, bookmakers, bet_types, excel_folder, logger, 20, datetime_map, odds_option
         )
         failed_matches, all_results = result
         
@@ -188,13 +190,15 @@ async def main():
             retry_result = await loop.run_in_executor(
                 None,
                 run_threaded_scraper,
-                failed_matches, bookmakers, bet_types, excel_filename, logger, 10, datetime_map
+                failed_matches, bookmakers, bet_types, excel_folder, logger, 10, datetime_map, odds_option
             )
             failed_matches, retry_results = retry_result
             all_results.extend(retry_results)
         
-        # Sort Excel
-        sort_excel_file(excel_filename)
+        # Sort Excel files in folder
+        for xlsx_file in os.listdir(excel_folder):
+            if xlsx_file.endswith('.xlsx'):
+                sort_excel_file(os.path.join(excel_folder, xlsx_file))
         
         # Report
         total = len(match_ids)
@@ -212,7 +216,7 @@ async def main():
         print(f"\n{'='*50}")
         print(f"✅ İŞLEM TAMAMLANDI!")
         print(f"Başarılı: {success}/{total}")
-        print(f"Dosya: {excel_filename}")
+        print(f"Klasör: {excel_folder}")
         print(f"{'='*50}")
 
 

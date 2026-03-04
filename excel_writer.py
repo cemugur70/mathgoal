@@ -1,12 +1,60 @@
 import os
 import shutil
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Font
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 import json
 from datetime import datetime
 from utils import get_logger, get_resource_path
 
 logger = get_logger(__name__)
+
+# ============== MERKEZI STIL TANIMLARI ==============
+# Zebra (alternatif satır) renkleri
+ZEBRA_LIGHT = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+ZEBRA_WHITE = PatternFill(fill_type=None)  # Varsayılan beyaz
+
+# Standart border
+THIN_BORDER = Border(
+    left=Side(style='thin', color='CCCCCC'),
+    right=Side(style='thin', color='CCCCCC'),
+    top=Side(style='thin', color='CCCCCC'),
+    bottom=Side(style='thin', color='CCCCCC')
+)
+
+# Ortalama hizalama
+CENTER_ALIGN = Alignment(horizontal='center', vertical='center')
+
+# Koşullu format renkleri - Mevcut + Yeni
+WHITE_TEXT = Font(color="FFFFFF")
+GREEN_FILL = PatternFill(start_color="66FF66", end_color="66FF66", fill_type="solid")
+BLUE_FILL = PatternFill(start_color="00B0F0", end_color="00B0F0", fill_type="solid")
+DARK_BLUE_FILL = PatternFill(start_color="002060", end_color="002060", fill_type="solid")
+RED_FILL = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+BLACK_FILL = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
+YELLOW_FILL = PatternFill(start_color="FCCF03", end_color="FCCF03", fill_type="solid")
+
+# Alt/Üst için yumuşak renkler
+LIGHT_GREEN_FILL = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+LIGHT_RED_FILL = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+
+def _apply_row_style(ws, row_num, col_start=1, col_end=None):
+    """
+    Bir satıra zebra stili, border ve hizalama uygular.
+    col_end None ise, satırdaki son dolu hücreye kadar uygular.
+    """
+    if col_end is None:
+        col_end = ws.max_column or 50
+    
+    # Zebra rengi: tek satırlar açık gri, çift satırlar beyaz
+    zebra_fill = ZEBRA_LIGHT if row_num % 2 == 1 else ZEBRA_WHITE
+    
+    for col in range(col_start, col_end + 1):
+        cell = ws.cell(row=row_num, column=col)
+        # Sadece özel bir fill uygulanmamışsa zebra uygula
+        if cell.fill.fill_type is None or cell.fill.start_color.rgb in ('00000000', 'FFFFFFFF', None):
+            cell.fill = zebra_fill
+        cell.border = THIN_BORDER
+        cell.alignment = CENTER_ALIGN
 
 def fractional_to_decimal(fraction_str):
     try:
@@ -168,10 +216,18 @@ def _create_headers_for_sheet(ws, sheet_name):
         "AÇILIŞ", "KAPANIŞ", "AÇILIŞ", "KAPANIŞ", "AÇILIŞ", "KAPANIŞ",
     ]
     
+    # AÇILIŞ ve KAPANIŞ için farklı renkler
+    acilis_fill = PatternFill(start_color="00CED1", end_color="00CED1", fill_type="solid")  # Turkuaz
+    kapanis_fill = PatternFill(start_color="FFA500", end_color="FFA500", fill_type="solid")  # Turuncu
+    
     for i, header in enumerate(açılış_kapanış, 24):
         cell = ws.cell(row=2, column=i, value=header)
         cell.font = Font(bold=True, color="000000", size=9)  # Siyah yazı
-        cell.fill = special_fill  # Gri arka plan
+        # AÇILIŞ turkuaz, KAPANIŞ turuncu
+        if header == "AÇILIŞ":
+            cell.fill = acilis_fill
+        else:
+            cell.fill = kapanis_fill
         cell.alignment = center_alignment
         cell.border = thin_border
     
@@ -197,15 +253,20 @@ def _create_headers_for_sheet(ws, sheet_name):
     # Over/Under header'ları (sütun 42-137) - TURUNCU  
     ou_fill = PatternFill(start_color="FF8C00", end_color="FF8C00", fill_type="solid")
     for i in range(42, 138):  # Over/Under sütunları
-        cell1 = ws.cell(row=1, column=i, value=f"O/U {i-41}")
+        cell1 = ws.cell(row=1, column=i)
         cell1.font = header_font
         cell1.fill = ou_fill
         cell1.alignment = center_alignment
         cell1.border = thin_border
         
-        cell2 = ws.cell(row=2, column=i, value="ODDS")
+        # Row 2: AÇILIŞ/KAPANIŞ renkleri (sütun moduna göre)
+        cell2 = ws.cell(row=2, column=i)
         cell2.font = Font(bold=True, color="000000", size=9)
-        cell2.fill = special_fill
+        # Pattern: 0-AÇILIŞ, 1-KAPANIŞ, 2-AÇILIŞ, 3-KAPANIŞ (4'lü grup)
+        if (i - 42) % 2 == 0:  # AÇILIŞ sütunları (0, 2, 4...)
+            cell2.fill = acilis_fill
+        else:  # KAPANIŞ sütunları (1, 3, 5...)
+            cell2.fill = kapanis_fill
         cell2.alignment = center_alignment
         cell2.border = thin_border
         
@@ -220,9 +281,13 @@ def _create_headers_for_sheet(ws, sheet_name):
         cell1.alignment = center_alignment
         cell1.border = thin_border
         
-        cell2 = ws.cell(row=2, column=i, value="ODDS")
+        # Row 2: AÇILIŞ/KAPANIŞ renkleri (sütun moduna göre)
+        cell2 = ws.cell(row=2, column=i)
         cell2.font = Font(bold=True, color="000000", size=9)
-        cell2.fill = special_fill
+        if (i - 138) % 2 == 0:  # AÇILIŞ sütunları
+            cell2.fill = acilis_fill
+        else:  # KAPANIŞ sütunları
+            cell2.fill = kapanis_fill
         cell2.alignment = center_alignment
         cell2.border = thin_border
         
@@ -237,9 +302,13 @@ def _create_headers_for_sheet(ws, sheet_name):
         cell1.alignment = center_alignment
         cell1.border = thin_border
         
-        cell2 = ws.cell(row=2, column=i, value="ODDS")
+        # Row 2: AÇILIŞ/KAPANIŞ renkleri (sütun moduna göre)
+        cell2 = ws.cell(row=2, column=i)
         cell2.font = Font(bold=True, color="000000", size=9)
-        cell2.fill = special_fill
+        if (i - 366) % 2 == 0:  # AÇILIŞ sütunları
+            cell2.fill = acilis_fill
+        else:  # KAPANIŞ sütunları
+            cell2.fill = kapanis_fill
         cell2.alignment = center_alignment
         cell2.border = thin_border
         
@@ -250,29 +319,58 @@ def _create_headers_for_sheet(ws, sheet_name):
     ws.row_dimensions[2].height = 20
 
 def prepare_excel_file(excel_path):
-    """Scraping başlamadan önce template Excel dosyasını hazırlar."""
-    template_path = get_resource_path("TEMPLATE_FLASHSCORE.xlsx")
-    
+    """Scraping başlamadan önce Excel dosyasını hazırlar - her zaman başlıkları oluşturur."""
     try:
-        if os.path.exists(template_path):
-            shutil.copy2(template_path, excel_path)
-        else:
-            # Template yok, boş Excel oluştur
-            wb = Workbook()
-            if "Sheet" in wb.sheetnames:
-                wb.remove(wb["Sheet"])
-            
-            # Tüm sheet'leri oluştur - API bookmaker isimleriyle
-            sheets = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]
-            for sheet_name in sheets:
-                ws = wb.create_sheet(title=sheet_name)
-                _create_headers_for_sheet(ws, sheet_name)
-            
-            wb.save(excel_path)
+        # Her zaman yeni Excel oluştur (template kullanma)
+        wb = Workbook()
+        if "Sheet" in wb.sheetnames:
+            wb.remove(wb["Sheet"])
+        
+        # Tüm sheet'leri oluştur - API bookmaker isimleriyle
+        from config import BOOKMAKER_MAPPING
+        sheets = list(BOOKMAKER_MAPPING.keys())
+        for sheet_name in sheets:
+            ws = wb.create_sheet(title=sheet_name)
+            _create_headers_for_sheet(ws, sheet_name)
+        
+        wb.save(excel_path)
+        logger.info(f"✅ Excel dosyası başlıklarla oluşturuldu: {excel_path}")
     except Exception as e:
         logger.error(f"❌ Excel hazırlama hatası: {e}")
 
+
+
+def prepare_excel_files(excel_folder):
+    """Her bookmaker için ayrı Excel dosyası oluşturur."""
+    from config import BOOKMAKER_MAPPING
+    bookmakers = list(BOOKMAKER_MAPPING.keys())
+    
+    try:
+        # Klasörü oluştur
+        os.makedirs(excel_folder, exist_ok=True)
+        
+        for bookmaker in bookmakers:
+            excel_path = os.path.join(excel_folder, f"{bookmaker}.xlsx")
+            
+            # Her bookmaker için tek sheet'li Excel oluştur
+            wb = Workbook()
+            ws = wb.active
+            ws.title = bookmaker
+            _create_headers_for_sheet(ws, bookmaker)
+            
+            # Freeze panes - İlk 2 satır (başlıklar) sabit kalacak
+            ws.freeze_panes = "A3"
+            
+            wb.save(excel_path)
+            
+        logger.info(f"✅ {len(bookmakers)} ayrı Excel dosyası oluşturuldu: {excel_folder}")
+        return excel_folder
+    except Exception as e:
+        logger.error(f"❌ Excel dosyaları hazırlama hatası: {e}")
+        return None
+
 def write_to_excel(excel_path, common_data, odds_data):
+    """Tek Excel dosyasına tüm bookmaker'ları yazar (eski yöntem)."""
     try:
         # Excel dosyası zaten hazırlanmış olmalı
         if not os.path.exists(excel_path):
@@ -281,17 +379,11 @@ def write_to_excel(excel_path, common_data, odds_data):
             
         wb = load_workbook(excel_path)
 
-        white_text = Font(color="FFFFFF")
-
-        green_fill = PatternFill(start_color="66FF66", end_color="66FF66", fill_type="solid")
-        blue_fill = PatternFill(start_color="00B0F0", end_color="00B0F0", fill_type="solid")
-        dark_blue_fill = PatternFill(start_color="002060", end_color="002060", fill_type="solid")
-        red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-        black_fill = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
-        yellow_fill = PatternFill(start_color="FCCF03", end_color="FCCF03", fill_type="solid")
+        # Global stil sabitlerini kullan (dosyanın başında tanımlı)
 
         # Çalışılacak sayfalar - API bookmaker isimleriyle
-        sheets = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]
+        from config import BOOKMAKER_MAPPING
+        sheets = list(BOOKMAKER_MAPPING.keys())
 
         for sheet in sheets:
             if sheet not in wb.sheetnames:
@@ -314,43 +406,42 @@ def write_to_excel(excel_path, common_data, odds_data):
                 header = ws.cell(row=1, column=col).value
                 val = ws.cell(row=next_row, column=col).value
 
-                # ---- Stil kuralları (val üstünden) ----
                 if header in ("İY SONUCU", "MS SONUCU"):
                     v = str(val)
                     if "0" in v:
-                        ws.cell(row=next_row, column=col).fill = red_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = RED_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
                     elif "1" in v:
-                        ws.cell(row=next_row, column=col).fill = black_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = BLACK_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
                     elif "2" in v:
-                        ws.cell(row=next_row, column=col).fill = dark_blue_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = DARK_BLUE_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
 
                 if header == "İY-MS":
                     v = str(val)
                     if "İY 1/MS 2" in v or "İY 2/MS 1" in v:
-                        ws.cell(row=next_row, column=col).fill = green_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = GREEN_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
                     elif "İY 0/MS 1" in v or "İY 0/MS 2" in v:
-                        ws.cell(row=next_row, column=col).fill = dark_blue_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = DARK_BLUE_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
                     elif "İY 1/MS 1" in v:
-                        ws.cell(row=next_row, column=col).fill = black_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = BLACK_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
                     elif "İY 2/MS 2" in v:
-                        ws.cell(row=next_row, column=col).fill = blue_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = BLUE_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
                     elif "İY 0/MS 0" in v or "İY 1/MS 0" in v or "İY 2/MS 0" in v:
-                        ws.cell(row=next_row, column=col).fill = red_fill
-                        ws.cell(row=next_row, column=col).font = white_text
+                        ws.cell(row=next_row, column=col).fill = RED_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
 
                 if header in under_over_keys:
                     v = str(val)
                     if "ÜST" in v or "KG VAR" in v:
-                        ws.cell(row=next_row, column=col).fill = green_fill
+                        ws.cell(row=next_row, column=col).fill = GREEN_FILL
                     elif "ALT" in v or "KG YOK" in v:
-                        ws.cell(row=next_row, column=col).fill = red_fill
+                        ws.cell(row=next_row, column=col).fill = RED_FILL
 
             # ---- ODDS ----
             bookmaker_name = sheet.strip() # Gizli boşlukları temizle
@@ -606,6 +697,9 @@ def write_to_excel(excel_path, common_data, odds_data):
                 # This should catch errors for a single bookmaker and allow the loop to continue
                 logger.error(f"Could not write odds for bookmaker {bookmaker} to row {row}. Error: {e}")
 
+            # Satır stilini uygula (zebra, border, hizalama)
+            _apply_row_style(ws, next_row, col_start=1, col_end=500)
+
         try:
             wb.save(excel_path)
         except PermissionError:
@@ -618,6 +712,307 @@ def write_to_excel(excel_path, common_data, odds_data):
         logger.error(f"[write_to_excel ERROR] sheet={sheet_name} header={last_header} err={repr(e)}")
         raise
 
+
+def write_to_excel_separate(excel_folder, common_data, odds_data):
+    """Her bookmaker için ayrı Excel dosyasına yazar."""
+    from config import BOOKMAKER_MAPPING
+    bookmakers = list(BOOKMAKER_MAPPING.keys())
+    
+    # Global stil sabitlerini kullan (dosyanın başında tanımlı)
+    under_over_keys = ["2.5 ALT ÜST", "3.5 ÜST", "KG VAR/YOK", "İY 0.5 ALT ÜST", "İY 1.5 ALT ÜST"]
+    
+    for bookmaker in bookmakers:
+        excel_path = os.path.join(excel_folder, f"{bookmaker}.xlsx")
+        
+        try:
+            if not os.path.exists(excel_path):
+                logger.error(f"❌ Excel dosyası bulunamadı: {excel_path}")
+                continue
+                
+            wb = load_workbook(excel_path)
+            ws = wb.active
+            
+            next_row = _find_first_empty_row(ws)
+
+            # İlk 23 kolon (temel veriler ve derived data)
+            for col in range(1, 24):
+                header = ws.cell(row=1, column=col).value
+                val = _safe_get(common_data, header)
+                ws.cell(row=next_row, column=col).value = val
+
+            # Stil kuralları için kontrol et
+            for col in range(1, 24):
+                header = ws.cell(row=1, column=col).value
+                val = ws.cell(row=next_row, column=col).value
+
+                if header in ("İY SONUCU", "MS SONUCU"):
+                    v = str(val)
+                    if "0" in v:
+                        ws.cell(row=next_row, column=col).fill = RED_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+                    elif "1" in v:
+                        ws.cell(row=next_row, column=col).fill = BLACK_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+                    elif "2" in v:
+                        ws.cell(row=next_row, column=col).fill = DARK_BLUE_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+
+                if header == "İY-MS":
+                    v = str(val)
+                    if "İY 1/MS 2" in v or "İY 2/MS 1" in v:
+                        ws.cell(row=next_row, column=col).fill = GREEN_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+                    elif "İY 0/MS 1" in v or "İY 0/MS 2" in v:
+                        ws.cell(row=next_row, column=col).fill = DARK_BLUE_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+                    elif "İY 1/MS 1" in v:
+                        ws.cell(row=next_row, column=col).fill = BLACK_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+                    elif "İY 2/MS 2" in v:
+                        ws.cell(row=next_row, column=col).fill = BLUE_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+                    elif "İY 0/MS 0" in v or "İY 1/MS 0" in v or "İY 2/MS 0" in v:
+                        ws.cell(row=next_row, column=col).fill = RED_FILL
+                        ws.cell(row=next_row, column=col).font = WHITE_TEXT
+
+                if header in under_over_keys:
+                    v = str(val)
+                    if "ÜST" in v or "KG VAR" in v:
+                        ws.cell(row=next_row, column=col).fill = GREEN_FILL
+                    elif "ALT" in v or "KG YOK" in v:
+                        ws.cell(row=next_row, column=col).fill = RED_FILL
+
+            # ---- ODDS ----
+            row = next_row
+            try:
+                # 1X2 FULL TIME (columns 24-29)
+                ws.cell(row=row, column=24).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_home", ""))
+                ws.cell(row=row, column=25).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_home", ""))
+                ws.cell(row=row, column=26).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_draw", ""))
+                ws.cell(row=row, column=27).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_draw", ""))
+                ws.cell(row=row, column=28).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_away", ""))
+                ws.cell(row=row, column=29).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_away", ""))
+                
+                # 1X2 1st Half (columns 30-35)
+                ws.cell(row=row, column=30).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_home", ""))
+                ws.cell(row=row, column=31).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_home", ""))
+                ws.cell(row=row, column=32).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_draw", ""))
+                ws.cell(row=row, column=33).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_draw", ""))
+                ws.cell(row=row, column=34).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_away", ""))
+                ws.cell(row=row, column=35).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_away", ""))
+                
+                # 1X2 2nd Half (columns 36-41)
+                ws.cell(row=row, column=36).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_home", ""))
+                ws.cell(row=row, column=37).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_home", ""))
+                ws.cell(row=row, column=38).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_draw", ""))
+                ws.cell(row=row, column=39).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_draw", ""))
+                ws.cell(row=row, column=40).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_away", ""))
+                ws.cell(row=row, column=41).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_away", ""))
+                
+                # Over/Under 1st Half (columns 42-65)
+                first_half_handicaps = ["0_5", "1", "1_25", "1_5", "2", "2_5"]
+                col = 42
+                for handicap in first_half_handicaps:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_{handicap}_over", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_{handicap}_over", ""))
+                    ws.cell(row=row, column=col+2).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_{handicap}_under", ""))
+                    ws.cell(row=row, column=col+3).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_{handicap}_under", ""))
+                    col += 4
+                
+                # Over/Under Full Time (columns 66-105)
+                full_time_handicaps = ["0_5", "1_5", "2_5", "2_75", "3", "3_5", "4_5", "5_5", "6_5", "7_5"]
+                col = 66
+                for handicap in full_time_handicaps:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_{handicap}_over", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_{handicap}_over", ""))
+                    ws.cell(row=row, column=col+2).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_{handicap}_under", ""))
+                    ws.cell(row=row, column=col+3).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_{handicap}_under", ""))
+                    col += 4
+                
+                # Over/Under 2nd Half (columns 106+)
+                second_half_handicaps = ["0_5", "1_5", "2_5", "2_75", "3", "3_5", "4_5"]
+                col = 106
+                for handicap in second_half_handicaps:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_{handicap}_over", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_{handicap}_over", ""))
+                    ws.cell(row=row, column=col+2).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_{handicap}_under", ""))
+                    ws.cell(row=row, column=col+3).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_{handicap}_under", ""))
+                    col += 4
+                
+                # Asian Handicap Full Time (Column 134-209)
+                ah_handicaps = ["minus_0_25", "minus_0_5", "minus_0_75", "minus_1_0", "minus_1_25", "minus_1_5", "minus_1_75", "minus_2_0", "minus_2_25", "0_0", "0_25", "0_5", "0_75", "1_0", "1_25", "1_5", "1_75", "2_0", "2_25"]
+                col = 134
+                for handicap in ah_handicaps:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_ah_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_ah_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+2).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_ah_{handicap}_away", ""))
+                    ws.cell(row=row, column=col+3).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_ah_{handicap}_away", ""))
+                    col += 4
+
+                # Asian Handicap First Half (210+)
+                col = 210
+                for handicap in ah_handicaps:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_ah_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_ah_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+2).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_ah_{handicap}_away", ""))
+                    ws.cell(row=row, column=col+3).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_ah_{handicap}_away", ""))
+                    col += 4
+                
+                # BTTS Full Time (286-289)
+                ws.cell(row=row, column=286).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_btts_true", ""))
+                ws.cell(row=row, column=287).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_btts_true", ""))
+                ws.cell(row=row, column=288).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_btts_false", ""))
+                ws.cell(row=row, column=289).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_btts_false", ""))
+                
+                # BTTS 1st Half (290-293)
+                ws.cell(row=row, column=290).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_btts_true", ""))
+                ws.cell(row=row, column=291).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_btts_true", ""))
+                ws.cell(row=row, column=292).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_btts_false", ""))
+                ws.cell(row=row, column=293).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_btts_false", ""))
+                
+                # BTTS 2nd Half (294-297)
+                ws.cell(row=row, column=294).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_btts_true", ""))
+                ws.cell(row=row, column=295).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_btts_true", ""))
+                ws.cell(row=row, column=296).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_btts_false", ""))
+                ws.cell(row=row, column=297).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_btts_false", ""))
+                
+                # Double Chance Full Time (298-303)
+                ws.cell(row=row, column=298).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_dc_1X", ""))
+                ws.cell(row=row, column=299).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_dc_1X", ""))
+                ws.cell(row=row, column=300).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_dc_12", ""))
+                ws.cell(row=row, column=301).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_dc_12", ""))
+                ws.cell(row=row, column=302).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_dc_X2", ""))
+                ws.cell(row=row, column=303).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_dc_X2", ""))
+                
+                # Double Chance 1st Half (304-309)
+                ws.cell(row=row, column=304).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_dc_1X", ""))
+                ws.cell(row=row, column=305).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_dc_1X", ""))
+                ws.cell(row=row, column=306).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_dc_12", ""))
+                ws.cell(row=row, column=307).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_dc_12", ""))
+                ws.cell(row=row, column=308).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_dc_X2", ""))
+                ws.cell(row=row, column=309).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_dc_X2", ""))
+                
+                # Double Chance 2nd Half (310-315)
+                ws.cell(row=row, column=310).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_dc_1X", ""))
+                ws.cell(row=row, column=311).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_dc_1X", ""))
+                ws.cell(row=row, column=312).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_dc_12", ""))
+                ws.cell(row=row, column=313).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_dc_12", ""))
+                ws.cell(row=row, column=314).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_dc_X2", ""))
+                ws.cell(row=row, column=315).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_dc_X2", ""))
+                
+                # European Handicap Full Time (316-327)
+                eh_handicaps = ["minus1", "plus1"]
+                col = 316
+                for handicap in eh_handicaps:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_eh_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_eh_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+2).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_eh_{handicap}_draw", ""))
+                    ws.cell(row=row, column=col+3).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_eh_{handicap}_draw", ""))
+                    ws.cell(row=row, column=col+4).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_eh_{handicap}_away", ""))
+                    ws.cell(row=row, column=col+5).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_eh_{handicap}_away", ""))
+                    col += 6
+
+                # European Handicap First Half (328-339)
+                col = 328
+                for handicap in eh_handicaps:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_eh_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_eh_{handicap}_home", ""))
+                    ws.cell(row=row, column=col+2).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_eh_{handicap}_draw", ""))
+                    ws.cell(row=row, column=col+3).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_eh_{handicap}_draw", ""))
+                    ws.cell(row=row, column=col+4).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_eh_{handicap}_away", ""))
+                    ws.cell(row=row, column=col+5).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_eh_{handicap}_away", ""))
+                    col += 6
+                
+                # Draw No Bet Full Time (340-343)
+                ws.cell(row=row, column=340).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_dnb_home", ""))
+                ws.cell(row=row, column=341).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_dnb_home", ""))
+                ws.cell(row=row, column=342).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_dnb_away", ""))
+                ws.cell(row=row, column=343).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_dnb_away", ""))
+                
+                # Draw No Bet 1st Half (344-347)
+                ws.cell(row=row, column=344).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_dnb_home", ""))
+                ws.cell(row=row, column=345).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_dnb_home", ""))
+                ws.cell(row=row, column=346).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_dnb_away", ""))
+                ws.cell(row=row, column=347).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_dnb_away", ""))
+                
+                # Draw No Bet 2nd Half (348-351)
+                ws.cell(row=row, column=348).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_dnb_home", ""))
+                ws.cell(row=row, column=349).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_dnb_home", ""))
+                ws.cell(row=row, column=350).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_dnb_away", ""))
+                ws.cell(row=row, column=351).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_dnb_away", ""))
+                
+                # Correct Score Full Time (352-409)
+                correct_scores = [
+                    "1_0", "2_0", "2_1", "3_0", "3_1", "3_2", "4_0", "4_1", "4_2", "4_3", "5_0", "5_1",
+                    "0_0", "1_1", "2_2", "3_3", "4_4",
+                    "0_1", "0_2", "1_2", "0_3", "1_3", "2_3", "0_4", "1_4", "2_4", "3_4", "0_5", "1_5"
+                ]
+                col = 352
+                for score in correct_scores:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_full_time_{score}", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_full_time_{score}", ""))
+                    col += 2
+                
+                # Correct Score First Half (410-467)
+                col = 410
+                for score in correct_scores:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_{score}", ""))
+                    ws.cell(row=row, column=col+1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_{score}", ""))
+                    col += 2
+
+                # Half Time / Full Time (468-485)
+                ht_ft_outcomes = ["1_1", "1_X", "1_2", "X_1", "X_X", "X_2", "2_1", "2_X", "2_2"]
+                col = 468
+                for outcome in ht_ft_outcomes:
+                    ws.cell(row=row, column=col).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_ht_ft_{outcome}", ""))
+                    ws.cell(row=row, column=col + 1).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_ht_ft_{outcome}", ""))
+                    col += 2
+
+                # Odd/Even Full Time (486-489)
+                ws.cell(row=row, column=486).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_odd", ""))
+                ws.cell(row=row, column=487).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_odd", ""))
+                ws.cell(row=row, column=488).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_even", ""))
+                ws.cell(row=row, column=489).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_even", ""))
+
+                # Odd/Even First Half (490-493)
+                ws.cell(row=row, column=490).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_odd", ""))
+                ws.cell(row=row, column=491).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_odd", ""))
+                ws.cell(row=row, column=492).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_first_half_even", ""))
+                ws.cell(row=row, column=493).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_first_half_even", ""))
+
+                # Odd/Even Second Half (494-497)
+                ws.cell(row=row, column=494).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_odd", ""))
+                ws.cell(row=row, column=495).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_odd", ""))
+                ws.cell(row=row, column=496).value = fractional_to_decimal(odds_data.get(f"opening_{bookmaker}_second_half_even", ""))
+                ws.cell(row=row, column=497).value = fractional_to_decimal(odds_data.get(f"{bookmaker}_second_half_even", ""))
+                
+            except Exception as e:
+                logger.error(f"Could not write odds for bookmaker {bookmaker} to row {row}. Error: {e}")
+
+            # Satır stilini uygula (zebra, border, hizalama)
+            _apply_row_style(ws, next_row, col_start=1, col_end=500)
+
+            try:
+                wb.save(excel_path)
+            except PermissionError:
+                logger.error(f"❌ KAYDETME BAŞARISIZ: Excel dosyası '{excel_path}' başka bir program tarafından kullanılıyor olabilir.")
+
+        except Exception as e:
+            import traceback
+            logger.error(f"[write_to_excel_separate ERROR] bookmaker={bookmaker} err={repr(e)}")
+
+
+def sort_excel_files(excel_folder):
+    """Klasördeki tüm Excel dosyalarını sıralar."""
+    bookmakers = ["bet365", "BetMGM", "Betfred", "Unibetuk", "Betway", "Midnite", "Ladbrokes", "Betfair", "7Bet"]
+    
+    for bookmaker in bookmakers:
+        excel_path = os.path.join(excel_folder, f"{bookmaker}.xlsx")
+        if os.path.exists(excel_path):
+            sort_excel_file(excel_path)
+    
+    logger.info(f"✅ Tüm Excel dosyaları sıralandı: {excel_folder}")
+
 def sort_excel_file(excel_path):
     """Excel dosyasındaki verileri tarihe göre (Yeniden Eskiye) sıralar ve stilleri yeniden uygular."""
     try:
@@ -627,14 +1022,7 @@ def sort_excel_file(excel_path):
 
         wb = load_workbook(excel_path)
         
-        # Stiller
-        white_text = Font(color="FFFFFF")
-        green_fill = PatternFill(start_color="66FF66", end_color="66FF66", fill_type="solid")
-        blue_fill = PatternFill(start_color="00B0F0", end_color="00B0F0", fill_type="solid")
-        dark_blue_fill = PatternFill(start_color="002060", end_color="002060", fill_type="solid")
-        red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-        black_fill = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
-        
+        # Global stil sabitlerini kullan (dosyanın başında tanımlı)
         under_over_keys = ["2.5 ALT ÜST", "3.5 ÜST", "KG VAR/YOK", "İY 0.5 ALT ÜST", "İY 1.5 ALT ÜST"]
 
         for sheet_name in wb.sheetnames:
@@ -696,39 +1084,42 @@ def sort_excel_file(excel_path):
                         if header in ("İY SONUCU", "MS SONUCU"):
                             v = str(value)
                             if "0" in v:
-                                cell.fill = red_fill
-                                cell.font = white_text
+                                cell.fill = RED_FILL
+                                cell.font = WHITE_TEXT
                             elif "1" in v:
-                                cell.fill = black_fill
-                                cell.font = white_text
+                                cell.fill = BLACK_FILL
+                                cell.font = WHITE_TEXT
                             elif "2" in v:
-                                cell.fill = dark_blue_fill
-                                cell.font = white_text
+                                cell.fill = DARK_BLUE_FILL
+                                cell.font = WHITE_TEXT
 
                         elif header == "İY-MS":
                             v = str(value)
                             if "İY 1/MS 2" in v or "İY 2/MS 1" in v:
-                                cell.fill = green_fill
-                                cell.font = white_text
+                                cell.fill = GREEN_FILL
+                                cell.font = WHITE_TEXT
                             elif "İY 0/MS 1" in v or "İY 0/MS 2" in v:
-                                cell.fill = dark_blue_fill
-                                cell.font = white_text
+                                cell.fill = DARK_BLUE_FILL
+                                cell.font = WHITE_TEXT
                             elif "İY 1/MS 1" in v:
-                                cell.fill = black_fill
-                                cell.font = white_text
+                                cell.fill = BLACK_FILL
+                                cell.font = WHITE_TEXT
                             elif "İY 2/MS 2" in v:
-                                cell.fill = blue_fill
-                                cell.font = white_text
+                                cell.fill = BLUE_FILL
+                                cell.font = WHITE_TEXT
                             elif "İY 0/MS 0" in v or "İY 1/MS 0" in v or "İY 2/MS 0" in v:
-                                cell.fill = red_fill
-                                cell.font = white_text
+                                cell.fill = RED_FILL
+                                cell.font = WHITE_TEXT
 
                         elif header in under_over_keys:
                             v = str(value)
                             if "ÜST" in v or "KG VAR" in v:
-                                cell.fill = green_fill
+                                cell.fill = GREEN_FILL
                             elif "ALT" in v or "KG YOK" in v:
-                                cell.fill = red_fill
+                                cell.fill = RED_FILL
+                
+                # Satır stilini uygula (zebra, border, hizalama)
+                _apply_row_style(ws, row_idx, col_start=1, col_end=500)
 
         wb.save(excel_path)
 

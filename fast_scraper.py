@@ -171,29 +171,51 @@ def scrape_match_data(match_id: str, bookmakers: list, bet_types: dict, logger) 
         # API endpoint: df_su_1_{match_id} returns match summary with period scores
         # Pattern: API format varies: can be AC÷1st Half¬IH÷{away}¬IG÷{home} or AC÷1st Half¬IG÷{home}¬IH÷{away}
         try:
-            api_url = f'https://d.flashscore.com/x/feed/df_su_1_{match_id}'
+            # Try www. first (more reliable), fall back to d. subdomain
+            api_urls = [
+                f'https://www.flashscore.com/x/feed/df_su_1_{match_id}',
+                f'https://d.flashscore.com/x/feed/df_su_1_{match_id}'
+            ]
             api_headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Referer': 'https://www.flashscore.com/',
                 'Origin': 'https://www.flashscore.com',
                 'x-fsign': 'SW9D1eZo',
             }
-            api_response = SESSION.get(api_url, headers=api_headers, timeout=5)
-            if api_response.status_code == 200:
-                api_text = api_response.text
-                # Pattern: AC÷1st Half¬IH÷{away}¬IG÷{home} (order varies, away is IH, home is IG)
-                # Try both orderings since API format can vary
+            
+            api_text = ''
+            for api_url in api_urls:
+                try:
+                    api_response = SESSION.get(api_url, headers=api_headers, timeout=5)
+                    if api_response.status_code == 200 and len(api_response.text) > 10:
+                        api_text = api_response.text
+                        break
+                except:
+                    continue
+            
+            if api_text:
+                # Find 1st Half section and extract IG (home) and IH (away) separately
+                # API formats: "AC÷1st Half¬IG÷1¬IH÷1¬" or "AC÷1st Half¬IH÷0¬IG÷2¬"
+                # Use . instead of special chars to avoid encoding issues
                 ht_home, ht_away = None, None
                 
-                # Order 1: IH (away) first, IG (home) second 
-                ht_match = re.search(r'AC÷1st Half¬IH÷(\d+)¬IG÷(\d+)', api_text)
-                if ht_match:
-                    ht_away, ht_home = int(ht_match.group(1)), int(ht_match.group(2))
-                else:
-                    # Order 2: IG (home) first, IH (away) second
-                    ht_match = re.search(r'AC÷1st Half¬IG÷(\d+)¬IH÷(\d+)', api_text)
-                    if ht_match:
-                        ht_home, ht_away = int(ht_match.group(1)), int(ht_match.group(2))
+                # Find 1st Half marker (use . for special chars to avoid encoding issues)
+                ht_section = re.search(r'AC.1st Half[^~]*', api_text)
+                if ht_section:
+                    ht_data = ht_section.group(0)
+                    # Extract IG (home score) and IH (away score) independently
+                    ig_match = re.search(r'IG.(\d+)', ht_data)
+                    ih_match = re.search(r'IH.(\d+)', ht_data)
+                    if ig_match:
+                        ht_home = int(ig_match.group(1))
+                    if ih_match:
+                        ht_away = int(ih_match.group(1))
+                
+                # If we found at least the section marker but no scores, default to 0-0
+                if ht_section and ht_home is None:
+                    ht_home = 0
+                if ht_section and ht_away is None:
+                    ht_away = 0
                 
                 if ht_home is not None and ht_away is not None:
                     result['İY'] = f'{ht_home}-{ht_away}'
@@ -297,10 +319,11 @@ def worker(match_id: str, bookmakers: list, bet_types: dict, logger, datetime_st
         return False
 
 
-def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, excel_filename: str, logger, max_workers: int = 30, datetime_map: dict = None):
+def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, excel_filename: str, logger, max_workers: int = 30, datetime_map: dict = None, odds_option: str = "both"):
     """
     ULTRA FAST: Scrape all to memory, then batch write to Excel
     datetime_map: Optional dict {match_id: "15.12. 20:00"} for pre-extracted datetime
+    odds_option: "both" (tümü), "opening" (sadece açılış), "closing" (sadece kapanış)
     """
     global RESULTS, PROGRESS
     
@@ -312,6 +335,7 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
     PROGRESS = {"done": 0, "total": len(match_ids)}
     
     logger.info(f"🚀 Hızlı tarama: {len(match_ids)} maç, {max_workers} worker, {len(datetime_map)} datetime")
+    logger.info(f"📊 Oran seçeneği: {odds_option}")
     start_time = datetime.now()
     
     failed = []
@@ -481,68 +505,146 @@ def run_threaded_scraper(match_ids: list, bookmakers: list, bet_types: dict, exc
             FIXED_COLUMNS = None
             logger.warning(f"⚠️ all_columns.txt yüklenemedi: {e}")
         
-        with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
-            for sheet_name in sheets:
-                bm = sheet_name  # bookmaker name
+        # ODDS_OPTION: Sütunları açılış/kapanış seçeneğine göre filtrele
+        if FIXED_COLUMNS and odds_option != "both":
+            filtered_columns = []
+            for col in FIXED_COLUMNS:
+                # Temel sütunlar (ilk 19 sütun) her zaman dahil
+                if col in basic_cols:
+                    filtered_columns.append(col)
+                # Açılış sütunları: "AÇ " ile başlıyor
+                elif odds_option == "opening" and col.startswith("AÇ "):
+                    filtered_columns.append(col)
+                # Kapanış sütunları: "AÇ " ile başlamayan oran sütunları (temel sütunlar hariç)
+                elif odds_option == "closing" and not col.startswith("AÇ ") and col not in basic_cols:
+                    filtered_columns.append(col)
+            FIXED_COLUMNS = filtered_columns
+            logger.info(f"📊 Oran filtreleme sonrası: {len(FIXED_COLUMNS)} sütun ({odds_option})")
+        
+        # excel_filename artık bir klasör yolu (ör: yeni-sonuc-Season-2026-01-11)
+        # Her bookmaker için ayrı Excel dosyası oluştur
+        import os
+        
+        for sheet_name in sheets:
+            bm = sheet_name  # bookmaker name
+            
+            # Her bookmaker için ayrı Excel dosyası yolu
+            bm_excel_path = os.path.join(excel_filename, f"{sheet_name}.xlsx")
+            
+            if FIXED_COLUMNS:
+                # Use FIXED 763 columns template for ALL sheets
+                # Step 1: Build translation map for this bookmaker's columns
+                # Map: Turkish column name -> Original English column name
+                tr_to_eng = {}
                 
-                if FIXED_COLUMNS:
-                    # Use FIXED 763 columns template for ALL sheets
-                    # Step 1: Build translation map for this bookmaker's columns
-                    # Map: Turkish column name -> Original English column name
-                    tr_to_eng = {}
-                    
-                    # For this bookmaker's columns, apply turkishify and save mapping
-                    bm_lower = bm.lower()
-                    for col in df.columns:
-                        # Check if this column belongs to this bookmaker or is a basic column
-                        if col in basic_cols:
-                            tr_to_eng[col] = col
-                        elif bm_lower in col.lower():
-                            turkish_name = turkishify(col)
-                            tr_to_eng[turkish_name] = col
-                    
-                    # Step 2: Build DataFrame with template columns (VECTORIZED - FAST!)
-                    # Create empty DataFrame with template columns
-                    template_data = {}
-                    for template_col in FIXED_COLUMNS:
-                        if template_col in tr_to_eng:
-                            # Found matching column - copy entire column at once
-                            eng_col = tr_to_eng[template_col]
-                            if eng_col in df.columns:
-                                template_data[template_col] = df[eng_col].values
-                            else:
-                                template_data[template_col] = ['-'] * len(df)
+                # For this bookmaker's columns, apply turkishify and save mapping
+                bm_lower = bm.lower()
+                for col in df.columns:
+                    # Check if this column belongs to this bookmaker or is a basic column
+                    if col in basic_cols:
+                        tr_to_eng[col] = col
+                    elif bm_lower in col.lower():
+                        turkish_name = turkishify(col)
+                        tr_to_eng[turkish_name] = col
+                
+                # Step 2: Build DataFrame with template columns (VECTORIZED - FAST!)
+                # Create empty DataFrame with template columns
+                template_data = {}
+                for template_col in FIXED_COLUMNS:
+                    if template_col in tr_to_eng:
+                        # Found matching column - copy entire column at once
+                        eng_col = tr_to_eng[template_col]
+                        if eng_col in df.columns:
+                            template_data[template_col] = df[eng_col].values
                         else:
-                            # No matching data - fill with zeros
                             template_data[template_col] = ['-'] * len(df)
-                    
-                    sheet_df = pd.DataFrame(template_data, columns=FIXED_COLUMNS)
-                    sheet_df = sheet_df.fillna('-')
-                    
+                    else:
+                        # No matching data - fill with zeros
+                        template_data[template_col] = ['-'] * len(df)
+                
+                sheet_df = pd.DataFrame(template_data, columns=FIXED_COLUMNS)
+                sheet_df = sheet_df.fillna('-')
+                
+            else:
+                # Fallback - dynamic columns
+                ordered_eng_cols = []
+                for col in basic_cols:
+                    if col in df.columns:
+                        ordered_eng_cols.append(col)
+                bm_lower = bm.lower()
+                for col in df.columns:
+                    if bm_lower in col.lower() and col not in ordered_eng_cols:
+                        ordered_eng_cols.append(col)
+                sheet_df = df[[c for c in ordered_eng_cols if c in df.columns]].copy()
+                sheet_df.columns = [turkishify(c) for c in sheet_df.columns]
+                sheet_df = sheet_df.fillna('-')
+            
+            # Her bookmaker için ayrı Excel dosyasına yaz
+            # openpyxl kullan (stiller için) - xlsxwriter yerine
+            from openpyxl import Workbook
+            from excel_writer import _apply_row_style, THIN_BORDER, CENTER_ALIGN
+            from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+            
+            wb = Workbook()
+            ws = wb.active
+            ws.title = sheet_name
+            
+            # AÇILIŞ/KAPANIŞ renkleri
+            acilis_fill = PatternFill(start_color="00CED1", end_color="00CED1", fill_type="solid")  # Turkuaz
+            kapanis_fill = PatternFill(start_color="FFA500", end_color="FFA500", fill_type="solid")  # Turuncu
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")  # Mavi
+            header_font = Font(bold=True, color="FFFFFF", size=10)
+            
+            # Row 1: Ana başlıklar (veri sütun isimleri)
+            for col_num, col_name in enumerate(sheet_df.columns, 1):
+                cell = ws.cell(row=1, column=col_num, value=col_name)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = CENTER_ALIGN
+                cell.border = THIN_BORDER
+                # Sütun genişliği
+                ws.column_dimensions[cell.column_letter].width = max(10, min(len(str(col_name)) + 2, 20))
+            
+            # Row 2: AÇILIŞ/KAPANIŞ etiketleri (sütun ismine göre)
+            for col_num, col_name in enumerate(sheet_df.columns, 1):
+                col_str = str(col_name)
+                cell = ws.cell(row=2, column=col_num)
+                
+                # İlk 20 sütun temel veriler - boş bırak
+                if col_num <= 20:
+                    cell.value = ""
+                    cell.fill = PatternFill(fill_type=None)
+                # "AÇ" ile başlayan sütunlar AÇILIŞ
+                elif col_str.startswith("AÇ "):
+                    cell.value = "AÇILIŞ"
+                    cell.fill = acilis_fill
+                # Diğerleri KAPANIŞ
                 else:
-                    # Fallback - dynamic columns
-                    ordered_eng_cols = []
-                    for col in basic_cols:
-                        if col in df.columns:
-                            ordered_eng_cols.append(col)
-                    bm_lower = bm.lower()
-                    for col in df.columns:
-                        if bm_lower in col.lower() and col not in ordered_eng_cols:
-                            ordered_eng_cols.append(col)
-                    sheet_df = df[[c for c in ordered_eng_cols if c in df.columns]].copy()
-                    sheet_df.columns = [turkishify(c) for c in sheet_df.columns]
-                    sheet_df = sheet_df.fillna('-')
+                    cell.value = "KAPANIŞ"
+                    cell.fill = kapanis_fill
                 
-                # Write to Excel
-                sheet_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=4)
-                
-                # Write headers at row 4
-                ws = writer.sheets[sheet_name]
-                for col_num, col_name in enumerate(sheet_df.columns):
-                    ws.write(3, col_num, col_name)
+                cell.font = Font(bold=True, size=9)
+                cell.alignment = CENTER_ALIGN
+                cell.border = THIN_BORDER
+            
+            # Freeze panes - Row 2'den sonra
+            ws.freeze_panes = "A3"
+            
+            # Row satır yükseklikleri
+            ws.row_dimensions[1].height = 25
+            ws.row_dimensions[2].height = 20
+            
+            # Veriyi yaz (row 3+)
+            for row_idx, row_data in enumerate(sheet_df.values, 3):
+                for col_idx, value in enumerate(row_data, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=value)
+                # Satır stilini uygula
+                _apply_row_style(ws, row_idx, col_start=1, col_end=len(sheet_df.columns))
+            
+            wb.save(bm_excel_path)
         
         write_time = (datetime.now() - write_start).total_seconds()
-        logger.info(f"✅ Excel yazımı tamamlandı ({write_time:.1f}s) - {len(RESULTS)/max(write_time, 0.1):.0f} kayıt/s")
+        logger.info(f"✅ Excel yazımı tamamlandı ({write_time:.1f}s) - {len(sheets)} ayrı dosya oluşturuldu")
     
     total_time = (datetime.now() - start_time).total_seconds()
     logger.info(f"⏱️ Toplam süre: {total_time:.1f}s ({len(match_ids)/max(total_time,1):.1f} maç/s)")

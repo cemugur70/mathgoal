@@ -12,17 +12,18 @@ from utils import get_logger
 logger = get_logger(__name__)
 
 BOOKMAKER_MAPPING = {
-    "bet365": 16 ,      # ✅ Zaten doğru
-    "BetMGM": 707,      # ✅ Zaten doğru
-    "Betfred": 21 ,      # ✅ Zaten doğru
-    "Unibetuk": 625,      # ✅ Zaten doğru
-    "Betway": 26 ,      # ✅ Zaten doğru
-    "Midnite": 841,      # ✅ Zaten doğru
-    "Ladbrokes": 28 ,      # ✅ Zaten doğru
-    "7Bet": 895,      # ✅ Zaten doğru
-    "Betfair": 429,      # ✅ Zaten doğru
-    "BetUK": 263      # ✅ Zaten doğru
+    "bet365": 16,
+    "BetMGM": 707,
+    "Betfred": 21,
+    "Unibetuk": 625,
+    "Betway": 26,
+    "Midnite": 841,
+    "Ladbrokes": 28,
+    "7Bet": 895,
+    "Betfair": 429,
+    "BetUK": 263
 }
+
 
 # Tüm mevcut bet tipleri (API response'ından alınan gerçek değerler)
 ALL_BET_TYPES = {

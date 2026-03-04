@@ -232,6 +232,7 @@ async def main():
     year_str = config.get("yil") or str(datetime.now().year)
     bookmakers = config["bookmakers"]
     bet_types = config.get("bet_types", {})
+    odds_option = config.get("odds_option", "both")  # both, opening, closing
     num_scraper_workers = config.get("num_workers", 32)
     num_collector_workers = min(config.get("num_workers", 32), 32)  # Collectors can stay limited
 
@@ -298,10 +299,12 @@ async def main():
             return
             
         # --- PHASE 2: FAST THREADED SCRAPING ---
-        # Excel dosyasını tarih/saat ile oluştur
+        # Excel klasörünü tarih/saat ile oluştur (fast_scraper her bookmaker için ayrı dosya oluşturur)
+        import os
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        excel_filename = get_user_data_path(f"yeni-mac-{timestamp}.xlsx")
-        logger.info(f"📊 Excel dosyası: {excel_filename}")
+        excel_folder = get_user_data_path(f"yeni-mac-{timestamp}")
+        os.makedirs(excel_folder, exist_ok=True)
+        logger.info(f"📊 Excel klasörü: {excel_folder}")
         
         # Close browser - we'll use HTTP for fast scraping
         await browser.close()
@@ -316,7 +319,7 @@ async def main():
         result = await loop.run_in_executor(
             None, 
             run_future_scraper,
-            match_ids, bookmakers, bet_types, excel_filename, logger, 20, datetime_map
+            match_ids, bookmakers, bet_types, excel_folder, logger, 20, datetime_map, odds_option
         )
         failed_matches, all_results = result
         
@@ -326,11 +329,11 @@ async def main():
             retry_result = await loop.run_in_executor(
                 None,
                 run_future_scraper,
-                failed_matches, bookmakers, bet_types, excel_filename, logger, 10, {}
+                failed_matches, bookmakers, bet_types, excel_folder, logger, 10, {}, odds_option
             )
         
-        logger.info(f"✅ İşlem tamamlandı! Dosya: {excel_filename}")
-        print(f"\n✅ İşlem tamamlandı! Dosya: {excel_filename}")
+        logger.info(f"✅ İşlem tamamlandı! Klasör: {excel_folder}")
+        print(f"\n✅ İşlem tamamlandı! Klasör: {excel_folder}")
 
 if __name__ == "__main__":
     asyncio.run(main())

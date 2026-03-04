@@ -76,8 +76,8 @@
     },
     {
         "country": "Argentina",
-        "league": "Torneo Betano",
-        "league_url": "https://www.flashscore.co.uk/football/argentina/torneo-betano/"
+        "league": "Liga Profesional",
+        "league_url": "https://www.flashscore.co.uk/football/argentina/liga-profesional/"
     },
     {
         "country": "Argentina",
@@ -1820,11 +1820,6 @@
         "league_url": "https://www.flashscore.co.uk/football/denmark/danish-cup-women/"
     },
     {
-        "country": "Djibouti",
-        "league": "Division 1",
-        "league_url": "https://www.flashscore.co.uk/football/djibouti/division-1/"
-    },
-    {
         "country": "Dominican Republic",
         "league": "LDF",
         "league_url": "https://www.flashscore.co.uk/football/dominican-republic/ldf/"
@@ -2550,11 +2545,6 @@
         "league_url": "https://www.flashscore.co.uk/football/greece/division-a-women/"
     },
     {
-        "country": "Grenada",
-        "league": "Premier Division",
-        "league_url": "https://www.flashscore.co.uk/football/grenada/premier-division/"
-    },
-    {
         "country": "Guatemala",
         "league": "Liga Nacional",
         "league_url": "https://www.flashscore.co.uk/football/guatemala/liga-nacional/"
@@ -2573,26 +2563,6 @@
         "country": "Honduras",
         "league": "Liga Nacional",
         "league_url": "https://www.flashscore.co.uk/football/honduras/liga-nacional/"
-    },
-    {
-        "country": "Hong Kong",
-        "league": "Premier League",
-        "league_url": "https://www.flashscore.co.uk/football/hong-kong/premier-league/"
-    },
-    {
-        "country": "Hong Kong",
-        "league": "FA Cup",
-        "league_url": "https://www.flashscore.co.uk/football/hong-kong/fa-cup/"
-    },
-    {
-        "country": "Hong Kong",
-        "league": "League Cup",
-        "league_url": "https://www.flashscore.co.uk/football/hong-kong/league-cup/"
-    },
-    {
-        "country": "Hong Kong",
-        "league": "Senior Shield",
-        "league_url": "https://www.flashscore.co.uk/football/hong-kong/senior-shield/"
     },
     {
         "country": "Hungary",
@@ -3053,6 +3023,11 @@
         "country": "Japan",
         "league": "J2 League",
         "league_url": "https://www.flashscore.co.uk/football/japan/j2-league/"
+    },
+    {
+        "country": "Japan",
+        "league": "J2/J3 League",
+        "league_url": "https://www.flashscore.co.uk/football/japan/j2-j3-league/"
     },
     {
         "country": "Japan",
@@ -3598,6 +3573,26 @@
         "country": "Netherlands",
         "league": "Super Cup Women",
         "league_url": "https://www.flashscore.co.uk/football/netherlands/super-cup-women/"
+    },
+    {
+        "country": "New Zealand",
+        "league": "National League",
+        "league_url": "https://www.flashscore.co.uk/football/new-zealand/national-league/"
+    },
+    {
+        "country": "New Zealand",
+        "league": "Chatham Cup",
+        "league_url": "https://www.flashscore.co.uk/football/new-zealand/chatham-cup/"
+    },
+    {
+        "country": "New Zealand",
+        "league": "National League Women",
+        "league_url": "https://www.flashscore.co.uk/football/new-zealand/national-league-women/"
+    },
+    {
+        "country": "New Zealand",
+        "league": "Kate Sheppard Cup Women",
+        "league_url": "https://www.flashscore.co.uk/football/new-zealand/kate-sheppard-cup-women/"
     },
     {
         "country": "Nicaragua",
@@ -5131,6 +5126,11 @@
     },
     {
         "country": "Uruguay",
+        "league": "Copa de la Liga AUF",
+        "league_url": "https://www.flashscore.co.uk/football/uruguay/copa-de-la-liga-auf/"
+    },
+    {
+        "country": "Uruguay",
         "league": "Super Cup",
         "league_url": "https://www.flashscore.co.uk/football/uruguay/super-cup/"
     },
@@ -5656,6 +5656,11 @@
     },
     {
         "country": "Australia & Oceania",
+        "league": "OFC Pro League",
+        "league_url": "https://www.flashscore.co.uk/football/australia-oceania/ofc-pro-league/"
+    },
+    {
+        "country": "Australia & Oceania",
         "league": "OFC Championship U23",
         "league_url": "https://www.flashscore.co.uk/football/australia-oceania/ofc-championship-u23/"
     },
@@ -5681,13 +5686,13 @@
     },
     {
         "country": "Australia & Oceania",
-        "league": "OFC Championship U19 Women",
-        "league_url": "https://www.flashscore.co.uk/football/australia-oceania/ofc-championship-u19-women/"
+        "league": "World Cup",
+        "league_url": "https://www.flashscore.co.uk/football/australia-oceania/world-cup/"
     },
     {
         "country": "Australia & Oceania",
-        "league": "World Cup",
-        "league_url": "https://www.flashscore.co.uk/football/australia-oceania/world-cup/"
+        "league": "OFC Championship U19 Women",
+        "league_url": "https://www.flashscore.co.uk/football/australia-oceania/ofc-championship-u19-women/"
     },
     {
         "country": "Australia & Oceania",
