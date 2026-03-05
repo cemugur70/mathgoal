@@ -9,6 +9,7 @@ const config = {
   databaseUrl: process.env.DATABASE_URL || "",
   dashboardPageSize: Number(process.env.DASHBOARD_PAGE_SIZE || 50),
   staticDir: path.resolve(__dirname, "..", "public"),
+  ingestApiKey: process.env.INGEST_API_KEY || "",
 };
 
 if (!config.databaseUrl) {
