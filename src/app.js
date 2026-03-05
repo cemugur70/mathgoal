@@ -94,9 +94,6 @@ app.get("/api/matches", async (req, res, next) => {
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     const countSql = `SELECT COUNT(*)::int AS total FROM matches ${whereClause}`;
-    const countResult = await db.query(countSql, values);
-    const total = countResult.rows[0]?.total || 0;
-
     const dataValues = [...values, limit, offset];
     const dataSql = `
       SELECT
@@ -119,7 +116,13 @@ app.get("/api/matches", async (req, res, next) => {
       LIMIT $${dataValues.length - 1}
       OFFSET $${dataValues.length}
     `;
-    const dataResult = await db.query(dataSql, dataValues);
+
+    // ⚡ Bolt: Fetch total count and paginated data concurrently
+    const [countResult, dataResult] = await Promise.all([
+      db.query(countSql, values),
+      db.query(dataSql, dataValues)
+    ]);
+    const total = countResult.rows[0]?.total || 0;
 
     res.json({
       total,
