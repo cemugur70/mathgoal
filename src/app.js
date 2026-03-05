@@ -6,6 +6,7 @@ const pinoHttp = require("pino-http");
 
 const config = require("./config");
 const db = require("./db");
+const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
 
 const app = express();
 const logger = pino({
@@ -176,6 +177,34 @@ app.get("/api/matches/:matchId/all-columns", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// Turkish column-mapped odds endpoint
+app.get("/api/matches/:matchId/odds", async (req, res, next) => {
+  try {
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const result = await db.query(
+      `SELECT raw_data FROM match_all_columns WHERE match_id = $1 AND bookmaker = $2 LIMIT 1`,
+      [req.params.matchId, bookmaker],
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ message: "Oran verisi bulunamadi." });
+    }
+
+    let rd = result.rows[0].raw_data;
+    if (typeof rd === "string") rd = JSON.parse(rd);
+
+    const mapped = mapRawToColumns(rd, bookmaker);
+    res.json({ match_id: req.params.matchId, bookmaker, columns: mapped, all_columns_count: ALL_COLUMNS.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// all_columns.txt list endpoint
+app.get("/api/columns", (req, res) => {
+  res.json({ columns: ALL_COLUMNS, total: ALL_COLUMNS.length });
 });
 
 // ─── Ingestion API (Python scraper -> DB via HTTPS) ────────────────────────
