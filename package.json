@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate": "node scripts/migrate.js",
-    "seed:python": "python scripts/scrape_to_postgres.py --ids-file collected_match_ids.json"
+    "seed:python": "python scripts/scrape_to_postgres.py --ids-file collected_match_ids.json",
+    "collect:ids:league": "python scripts/collect_match_ids_from_league.py"
   },
   "engines": {
     "node": ">=20"

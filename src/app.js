@@ -154,6 +154,30 @@ app.get("/api/matches/:matchId", async (req, res, next) => {
   }
 });
 
+app.get("/api/matches/:matchId/all-columns", async (req, res, next) => {
+  try {
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const result = await db.query(
+      `
+      SELECT *
+      FROM match_all_columns
+      WHERE match_id = $1
+        AND bookmaker = $2
+      LIMIT 1
+      `,
+      [req.params.matchId, bookmaker],
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ message: "All-columns kaydi bulunamadi." });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use(express.static(config.staticDir));
 
 app.use((req, res, next) => {

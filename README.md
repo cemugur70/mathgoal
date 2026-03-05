@@ -15,6 +15,7 @@ Bu proje, Dokploy uzerinde calisacak tam akisli bir MVP saglar:
 |   |-- app.js
 |   `-- index.html
 |-- scripts/
+|   |-- collect_match_ids_from_league.py
 |   |-- migrate.js
 |   `-- scrape_to_postgres.py
 |-- sql/
@@ -33,16 +34,18 @@ Bu proje, Dokploy uzerinde calisacak tam akisli bir MVP saglar:
 
 - Python (Veri Kaziyici): `scripts/scrape_to_postgres.py`
   - Match ID listesini okur
-  - Flashscore sayfasindan temel mac verisini ceker
-  - Retry + eszamanli isleme ile PostgreSQL'e yazar
+  - fast_scraper ile tum oran/market verisini ceker
+  - `all_columns.txt` kolon setini doldurarak PostgreSQL'e yazar
 - PostgreSQL: `sql/001_init.sql`
   - `matches` tablosu
+  - `match_all_columns` tablosu (all_columns.txt'teki tum kolonlar)
   - 20GB analitik veri icin temel indeksler
 - Node.js API: `server.js`, `src/*`
   - `/api/health`
   - `/api/stats/overview`
   - `/api/matches`
   - `/api/matches/:matchId`
+  - `/api/matches/:matchId/all-columns?bookmaker=bet365`
 - Frontend: `public/index.html`, `public/app.js`
   - Ozet kartlari
   - Filtreli mac listesi
@@ -91,15 +94,28 @@ npm run migrate
 
 ```powershell
 python -m pip install -r requirements-ingest.txt
+python -m playwright install chromium
 ```
 
-### 4) Veri cekme + DB'ye yazma
+### 4) Lig + sezon bazli Match ID toplama
 
 ```powershell
-python scripts/scrape_to_postgres.py --ids-file collected_match_ids.json --workers 8
+python scripts/collect_match_ids_from_league.py `
+  --country England `
+  --league "Premier League" `
+  --league-url "https://www.flashscore.co.uk/football/england/premier-league/" `
+  --season-start 2025 `
+  --season-end 2025 `
+  --output collected_match_ids_england_premier_2025_2026.json
 ```
 
-### 5) API + Dashboard baslatma
+### 5) Veri cekme + DB'ye yazma
+
+```powershell
+python scripts/scrape_to_postgres.py --ids-file collected_match_ids_england_premier_2025_2026.json --workers 8 --bookmakers all
+```
+
+### 6) API + Dashboard baslatma
 
 ```powershell
 npm start
@@ -145,6 +161,35 @@ Beklenen: `status: ok`
 python scripts/scrape_to_postgres.py --ids-file collected_match_ids.json --workers 4
 ```
 Beklenen: Basarili/hatali id sayisi loglarda gorunur, DB'ye satir yazilir.
+Ek not: Bu komut hem `matches` hem `match_all_columns` tablosunu upsert eder.
+
+### Senaryo 3.1 - Premier League 2025/2026 testi
+```powershell
+python scripts/collect_match_ids_from_league.py `
+  --country England `
+  --league "Premier League" `
+  --league-url "https://www.flashscore.co.uk/football/england/premier-league/" `
+  --season-start 2025 `
+  --season-end 2025 `
+  --max-matches 50 `
+  --output collected_match_ids_england_premier_2025_2026_test.json
+
+python scripts/scrape_to_postgres.py --ids-file collected_match_ids_england_premier_2025_2026_test.json --workers 4
+```
+Beklenen: `England`/`Premier League` maclari DB'ye yazilir ve all_columns tablosu dolar.
+
+### Senaryo 3.2 - Son 10 sezon cekimi
+```powershell
+python scripts/collect_match_ids_from_league.py `
+  --country England `
+  --league "Premier League" `
+  --league-url "https://www.flashscore.co.uk/football/england/premier-league/" `
+  --last-n-seasons 10 `
+  --output collected_match_ids_england_premier_last10.json
+
+python scripts/scrape_to_postgres.py --ids-file collected_match_ids_england_premier_last10.json --workers 8
+```
+Beklenen: Son 10 sezonun mac ID'leri toplanir ve DB'ye upsert edilir.
 
 ### Senaryo 4 - Liste endpoint
 ```powershell

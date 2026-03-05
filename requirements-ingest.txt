@@ -1,4 +1,8 @@
 beautifulsoup4
-python-dotenv
+playwright
 psycopg[binary]
+python-dotenv
 requests
+soupsieve
+typing_extensions
+urllib3
