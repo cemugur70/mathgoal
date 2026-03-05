@@ -15,9 +15,11 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from psycopg import connect
 from psycopg.types.json import Jsonb
@@ -44,6 +46,8 @@ BOOKMAKERS_ALL = [
 FAST_BOOKMAKER_ALIASES = {
     "Unibet": "Unibetuk",
 }
+
+SUPPORTED_BOOKMAKERS: list[str] = []
 
 BASE_TEMPLATE_KEYS = {
     "ide",
@@ -117,25 +121,30 @@ def load_all_columns(col_file: Path) -> list[str]:
 
 
 def parse_bookmakers(raw: str) -> list[str]:
+    base = SUPPORTED_BOOKMAKERS[:] if SUPPORTED_BOOKMAKERS else BOOKMAKERS_ALL[:]
     if not raw or raw.strip().lower() == "all":
-        return BOOKMAKERS_ALL[:]
+        return base
+
     values = [item.strip() for item in raw.split(",") if item.strip()]
     if not values:
-        return BOOKMAKERS_ALL[:]
+        return base
     return values
 
 
 def try_load_fast_scraper() -> None:
-    global SCRAPE_MATCH_DATA
+    global SCRAPE_MATCH_DATA, SUPPORTED_BOOKMAKERS
     if SCRAPE_MATCH_DATA is not None:
         return
     try:
+        from config import BOOKMAKER_MAPPING  # type: ignore
         from fast_scraper import scrape_match_data  # type: ignore
 
         SCRAPE_MATCH_DATA = scrape_match_data
+        SUPPORTED_BOOKMAKERS = list(BOOKMAKER_MAPPING.keys())
         LOGGER.info("fast_scraper yuklendi.")
     except Exception as error:
         SCRAPE_MATCH_DATA = None
+        SUPPORTED_BOOKMAKERS = []
         LOGGER.warning("fast_scraper kullanilamadi, Playwright fallback devrede: %s", error)
 
 
@@ -146,6 +155,67 @@ def normalize_value(value: Any) -> Any:
         stripped = value.strip()
         return stripped if stripped else None
     return value
+
+
+def row_has_meaningful_payload(row: dict[str, Any]) -> bool:
+    for key, value in row.items():
+        if key in {"ide", "bookmaker"}:
+            continue
+        if value not in (None, "", "-", "null"):
+            return True
+    return False
+
+
+def fill_base_fields_from_meta(html: str, row: dict[str, Any]) -> None:
+    soup = BeautifulSoup(html, "html.parser")
+    og_title = soup.select_one('meta[property="og:title"]')
+    og_desc = soup.select_one('meta[property="og:description"]')
+    meta_desc = soup.select_one('meta[name="description"]')
+
+    if og_title:
+        title = og_title.get("content", "")
+        match = re.match(r"^(.+?)\s*-\s*(.+?)(?:\s+(\d+)\s*:\s*(\d+))?$", title)
+        if match:
+            row["EV SAHİBİ"] = normalize_value(match.group(1))
+            row["DEPLASMAN"] = normalize_value(match.group(2))
+            if match.group(3) is not None and match.group(4) is not None:
+                hs = int(match.group(3))
+                aw = int(match.group(4))
+                row["MS"] = f"{hs}-{aw}"
+                row["MS SONUCU"] = "MS 1" if hs > aw else "MS 2" if aw > hs else "MS 0"
+                total = hs + aw
+                row["2.5 ALT ÜST"] = "2.5 ÜST" if total > 2.5 else "2.5 ALT"
+                row["3.5 ÜST"] = "3.5 ÜST" if total > 3.5 else "3.5 ALT"
+                row["KG VAR/YOK"] = "KG VAR" if hs > 0 and aw > 0 else "KG YOK"
+
+    if og_desc:
+        desc = og_desc.get("content", "")
+        round_match = re.search(r"Round\s*(\d+)", desc)
+        if round_match:
+            row["HAFTA"] = round_match.group(1)
+        league_match = re.match(r"^([^:]+):\s*(.+?)(?:\s*-\s*Round|\s*$)", desc)
+        if league_match:
+            row["ÜLKE"] = normalize_value(league_match.group(1))
+            row["LİG"] = normalize_value(league_match.group(2))
+
+    if meta_desc:
+        desc = meta_desc.get("content", "")
+        date_match = re.search(r"(\d{1,2})[./](\d{1,2})[./](\d{4})", desc)
+        if date_match:
+            day = date_match.group(1).zfill(2)
+            month = date_match.group(2).zfill(2)
+            year = date_match.group(3)
+            row["TARİH"] = f"{day}.{month}.{year}"
+            row["GÜN"] = day
+            try:
+                dt = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y")
+                row["SEZON"] = f"{dt.year}-{dt.year + 1}" if dt.month >= 8 else f"{dt.year - 1}-{dt.year}"
+            except ValueError:
+                pass
+
+        time_match = re.search(r"\b(\d{1,2}:\d{2})\b", desc)
+        if time_match:
+            row["SAAT"] = time_match.group(1)
 
 
 def turkishify_column_name(column_name: str, bookmaker_names: list[str]) -> str:
@@ -228,13 +298,15 @@ def fallback_playwright_row(match_id: str, bookmaker: str, all_columns: list[str
     try:
         from playwright.sync_api import sync_playwright
 
-        url = f"https://www.flashscore.com/match/{match_id}/#/odds-comparison/1x2-odds/full-time"
+        url = f"https://www.flashscore.com/match/{match_id}/"
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
             page = browser.new_page()
             page.goto(url, timeout=20000, wait_until="domcontentloaded")
             page.wait_for_timeout(2500)
+            content = page.content()
             browser.close()
+        fill_base_fields_from_meta(content, row)
     except Exception as error:
         LOGGER.debug("Playwright fallback hata %s/%s: %s", match_id, bookmaker, error)
 
@@ -351,6 +423,7 @@ def main() -> None:
     total_ok = 0
     total_fallback = 0
     total_fail = 0
+    total_empty_skipped = 0
     total_upsert = 0
 
     if args.dry_run:
@@ -359,7 +432,7 @@ def main() -> None:
         conn = connect(database_url)
 
     try:
-        bookmaker_names = BOOKMAKERS_ALL[:]
+        bookmaker_names = SUPPORTED_BOOKMAKERS[:] if SUPPORTED_BOOKMAKERS else BOOKMAKERS_ALL[:]
 
         for bookmaker in bookmakers:
             LOGGER.info("Bookmaker basladi: %s", bookmaker)
@@ -383,6 +456,18 @@ def main() -> None:
                         row, from_fast = future.result()
                         if row.get("ide") is None:
                             row["ide"] = match_id
+
+                        if not row_has_meaningful_payload(row):
+                            total_empty_skipped += 1
+                            LOGGER.warning(
+                                "[%s/%s] EMPTY %s / %s (kayit atlandi)",
+                                idx,
+                                len(match_ids),
+                                match_id,
+                                bookmaker,
+                            )
+                            continue
+
                         batch.append(row)
                         if from_fast:
                             total_ok += 1
@@ -421,10 +506,11 @@ def main() -> None:
                 LOGGER.info("Son batch upsert: %s rows (%s)", upserted, bookmaker)
 
         LOGGER.info(
-            "Tamamlandi | fast_ok: %s | fallback: %s | fail: %s | upsert: %s",
+            "Tamamlandi | fast_ok: %s | fallback: %s | fail: %s | bos_atlandi: %s | upsert: %s",
             total_ok,
             total_fallback,
             total_fail,
+            total_empty_skipped,
             total_upsert,
         )
     finally:

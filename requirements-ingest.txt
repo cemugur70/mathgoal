@@ -3,6 +3,7 @@ playwright
 psycopg[binary]
 python-dotenv
 requests
+selenium
 soupsieve
 typing_extensions
 urllib3
