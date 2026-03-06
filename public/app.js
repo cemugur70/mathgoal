@@ -138,8 +138,14 @@ async function loadMatches() {
 
 function filterByOddsType(cols, oddsType) {
   if (oddsType === "all") return cols;
+  const BASE = new Set([
+    "ide", "TARİH", "GÜN", "SAAT", "HAFTA", "SEZON", "ÜLKE", "LİG",
+    "EV SAHİBİ", "DEPLASMAN", "İY", "MS", "İY SONUCU", "MS SONUCU",
+    "İY-MS", "2.5 ALT ÜST", "3.5 ÜST", "KG VAR/YOK", "İY 0.5 ALT ÜST", "İY 1.5 ALT ÜST",
+  ]);
   const result = {};
   for (const [k, v] of Object.entries(cols)) {
+    if (BASE.has(k)) { result[k] = v; continue; }
     const isOpening = k.startsWith("AÇ ");
     if (oddsType === "opening" && isOpening) result[k] = v;
     else if (oddsType === "closing" && !isOpening) result[k] = v;
