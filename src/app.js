@@ -67,12 +67,12 @@ app.get("/api/matches", async (req, res, next) => {
     const values = [];
 
     if (country) {
-      values.push(country);
-      filters.push(`country = $${values.length}`);
+      values.push(country.toUpperCase());
+      filters.push(`UPPER(country) = $${values.length}`);
     }
     if (league) {
-      values.push(league);
-      filters.push(`league = $${values.length}`);
+      values.push(`%${league}%`);
+      filters.push(`league ILIKE $${values.length}`);
     }
     if (season) {
       values.push(season);
