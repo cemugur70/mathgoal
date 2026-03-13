@@ -62,6 +62,7 @@ app.get("/api/matches", async (req, res, next) => {
     const search = (req.query.search || "").trim();
     const dateFrom = (req.query.dateFrom || "").trim();
     const dateTo = (req.query.dateTo || "").trim();
+    const bookmaker = (req.query.bookmaker || "").trim();
 
     const filters = [];
     const values = [];
@@ -90,6 +91,10 @@ app.get("/api/matches", async (req, res, next) => {
     if (dateTo) {
       values.push(dateTo);
       filters.push(`match_date <= $${values.length}::date`);
+    }
+    if (bookmaker) {
+      values.push(bookmaker);
+      filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_all_columns.match_id = matches.match_id AND match_all_columns.bookmaker = $${values.length})`);
     }
 
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";

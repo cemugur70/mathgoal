@@ -111,6 +111,7 @@ async function loadMatches() {
   if (el.fSeason.value.trim()) filters.season = el.fSeason.value.trim();
   if (el.fDateFrom.value.trim()) filters.dateFrom = el.fDateFrom.value.trim();
   if (el.fDateTo.value.trim()) filters.dateTo = el.fDateTo.value.trim();
+  if (el.fBookmaker.value) filters.bookmaker = el.fBookmaker.value;
 
   const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
   const data = await fetchJSON(`${API}/api/matches?${params}`);
