@@ -47,7 +47,12 @@ function fmtOdds(v) {
 
 // ─── Overview ───
 async function loadOverview() {
-  const d = await fetchJSON(`${API}/api/stats/overview`);
+  const bookmaker = el.fBookmaker.value;
+  let url = `${API}/api/stats/overview`;
+  if (bookmaker) {
+    url += `?bookmaker=${encodeURIComponent(bookmaker)}`;
+  }
+  const d = await fetchJSON(url);
   el.statMatches.textContent = d.total_matches ?? 0;
   el.statLeagues.textContent = d.total_leagues ?? 0;
   el.statCountries.textContent = d.total_countries ?? 0;

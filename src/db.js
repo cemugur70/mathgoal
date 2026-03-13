@@ -13,7 +13,15 @@ async function query(text, params = []) {
   return pool.query(text, params);
 }
 
-async function getStats() {
+async function getStats(bookmaker) {
+  let whereClause = "";
+  const params = [];
+  
+  if (bookmaker) {
+    whereClause = "WHERE EXISTS (SELECT 1 FROM match_all_columns WHERE match_all_columns.match_id = matches.match_id AND match_all_columns.bookmaker = $1)";
+    params.push(bookmaker);
+  }
+
   const sql = `
     SELECT
       COUNT(*)::int AS total_matches,
@@ -22,8 +30,9 @@ async function getStats() {
       MIN(match_date) AS first_match_date,
       MAX(match_date) AS last_match_date
     FROM matches
+    ${whereClause}
   `;
-  const result = await query(sql);
+  const result = await query(sql, params);
   return result.rows[0];
 }
 

@@ -45,7 +45,8 @@ app.get("/api/health", async (req, res, next) => {
 
 app.get("/api/stats/overview", async (req, res, next) => {
   try {
-    const stats = await db.getStats();
+    const bookmaker = (req.query.bookmaker || "").trim();
+    const stats = await db.getStats(bookmaker);
     res.json(stats);
   } catch (error) {
     next(error);
