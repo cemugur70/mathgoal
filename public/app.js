@@ -10,7 +10,7 @@ const $ = (id) => document.getElementById(id);
 const el = {
   statMatches: $("statMatches"), statLeagues: $("statLeagues"),
   statCountries: $("statCountries"), statFirstDate: $("statFirstDate"),
-  statLastDate: $("statLastDate"),
+  statLastDate: $("statLastDate"), statOdds: $("statOdds"),
   fSearch: $("fSearch"), fCountry: $("fCountry"), fLeague: $("fLeague"),
   fSeason: $("fSeason"), fDateFrom: $("fDateFrom"), fDateTo: $("fDateTo"),
   fBookmaker: $("fBookmaker"), fOddsType: $("fOddsType"),
@@ -53,11 +53,12 @@ async function loadOverview() {
     url += `?bookmaker=${encodeURIComponent(bookmaker)}`;
   }
   const d = await fetchJSON(url);
-  el.statMatches.textContent = d.total_matches ?? 0;
-  el.statLeagues.textContent = d.total_leagues ?? 0;
+  el.statMatches.textContent = (d.total_matches ?? 0).toLocaleString("tr-TR");
+  el.statLeagues.textContent = (d.total_leagues ?? 0).toLocaleString("tr-TR");
   el.statCountries.textContent = d.total_countries ?? 0;
   el.statFirstDate.textContent = fmtDate(d.first_match_date);
   el.statLastDate.textContent = fmtDate(d.last_match_date);
+  el.statOdds.textContent = (d.total_odds ?? 0).toLocaleString("tr-TR");
 }
 
 // ─── Build column categories ───

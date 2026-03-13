@@ -14,14 +14,24 @@ async function query(text, params = []) {
 }
 
 async function getStats(bookmaker) {
-  let whereClause = "";
-  const params = [];
-  
   if (bookmaker) {
-    whereClause = "WHERE EXISTS (SELECT 1 FROM match_all_columns WHERE match_all_columns.match_id = matches.match_id AND match_all_columns.bookmaker = $1)";
-    params.push(bookmaker);
+    const sql = `
+      SELECT
+        COUNT(DISTINCT m.match_id)::int AS total_matches,
+        COUNT(DISTINCT m.league)::int AS total_leagues,
+        COUNT(DISTINCT m.country)::int AS total_countries,
+        MIN(m.match_date) AS first_match_date,
+        MAX(m.match_date) AS last_match_date,
+        COUNT(mac.match_id)::int AS total_odds
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      WHERE mac.bookmaker = $1
+    `;
+    const result = await query(sql, [bookmaker]);
+    return result.rows[0];
   }
 
+  // No bookmaker filter — global stats
   const sql = `
     SELECT
       COUNT(*)::int AS total_matches,
@@ -30,10 +40,14 @@ async function getStats(bookmaker) {
       MIN(match_date) AS first_match_date,
       MAX(match_date) AS last_match_date
     FROM matches
-    ${whereClause}
   `;
-  const result = await query(sql, params);
-  return result.rows[0];
+  const result2 = await query(sql);
+
+  // Also get total odds count across all bookmakers
+  const oddsResult = await query(`SELECT COUNT(*)::int AS total_odds FROM match_all_columns`);
+  const row = result2.rows[0];
+  row.total_odds = oddsResult.rows[0]?.total_odds || 0;
+  return row;
 }
 
 async function closePool() {
