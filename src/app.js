@@ -390,8 +390,8 @@ app.get("/api/stats/markets", async (req, res, next) => {
       ${whereClause}
     `;
 
-    const result = await db.query(sql, values);
-    const row = result.rows[0] || {};
+    const queryResult = await db.query(sql, values);
+    const row = queryResult.rows[0] || {};
     const total = row.total_matches || 0;
 
     function pct(val) {
