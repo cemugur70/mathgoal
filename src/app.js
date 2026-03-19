@@ -131,6 +131,23 @@ function buildBaseFilters(query, values) {
   if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
   if (ftResult) { values.push(ftResult); filters.push(`m.full_time_result = $${values.length}`); }
 
+  const ELO_KEYS = [
+    { param: "elo_home_5", args: "m.home_team, m.match_date, 5" },
+    { param: "elo_home_10", args: "m.home_team, m.match_date, 10" },
+    { param: "elo_home_20", args: "m.home_team, m.match_date, 20" },
+    { param: "elo_away_5", args: "m.away_team, m.match_date, 5" },
+    { param: "elo_away_10", args: "m.away_team, m.match_date, 10" },
+    { param: "elo_away_20", args: "m.away_team, m.match_date, 20" }
+  ];
+
+  for (const f of ELO_KEYS) {
+    const val = parseFloat(query[f.param]);
+    if (!isNaN(val)) {
+      values.push(val);
+      filters.push(`get_team_elo(${f.args}) = $${values.length}`);
+    }
+  }
+
   return filters;
 }
 

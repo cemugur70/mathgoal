@@ -86,6 +86,12 @@ const ADV_ODDS_FILTERS = [
   { id: "odds_iy_2", label: "İY 2" },
   { id: "odds_ou15_over", label: "1.5 Üst" },
   { id: "odds_ou35_over", label: "3.5 Üst" },
+  { id: "elo_home_5", label: "Ev 5M Rating" },
+  { id: "elo_home_10", label: "Ev 10M Rating" },
+  { id: "elo_home_20", label: "Ev 20M Rating" },
+  { id: "elo_away_5", label: "Dep 5M Rating" },
+  { id: "elo_away_10", label: "Dep 10M Rating" },
+  { id: "elo_away_20", label: "Dep 20M Rating" }
 ];
 
 function buildAdvFilters() {
@@ -93,7 +99,7 @@ function buildAdvFilters() {
     <div class="adv-filter-item">
       <label>${f.label}</label>
       <div class="adv-range" style="grid-template-columns: 1fr;">
-        <input type="number" step="0.01" placeholder="Tam Oran" id="${f.id}" style="width: 100%;" />
+        <input type="number" step="0.01" placeholder="Tam Değer" id="${f.id}" style="width: 100%;" />
       </div>
     </div>
   `).join("");
