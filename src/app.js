@@ -1,12 +1,49 @@
 const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
+
 const pino = require("pino");
 const pinoHttp = require("pino-http");
-
 const config = require("./config");
 const db = require("./db");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
+
+// Initialize DB specific functions and indexes
+db.query(`
+CREATE INDEX IF NOT EXISTS idx_matches_home_date ON matches (home_team, match_date DESC);
+CREATE INDEX IF NOT EXISTS idx_matches_away_date ON matches (away_team, match_date DESC);
+
+CREATE OR REPLACE FUNCTION get_team_elo(p_team text, p_date date, p_limit int)
+RETURNS numeric AS $$
+DECLARE
+  v_elo numeric;
+BEGIN
+  SELECT ROUND(SUM(
+      10 * (
+        (CASE WHEN m2.home_team = p_team AND m2.full_time_result = 'MS 1' THEN 1
+              WHEN m2.away_team = p_team AND m2.full_time_result = 'MS 2' THEN 1
+              WHEN m2.full_time_result = 'MS 0' THEN 0.5 ELSE 0 END)
+        -
+        (CASE WHEN m2.home_team = p_team THEN 
+                COALESCE(1 / NULLIF((mac2.raw_data->>'bet365_home')::numeric, 0), 0.5)
+              ELSE 
+                COALESCE(1 / NULLIF((mac2.raw_data->>'bet365_away')::numeric, 0), 0.5) 
+         END)
+      )
+    ), 1) INTO v_elo
+  FROM (
+      SELECT m3.match_id, m3.home_team, m3.away_team, m3.full_time_result
+      FROM matches m3 
+      WHERE (m3.home_team = p_team OR m3.away_team = p_team) AND m3.match_date < p_date
+      ORDER BY m3.match_date DESC
+      LIMIT p_limit
+  ) m2
+  LEFT JOIN match_all_columns mac2 ON m2.match_id = mac2.match_id AND mac2.bookmaker = 'bet365';
+  
+  RETURN COALESCE(v_elo, 0);
+END;
+$$ LANGUAGE plpgsql STABLE;
+`).catch(e => console.error("Error creating get_team_elo function:", e.message));
 
 const app = express();
 const logger = pino({
@@ -57,19 +94,12 @@ function buildOddsFilters(query, bookmaker, values) {
   const oddsFilters = [];
   let needsJoin = false;
   for (const [paramKey, keyMap] of Object.entries(ODDS_KEY_MAP)) {
-    const minVal = parseFloat(query[`${paramKey}_min`]);
-    const maxVal = parseFloat(query[`${paramKey}_max`]);
-    if (!isNaN(minVal) || !isNaN(maxVal)) {
+    const exactVal = parseFloat(query[paramKey]);
+    if (!isNaN(exactVal)) {
       needsJoin = true;
       const jsonKey = `${bookmaker}_${keyMap.closing}`;
-      if (!isNaN(minVal)) {
-        values.push(minVal);
-        oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric >= $${values.length}`);
-      }
-      if (!isNaN(maxVal)) {
-        values.push(maxVal);
-        oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric <= $${values.length}`);
-      }
+      values.push(exactVal);
+      oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric = $${values.length}`);
     }
   }
   return { oddsFilters, needsJoin };
@@ -146,6 +176,74 @@ app.get("/api/stats/overview", async (req, res, next) => {
     res.json(r.rows[0]);
   } catch (error) {
     next(error);
+  }
+});
+
+app.get("/api/analysis", async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(toPositiveInt(req.query.limit, 50), 1), 1000);
+    const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+
+    const values = [];
+    const filters = buildBaseFilters(req.query, values);
+    const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
+
+    // For analysis we ALWAYS join match_all_columns to get current odds
+    values.push(bookmaker);
+    const bmIdx = values.length;
+    const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
+    const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
+
+    const selectQuery = `
+      SELECT
+        m.match_id,
+        m.match_date,
+        m.match_time,
+        m.league,
+        m.country,
+        m.home_team,
+        m.away_team,
+        m.home_score,
+        m.away_score,
+        m.full_time_result,
+        m.half_time_result,
+        (mac.raw_data->>'${bookmaker}_home')::numeric AS odds_1,
+        (mac.raw_data->>'${bookmaker}_draw')::numeric AS odds_x,
+        (mac.raw_data->>'${bookmaker}_away')::numeric AS odds_2,
+        get_team_elo(m.home_team, m.match_date, 5) AS home_5m,
+        get_team_elo(m.home_team, m.match_date, 10) AS home_10m,
+        get_team_elo(m.home_team, m.match_date, 20) AS home_20m,
+        get_team_elo(m.away_team, m.match_date, 5) AS away_5m,
+        get_team_elo(m.away_team, m.match_date, 10) AS away_10m,
+        get_team_elo(m.away_team, m.match_date, 20) AS away_20m
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${whereClause}
+      ORDER BY m.match_date DESC, m.match_time DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT m.match_id)::int AS total
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${whereClause}
+    `;
+
+    const [rowsResult, countResult] = await Promise.all([
+      db.query(selectQuery, values),
+      db.query(countQuery, values)
+    ]);
+
+    res.json({
+      data: rowsResult.rows,
+      total: countResult.rows[0].total,
+      limit,
+      offset,
+    });
+  } catch (err) {
+    next(err);
   }
 });
 

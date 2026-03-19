@@ -470,6 +470,7 @@
       <div class="main-tabs">
         <button class="main-tab-btn active" data-tab="matchesTab" id="tabMatchesBtn">⚽ Maçlar</button>
         <button class="main-tab-btn" data-tab="statsTab" id="tabStatsBtn">📊 İstatistikler</button>
+        <button class="main-tab-btn" data-tab="analysisTab" id="tabAnalysisBtn">📈 Analiz (Eko Rating)</button>
       </div>
 
       <!-- Filters (shared) -->
@@ -538,7 +539,7 @@
 
       <!-- Advanced Odds Filters -->
       <button class="adv-toggle" id="advToggle" aria-expanded="false" aria-controls="advFilters">
-        <span class="arrow">▼</span> Oran Filtreleri (Min/Max)
+        <span class="arrow">▼</span> Oran Filtreleri (Tam Eşleşme)
       </button>
       <section class="adv-filters" id="advFilters" role="region" aria-labelledby="advToggle">
         <div class="adv-filters-grid" id="advFiltersGrid">
@@ -611,6 +612,40 @@
         <div class="stats-summary" id="statsGrid">
           <div style="padding:40px; text-align:center; color:var(--text-muted);">Filtreleri uygulayıp "Filtrele" butonuna tıklayın.</div>
         </div>
+      </div>
+
+      <!-- ═══ TAB 3: Analysis (Eko Rating) ═══ -->
+      <div class="tab-content" id="analysisTab">
+        <section class="table-container">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Lig</th>
+                  <th>Ev Sahibi</th>
+                  <th style="color: var(--accent);">Ev 5M</th>
+                  <th style="color: var(--accent);">Ev 10M</th>
+                  <th style="color: var(--accent);">Ev 20M</th>
+                  <th>Deplasman</th>
+                  <th style="color: var(--purple);">Dep 5M</th>
+                  <th style="color: var(--purple);">Dep 10M</th>
+                  <th style="color: var(--purple);">Dep 20M</th>
+                  <th>Oran 1</th>
+                  <th>Oran X</th>
+                  <th>Oran 2</th>
+                  <th>Skor (MS)</th>
+                </tr>
+              </thead>
+              <tbody id="analysisBody">
+                <tr class="empty-row"><td colspan="14" style="text-align:center; padding:40px; color:var(--text-muted);">Filtreleri uygulayıp analiz verilerini getirin.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <footer class="footer-bar" style="margin-top: 10px;">
+          <span>* Rating algoritması: Gerçek oran-beklentisi ve rakip zorluğuna dayalı Özel Eko Elo sistemidir. (Maksimum doğruluk için güncel oran veritabanından çekilir).</span>
+        </footer>
       </div>
     </main>
 

@@ -92,10 +92,8 @@ function buildAdvFilters() {
   el.advFiltersGrid.innerHTML = ADV_ODDS_FILTERS.map(f => `
     <div class="adv-filter-item">
       <label>${f.label}</label>
-      <div class="adv-range">
-        <input type="number" step="0.01" placeholder="Min" id="${f.id}_min" />
-        <span>-</span>
-        <input type="number" step="0.01" placeholder="Max" id="${f.id}_max" />
+      <div class="adv-range" style="grid-template-columns: 1fr;">
+        <input type="number" step="0.01" placeholder="Tam Oran" id="${f.id}" style="width: 100%;" />
       </div>
     </div>
   `).join("");
@@ -105,13 +103,9 @@ buildAdvFilters();
 function getAdvFilters() {
   const filters = {};
   ADV_ODDS_FILTERS.forEach(f => {
-    const minEl = document.getElementById(`${f.id}_min`);
-    const maxEl = document.getElementById(`${f.id}_max`);
-    const min = minEl ? parseFloat(minEl.value) : NaN;
-    const max = maxEl ? parseFloat(maxEl.value) : NaN;
-    if (!isNaN(min) || !isNaN(max)) {
-      filters[f.id] = { min: isNaN(min) ? null : min, max: isNaN(max) ? null : max };
-    }
+    const elId = document.getElementById(f.id);
+    const val = elId ? parseFloat(elId.value) : NaN;
+    if (!isNaN(val)) filters[f.id] = val;
   });
   return filters;
 }
@@ -241,12 +235,10 @@ function getBaseFilters() {
   if (el.fBookmaker.value) filters.bookmaker = el.fBookmaker.value;
   if (el.fResult.value) filters.result = el.fResult.value;
 
-  // Add odds range filters
+  // Add exact odds filters
   ADV_ODDS_FILTERS.forEach(f => {
-    const minEl = document.getElementById(`${f.id}_min`);
-    const maxEl = document.getElementById(`${f.id}_max`);
-    if (minEl && minEl.value) filters[`${f.id}_min`] = minEl.value;
-    if (maxEl && maxEl.value) filters[`${f.id}_max`] = maxEl.value;
+    const elId = document.getElementById(f.id);
+    if (elId && elId.value) filters[f.id] = elId.value;
   });
 
   return filters;
@@ -547,6 +539,58 @@ async function loadMarketStats() {
   }
 }
 
+// ─── Analysis (Eko Rating) ───
+async function loadAnalysis() {
+  const filters = getBaseFilters();
+  const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
+
+  const analysisBody = $("analysisBody");
+  analysisBody.innerHTML = `<tr class="empty-row"><td colspan="14"><span class="spinner"></span> Analiz verileri hesaplanıyor...</td></tr>`;
+
+  try {
+    const data = await fetchJSON(`${API}/api/analysis?${params}`);
+    state.total = data.total || 0;
+    renderAnalysisTable(data.data || []);
+    updatePagination();
+  } catch (err) {
+    analysisBody.innerHTML = `<tr class="empty-row"><td colspan="14" style="color:var(--red);">Hata: ${esc(err.message)}</td></tr>`;
+  }
+}
+
+function renderAnalysisTable(rows) {
+  const tbody = $("analysisBody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="14">
+      <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+        <span style="font-size:2rem; opacity:0.5;">🔍</span>
+        <span>Aramanıza uygun analiz verisi bulunamadı.</span>
+      </div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r) => {
+    const score = r.home_score != null ? `${r.home_score} - ${r.away_score}` : "-";
+    return `
+      <tr data-id="${r.match_id}">
+        <td class="text-dim">${fmtDate(r.match_date)}</td>
+        <td class="text-dim">${esc(r.league || "")}</td>
+        <td class="team-name">${esc(r.home_team)}</td>
+        <td style="color: var(--accent); font-weight: 700;">${r.home_5m || 0}</td>
+        <td style="color: var(--accent); font-weight: 700;">${r.home_10m || 0}</td>
+        <td style="color: var(--accent); font-weight: 700;">${r.home_20m || 0}</td>
+        <td class="team-name">${esc(r.away_team)}</td>
+        <td style="color: var(--purple); font-weight: 700;">${r.away_5m || 0}</td>
+        <td style="color: var(--purple); font-weight: 700;">${r.away_10m || 0}</td>
+        <td style="color: var(--purple); font-weight: 700;">${r.away_20m || 0}</td>
+        <td class="odds-value">${r.odds_1 ? parseFloat(r.odds_1).toFixed(2) : "-"}</td>
+        <td class="odds-value">${r.odds_x ? parseFloat(r.odds_x).toFixed(2) : "-"}</td>
+        <td class="odds-value">${r.odds_2 ? parseFloat(r.odds_2).toFixed(2) : "-"}</td>
+        <td><span class="score">${esc(score)}</span></td>
+      </tr>`;
+  }).join("");
+}
+
 // ─── Refresh ───
 async function refreshAll() {
   setStatus("Veriler yükleniyor...", "loading");
@@ -554,8 +598,14 @@ async function refreshAll() {
   el.btnApply.disabled = true;
   el.btnApply.innerHTML = `<span class="spinner"></span> Yükleniyor...`;
   try {
-    await Promise.all([loadOverview(), loadMatches()]);
-    if (state.activeTab === "statsTab") await loadMarketStats();
+    await loadOverview();
+    if (state.activeTab === "matchesTab") {
+      await loadMatches();
+    } else if (state.activeTab === "statsTab") {
+      await loadMarketStats();
+    } else if (state.activeTab === "analysisTab") {
+      await loadAnalysis();
+    }
     setStatus("Hazır", "ok");
   } catch (err) {
     setStatus(`Hata: ${err.message}`, "err");
@@ -570,7 +620,6 @@ el.btnApply.addEventListener("click", () => {
   state.offset = 0; state.selectedMatchId = null;
   el.oddsPanel.classList.remove("active");
   refreshAll();
-  if (state.activeTab === "statsTab") loadMarketStats();
 });
 el.btnClear.addEventListener("click", () => {
   [el.fSearch, el.fDateFrom, el.fDateTo].forEach((i) => (i.value = ""));
@@ -578,10 +627,8 @@ el.btnClear.addEventListener("click", () => {
   el.fResult.value = "";
   // Clear advanced filters
   ADV_ODDS_FILTERS.forEach(f => {
-    const minEl = document.getElementById(`${f.id}_min`);
-    const maxEl = document.getElementById(`${f.id}_max`);
-    if (minEl) minEl.value = "";
-    if (maxEl) maxEl.value = "";
+    const elId = document.getElementById(f.id);
+    if (elId) elId.value = "";
   });
   state.offset = 0; state.selectedMatchId = null;
   el.oddsPanel.classList.remove("active");
@@ -593,12 +640,27 @@ el.oddsClose.addEventListener("click", () => {
   el.oddsPanel.classList.remove("active"); state.selectedMatchId = null;
   document.querySelectorAll("tbody tr").forEach((tr) => tr.classList.remove("selected"));
 });
-el.fBookmaker.addEventListener("change", () => { refreshAll(); if (state.selectedMatchId) selectMatch(state.selectedMatchId); });
-el.fOddsType.addEventListener("change", () => { refreshAll(); if (state.selectedMatchId) selectMatch(state.selectedMatchId); });
+el.fBookmaker.addEventListener("change", () => { refreshAll(); if (state.selectedMatchId && state.activeTab === 'matchesTab') selectMatch(state.selectedMatchId); });
+el.fOddsType.addEventListener("change", () => { refreshAll(); if (state.selectedMatchId && state.activeTab === 'matchesTab') selectMatch(state.selectedMatchId); });
 document.querySelectorAll(".filter-group input").forEach((input) => {
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { state.offset = 0; refreshAll(); } });
 });
 window.selectMatch = selectMatch;
+
+document.querySelectorAll(".main-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.tab === "analysisTab" && state.activeTab !== "analysisTab") {
+      state.activeTab = "analysisTab";
+      loadAnalysis();
+    } else if (btn.dataset.tab === "statsTab" && state.activeTab !== "statsTab") {
+      state.activeTab = "statsTab";
+      loadMarketStats();
+    } else if (btn.dataset.tab === "matchesTab" && state.activeTab !== "matchesTab") {
+      state.activeTab = "matchesTab";
+      loadMatches();
+    }
+  });
+});
 
 // ─── Init ───
 (async () => {
