@@ -30,6 +30,80 @@ function toPositiveInt(value, fallback) {
   return parsed;
 }
 
+// ─── Shared: Odds range filter builder ─────────────────────────────
+const ODDS_KEY_MAP = {
+  odds_1:          { closing: "home" },
+  odds_x:          { closing: "draw" },
+  odds_2:          { closing: "away" },
+  odds_ou25_over:  { closing: "2_5_over" },
+  odds_ou25_under: { closing: "2_5_under" },
+  odds_btts_yes:   { closing: "yes" },
+  odds_btts_no:    { closing: "no" },
+  odds_dc_1x:      { closing: "home_draw_odds" },
+  odds_dc_x2:      { closing: "away_draw_odds" },
+  odds_dc_12:      { closing: "home_away_odds" },
+  odds_iy_1:       { closing: "first_half_home" },
+  odds_iy_x:       { closing: "first_half_draw" },
+  odds_iy_2:       { closing: "first_half_away" },
+  odds_ou15_over:  { closing: "1_5_over" },
+  odds_ou35_over:  { closing: "3_5_over" },
+};
+
+/**
+ * Parse odds range filters from query and append to values array.
+ * Returns { oddsFilters: string[], needsJoin: boolean }
+ */
+function buildOddsFilters(query, bookmaker, values) {
+  const oddsFilters = [];
+  let needsJoin = false;
+  for (const [paramKey, keyMap] of Object.entries(ODDS_KEY_MAP)) {
+    const minVal = parseFloat(query[`${paramKey}_min`]);
+    const maxVal = parseFloat(query[`${paramKey}_max`]);
+    if (!isNaN(minVal) || !isNaN(maxVal)) {
+      needsJoin = true;
+      const jsonKey = `${bookmaker}_${keyMap.closing}`;
+      if (!isNaN(minVal)) {
+        values.push(minVal);
+        oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric >= $${values.length}`);
+      }
+      if (!isNaN(maxVal)) {
+        values.push(maxVal);
+        oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric <= $${values.length}`);
+      }
+    }
+  }
+  return { oddsFilters, needsJoin };
+}
+
+/**
+ * Parse common filters from query and append to values array.
+ * Returns filters array of SQL conditions.
+ */
+function buildBaseFilters(query, values) {
+  const filters = [];
+  const country = (query.country || "").trim();
+  const league = (query.league || "").trim();
+  const season = (query.season || "").trim();
+  const search = (query.search || "").trim();
+  const dateFrom = (query.dateFrom || "").trim();
+  const dateTo = (query.dateTo || "").trim();
+  const ftResult = (query.result || "").trim();
+
+  if (country) { values.push(`%${country}%`); filters.push(`m.country ILIKE $${values.length}`); }
+  if (league) { values.push(`%${league}%`); filters.push(`m.league ILIKE $${values.length}`); }
+  if (season) { values.push(`%${season}%`); filters.push(`m.season ILIKE $${values.length}`); }
+  if (search) {
+    values.push(`%${search}%`);
+    const t = `$${values.length}`;
+    filters.push(`(m.home_team ILIKE ${t} OR m.away_team ILIKE ${t})`);
+  }
+  if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
+  if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
+  if (ftResult) { values.push(ftResult); filters.push(`m.full_time_result = $${values.length}`); }
+
+  return filters;
+}
+
 app.get("/api/health", async (req, res, next) => {
   try {
     await db.query("SELECT 1");
@@ -45,67 +119,31 @@ app.get("/api/health", async (req, res, next) => {
 
 app.get("/api/stats/overview", async (req, res, next) => {
   try {
-    const country = (req.query.country || "").trim();
-    const league = (req.query.league || "").trim();
-    const season = (req.query.season || "").trim();
-    const search = (req.query.search || "").trim();
-    const dateFrom = (req.query.dateFrom || "").trim();
-    const dateTo = (req.query.dateTo || "").trim();
-    const bookmaker = (req.query.bookmaker || "").trim();
-    const result = (req.query.result || "").trim();
-
-    const filters = [];
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
     const values = [];
+    const filters = buildBaseFilters(req.query, values);
+    const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
 
-    if (country) { values.push(`%${country}%`); filters.push(`m.country ILIKE $${values.length}`); }
-    if (league) { values.push(`%${league}%`); filters.push(`m.league ILIKE $${values.length}`); }
-    if (season) { values.push(`%${season}%`); filters.push(`m.season ILIKE $${values.length}`); }
-    if (search) {
-      values.push(`%${search}%`);
-      const t = `$${values.length}`;
-      filters.push(`(m.home_team ILIKE ${t} OR m.away_team ILIKE ${t})`);
-    }
-    if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
-    if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
-    if (result) { values.push(result); filters.push(`m.full_time_result = $${values.length}`); }
+    // Always JOIN with match_all_columns (bookmaker is always set)
+    values.push(bookmaker);
+    const bmIdx = values.length;
+    const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
+    const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
 
-    if (bookmaker) {
-      values.push(bookmaker);
-      const bmIdx = values.length;
-      const whereClause = filters.length ? `WHERE ${filters.join(" AND ")} AND mac.bookmaker = $${bmIdx}` : `WHERE mac.bookmaker = $${bmIdx}`;
-      const sql = `
-        SELECT
-          COUNT(DISTINCT m.match_id)::int AS total_matches,
-          COUNT(DISTINCT m.league)::int AS total_leagues,
-          COUNT(DISTINCT m.country)::int AS total_countries,
-          MIN(m.match_date) AS first_match_date,
-          MAX(m.match_date) AS last_match_date,
-          COUNT(mac.match_id)::int AS total_odds
-        FROM matches m
-        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
-        ${whereClause}
-      `;
-      const r = await db.query(sql, values);
-      return res.json(r.rows[0]);
-    }
-
-    // No bookmaker filter
-    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
     const sql = `
       SELECT
-        COUNT(*)::int AS total_matches,
-        COUNT(DISTINCT league)::int AS total_leagues,
-        COUNT(DISTINCT country)::int AS total_countries,
-        MIN(match_date) AS first_match_date,
-        MAX(match_date) AS last_match_date
+        COUNT(DISTINCT m.match_id)::int AS total_matches,
+        COUNT(DISTINCT m.league)::int AS total_leagues,
+        COUNT(DISTINCT m.country)::int AS total_countries,
+        MIN(m.match_date) AS first_match_date,
+        MAX(m.match_date) AS last_match_date,
+        COUNT(mac.match_id)::int AS total_odds
       FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${whereClause}
     `;
-    const r2 = await db.query(sql, values);
-    const row = r2.rows[0];
-    const oddsResult = await db.query(`SELECT COUNT(*)::int AS total_odds FROM match_all_columns`);
-    row.total_odds = oddsResult.rows[0]?.total_odds || 0;
-    res.json(row);
+    const r = await db.query(sql, values);
+    res.json(r.rows[0]);
   } catch (error) {
     next(error);
   }
@@ -115,89 +153,11 @@ app.get("/api/matches", async (req, res, next) => {
   try {
     const limit = Math.min(toPositiveInt(req.query.limit, config.dashboardPageSize), 200);
     const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
-    const country = (req.query.country || "").trim();
-    const league = (req.query.league || "").trim();
-    const season = (req.query.season || "").trim();
-    const search = (req.query.search || "").trim();
-    const dateFrom = (req.query.dateFrom || "").trim();
-    const dateTo = (req.query.dateTo || "").trim();
     const bookmaker = (req.query.bookmaker || "bet365").trim();
-    const ftResult = (req.query.result || "").trim();
 
-    const filters = [];
     const values = [];
-    let needsJoin = false;
-
-    if (country) {
-      values.push(`%${country}%`);
-      filters.push(`m.country ILIKE $${values.length}`);
-    }
-    if (league) {
-      values.push(`%${league}%`);
-      filters.push(`m.league ILIKE $${values.length}`);
-    }
-    if (season) {
-      values.push(`%${season}%`);
-      filters.push(`m.season ILIKE $${values.length}`);
-    }
-    if (search) {
-      values.push(`%${search}%`);
-      const token = `$${values.length}`;
-      filters.push(`(m.home_team ILIKE ${token} OR m.away_team ILIKE ${token} OR m.match_id ILIKE ${token})`);
-    }
-    if (dateFrom) {
-      values.push(dateFrom);
-      filters.push(`m.match_date >= $${values.length}::date`);
-    }
-    if (dateTo) {
-      values.push(dateTo);
-      filters.push(`m.match_date <= $${values.length}::date`);
-    }
-    if (ftResult) {
-      values.push(ftResult);
-      filters.push(`m.full_time_result = $${values.length}`);
-    }
-
-    // ─── Odds range filters (JSONB on match_all_columns.raw_data) ───
-    // Mapping from filter param name to raw_data JSON keys
-    // For closing odds: bookmaker_suffix (e.g., bet365_home)
-    // For opening odds: opening_bookmaker_suffix (e.g., opening_bet365_home)
-    const ODDS_KEY_MAP = {
-      odds_1:          { closing: "home",                opening: "home" },
-      odds_x:          { closing: "draw",                opening: "draw" },
-      odds_2:          { closing: "away",                opening: "away" },
-      odds_ou25_over:  { closing: "2_5_over",            opening: "2_5_over" },
-      odds_ou25_under: { closing: "2_5_under",           opening: "2_5_under" },
-      odds_btts_yes:   { closing: "yes",                 opening: "yes" },
-      odds_btts_no:    { closing: "no",                  opening: "no" },
-      odds_dc_1x:      { closing: "home_draw_odds",      opening: "home_draw_odds" },
-      odds_dc_x2:      { closing: "away_draw_odds",      opening: "away_draw_odds" },
-      odds_dc_12:      { closing: "home_away_odds",      opening: "home_away_odds" },
-      odds_iy_1:       { closing: "first_half_home",     opening: "first_half_home" },
-      odds_iy_x:       { closing: "first_half_draw",     opening: "first_half_draw" },
-      odds_iy_2:       { closing: "first_half_away",     opening: "first_half_away" },
-      odds_ou15_over:  { closing: "1_5_over",            opening: "1_5_over" },
-      odds_ou35_over:  { closing: "3_5_over",            opening: "3_5_over" },
-    };
-
-    const oddsFilters = [];
-    for (const [paramKey, keyMap] of Object.entries(ODDS_KEY_MAP)) {
-      const minVal = parseFloat(req.query[`${paramKey}_min`]);
-      const maxVal = parseFloat(req.query[`${paramKey}_max`]);
-      if (!isNaN(minVal) || !isNaN(maxVal)) {
-        needsJoin = true;
-        // Use closing odds key: bookmaker_suffix
-        const jsonKey = `${bookmaker}_${keyMap.closing}`;
-        if (!isNaN(minVal)) {
-          values.push(minVal);
-          oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric >= $${values.length}`);
-        }
-        if (!isNaN(maxVal)) {
-          values.push(maxVal);
-          oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric <= $${values.length}`);
-        }
-      }
-    }
+    const filters = buildBaseFilters(req.query, values);
+    const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
 
     // Build query with optional JOIN
     if (needsJoin) {
@@ -360,35 +320,17 @@ app.get("/api/filters/options", async (req, res, next) => {
 // Market statistics endpoint
 app.get("/api/stats/markets", async (req, res, next) => {
   try {
-    const country = (req.query.country || "").trim();
-    const league = (req.query.league || "").trim();
-    const season = (req.query.season || "").trim();
-    const search = (req.query.search || "").trim();
-    const dateFrom = (req.query.dateFrom || "").trim();
-    const dateTo = (req.query.dateTo || "").trim();
     const bookmaker = (req.query.bookmaker || "bet365").trim();
-    const result = (req.query.result || "").trim();
 
-    const filters = [];
     const values = [];
-
-    if (country) { values.push(`%${country}%`); filters.push(`m.country ILIKE $${values.length}`); }
-    if (league) { values.push(`%${league}%`); filters.push(`m.league ILIKE $${values.length}`); }
-    if (season) { values.push(`%${season}%`); filters.push(`m.season ILIKE $${values.length}`); }
-    if (search) {
-      values.push(`%${search}%`);
-      const t = `$${values.length}`;
-      filters.push(`(m.home_team ILIKE ${t} OR m.away_team ILIKE ${t})`);
-    }
-    if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
-    if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
-    if (result) { values.push(result); filters.push(`m.full_time_result = $${values.length}`); }
+    const filters = buildBaseFilters(req.query, values);
+    const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
 
     values.push(bookmaker);
     const bmIdx = values.length;
-    filters.push(`mac.bookmaker = $${bmIdx}`);
+    const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
 
-    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+    const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
 
     const sql = `
       SELECT
