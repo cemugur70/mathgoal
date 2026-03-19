@@ -45,9 +45,67 @@ app.get("/api/health", async (req, res, next) => {
 
 app.get("/api/stats/overview", async (req, res, next) => {
   try {
+    const country = (req.query.country || "").trim();
+    const league = (req.query.league || "").trim();
+    const season = (req.query.season || "").trim();
+    const search = (req.query.search || "").trim();
+    const dateFrom = (req.query.dateFrom || "").trim();
+    const dateTo = (req.query.dateTo || "").trim();
     const bookmaker = (req.query.bookmaker || "").trim();
-    const stats = await db.getStats(bookmaker);
-    res.json(stats);
+    const result = (req.query.result || "").trim();
+
+    const filters = [];
+    const values = [];
+
+    if (country) { values.push(`%${country}%`); filters.push(`m.country ILIKE $${values.length}`); }
+    if (league) { values.push(`%${league}%`); filters.push(`m.league ILIKE $${values.length}`); }
+    if (season) { values.push(`%${season}%`); filters.push(`m.season ILIKE $${values.length}`); }
+    if (search) {
+      values.push(`%${search}%`);
+      const t = `$${values.length}`;
+      filters.push(`(m.home_team ILIKE ${t} OR m.away_team ILIKE ${t})`);
+    }
+    if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
+    if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
+    if (result) { values.push(result); filters.push(`m.full_time_result = $${values.length}`); }
+
+    if (bookmaker) {
+      values.push(bookmaker);
+      const bmIdx = values.length;
+      const whereClause = filters.length ? `WHERE ${filters.join(" AND ")} AND mac.bookmaker = $${bmIdx}` : `WHERE mac.bookmaker = $${bmIdx}`;
+      const sql = `
+        SELECT
+          COUNT(DISTINCT m.match_id)::int AS total_matches,
+          COUNT(DISTINCT m.league)::int AS total_leagues,
+          COUNT(DISTINCT m.country)::int AS total_countries,
+          MIN(m.match_date) AS first_match_date,
+          MAX(m.match_date) AS last_match_date,
+          COUNT(mac.match_id)::int AS total_odds
+        FROM matches m
+        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+        ${whereClause}
+      `;
+      const r = await db.query(sql, values);
+      return res.json(r.rows[0]);
+    }
+
+    // No bookmaker filter
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+    const sql = `
+      SELECT
+        COUNT(*)::int AS total_matches,
+        COUNT(DISTINCT league)::int AS total_leagues,
+        COUNT(DISTINCT country)::int AS total_countries,
+        MIN(match_date) AS first_match_date,
+        MAX(match_date) AS last_match_date
+      FROM matches m
+      ${whereClause}
+    `;
+    const r2 = await db.query(sql, values);
+    const row = r2.rows[0];
+    const oddsResult = await db.query(`SELECT COUNT(*)::int AS total_odds FROM match_all_columns`);
+    row.total_odds = oddsResult.rows[0]?.total_odds || 0;
+    res.json(row);
   } catch (error) {
     next(error);
   }
@@ -64,6 +122,7 @@ app.get("/api/matches", async (req, res, next) => {
     const dateFrom = (req.query.dateFrom || "").trim();
     const dateTo = (req.query.dateTo || "").trim();
     const bookmaker = (req.query.bookmaker || "").trim();
+    const result = (req.query.result || "").trim();
 
     const filters = [];
     const values = [];
@@ -96,6 +155,10 @@ app.get("/api/matches", async (req, res, next) => {
     if (bookmaker) {
       values.push(bookmaker);
       filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_all_columns.match_id = matches.match_id AND match_all_columns.bookmaker = $${values.length})`);
+    }
+    if (result) {
+      values.push(result);
+      filters.push(`full_time_result = $${values.length}`);
     }
 
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
@@ -241,6 +304,7 @@ app.get("/api/stats/markets", async (req, res, next) => {
     const dateFrom = (req.query.dateFrom || "").trim();
     const dateTo = (req.query.dateTo || "").trim();
     const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const result = (req.query.result || "").trim();
 
     const filters = [];
     const values = [];
@@ -255,6 +319,7 @@ app.get("/api/stats/markets", async (req, res, next) => {
     }
     if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
     if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
+    if (result) { values.push(result); filters.push(`m.full_time_result = $${values.length}`); }
 
     values.push(bookmaker);
     const bmIdx = values.length;

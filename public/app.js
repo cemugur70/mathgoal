@@ -179,10 +179,9 @@ async function loadFilterOptions() {
 
 // ─── Overview ───
 async function loadOverview() {
-  const bookmaker = el.fBookmaker.value;
-  let url = `${API}/api/stats/overview`;
-  if (bookmaker) url += `?bookmaker=${encodeURIComponent(bookmaker)}`;
-  const d = await fetchJSON(url);
+  const filters = getBaseFilters();
+  const params = new URLSearchParams(filters);
+  const d = await fetchJSON(`${API}/api/stats/overview?${params}`);
   el.statMatches.textContent = (d.total_matches ?? 0).toLocaleString("tr-TR");
   el.statLeagues.textContent = (d.total_leagues ?? 0).toLocaleString("tr-TR");
   el.statCountries.textContent = d.total_countries ?? 0;
@@ -239,13 +238,13 @@ function getBaseFilters() {
   if (el.fDateFrom.value.trim()) filters.dateFrom = el.fDateFrom.value.trim();
   if (el.fDateTo.value.trim()) filters.dateTo = el.fDateTo.value.trim();
   if (el.fBookmaker.value) filters.bookmaker = el.fBookmaker.value;
+  if (el.fResult.value) filters.result = el.fResult.value;
   return filters;
 }
 
 // ─── Match Table ───
 async function loadMatches() {
   const filters = getBaseFilters();
-  const resultFilter = el.fResult.value;
   const advFilters = getAdvFilters();
   const hasAdvFilters = Object.keys(advFilters).length > 0;
 
@@ -269,11 +268,6 @@ async function loadMatches() {
     );
   }
 
-  // Apply result filter client-side
-  if (resultFilter) {
-    rows = rows.filter(r => r.full_time_result === resultFilter);
-  }
-
   // Apply advanced odds filters client-side
   if (hasAdvFilters) {
     rows = rows.filter(r => {
@@ -288,7 +282,7 @@ async function loadMatches() {
     const end = Math.min(start + state.limit, rows.length);
     rows = rows.slice(start, end);
   } else {
-    state.total = resultFilter ? rows.length : (data.total || 0);
+    state.total = data.total || 0;
   }
 
   renderTable(rows, oddsMap, oddsType);
