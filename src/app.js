@@ -121,82 +121,145 @@ app.get("/api/matches", async (req, res, next) => {
     const search = (req.query.search || "").trim();
     const dateFrom = (req.query.dateFrom || "").trim();
     const dateTo = (req.query.dateTo || "").trim();
-    const bookmaker = (req.query.bookmaker || "").trim();
-    const result = (req.query.result || "").trim();
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const ftResult = (req.query.result || "").trim();
 
     const filters = [];
     const values = [];
+    let needsJoin = false;
 
     if (country) {
       values.push(`%${country}%`);
-      filters.push(`country ILIKE $${values.length}`);
+      filters.push(`m.country ILIKE $${values.length}`);
     }
     if (league) {
       values.push(`%${league}%`);
-      filters.push(`league ILIKE $${values.length}`);
+      filters.push(`m.league ILIKE $${values.length}`);
     }
     if (season) {
       values.push(`%${season}%`);
-      filters.push(`season ILIKE $${values.length}`);
+      filters.push(`m.season ILIKE $${values.length}`);
     }
     if (search) {
       values.push(`%${search}%`);
       const token = `$${values.length}`;
-      filters.push(`(home_team ILIKE ${token} OR away_team ILIKE ${token} OR match_id ILIKE ${token})`);
+      filters.push(`(m.home_team ILIKE ${token} OR m.away_team ILIKE ${token} OR m.match_id ILIKE ${token})`);
     }
     if (dateFrom) {
       values.push(dateFrom);
-      filters.push(`match_date >= $${values.length}::date`);
+      filters.push(`m.match_date >= $${values.length}::date`);
     }
     if (dateTo) {
       values.push(dateTo);
-      filters.push(`match_date <= $${values.length}::date`);
+      filters.push(`m.match_date <= $${values.length}::date`);
     }
+    if (ftResult) {
+      values.push(ftResult);
+      filters.push(`m.full_time_result = $${values.length}`);
+    }
+
+    // ─── Odds range filters (JSONB on match_all_columns.raw_data) ───
+    // Mapping from filter param name to raw_data JSON keys
+    // For closing odds: bookmaker_suffix (e.g., bet365_home)
+    // For opening odds: opening_bookmaker_suffix (e.g., opening_bet365_home)
+    const ODDS_KEY_MAP = {
+      odds_1:          { closing: "home",                opening: "home" },
+      odds_x:          { closing: "draw",                opening: "draw" },
+      odds_2:          { closing: "away",                opening: "away" },
+      odds_ou25_over:  { closing: "2_5_over",            opening: "2_5_over" },
+      odds_ou25_under: { closing: "2_5_under",           opening: "2_5_under" },
+      odds_btts_yes:   { closing: "yes",                 opening: "yes" },
+      odds_btts_no:    { closing: "no",                  opening: "no" },
+      odds_dc_1x:      { closing: "home_draw_odds",      opening: "home_draw_odds" },
+      odds_dc_x2:      { closing: "away_draw_odds",      opening: "away_draw_odds" },
+      odds_dc_12:      { closing: "home_away_odds",      opening: "home_away_odds" },
+      odds_iy_1:       { closing: "first_half_home",     opening: "first_half_home" },
+      odds_iy_x:       { closing: "first_half_draw",     opening: "first_half_draw" },
+      odds_iy_2:       { closing: "first_half_away",     opening: "first_half_away" },
+      odds_ou15_over:  { closing: "1_5_over",            opening: "1_5_over" },
+      odds_ou35_over:  { closing: "3_5_over",            opening: "3_5_over" },
+    };
+
+    const oddsFilters = [];
+    for (const [paramKey, keyMap] of Object.entries(ODDS_KEY_MAP)) {
+      const minVal = parseFloat(req.query[`${paramKey}_min`]);
+      const maxVal = parseFloat(req.query[`${paramKey}_max`]);
+      if (!isNaN(minVal) || !isNaN(maxVal)) {
+        needsJoin = true;
+        // Use closing odds key: bookmaker_suffix
+        const jsonKey = `${bookmaker}_${keyMap.closing}`;
+        if (!isNaN(minVal)) {
+          values.push(minVal);
+          oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric >= $${values.length}`);
+        }
+        if (!isNaN(maxVal)) {
+          values.push(maxVal);
+          oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric <= $${values.length}`);
+        }
+      }
+    }
+
+    // Build query with optional JOIN
+    if (needsJoin) {
+      values.push(bookmaker);
+      const bmIdx = values.length;
+      const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
+      const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
+
+      const countSql = `
+        SELECT COUNT(DISTINCT m.match_id)::int AS total
+        FROM matches m
+        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+        ${whereClause}
+      `;
+      const countResult = await db.query(countSql, values);
+      const total = countResult.rows[0]?.total || 0;
+
+      const dataValues = [...values, limit, offset];
+      const dataSql = `
+        SELECT DISTINCT ON (m.match_date, m.match_time, m.scraped_at, m.match_id)
+          m.match_id, m.country, m.league, m.season, m.round_no,
+          m.match_date, m.match_time, m.home_team, m.away_team,
+          m.home_score, m.away_score, m.full_time_result, m.scraped_at
+        FROM matches m
+        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+        ${whereClause}
+        ORDER BY m.match_date DESC NULLS LAST, m.match_time DESC NULLS LAST, m.scraped_at DESC, m.match_id
+        LIMIT $${dataValues.length - 1}
+        OFFSET $${dataValues.length}
+      `;
+      const dataResult = await db.query(dataSql, dataValues);
+
+      return res.json({ total, limit, offset, data: dataResult.rows });
+    }
+
+    // No odds filters — simple query (no JOIN for performance)
     if (bookmaker) {
       values.push(bookmaker);
-      filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_all_columns.match_id = matches.match_id AND match_all_columns.bookmaker = $${values.length})`);
-    }
-    if (result) {
-      values.push(result);
-      filters.push(`full_time_result = $${values.length}`);
+      filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_all_columns.match_id = m.match_id AND match_all_columns.bookmaker = $${values.length})`);
     }
 
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
-    const countSql = `SELECT COUNT(*)::int AS total FROM matches ${whereClause}`;
+    const countSql = `SELECT COUNT(*)::int AS total FROM matches m ${whereClause}`;
     const countResult = await db.query(countSql, values);
     const total = countResult.rows[0]?.total || 0;
 
     const dataValues = [...values, limit, offset];
     const dataSql = `
       SELECT
-        match_id,
-        country,
-        league,
-        season,
-        round_no,
-        match_date,
-        match_time,
-        home_team,
-        away_team,
-        home_score,
-        away_score,
-        full_time_result,
-        scraped_at
-      FROM matches
+        m.match_id, m.country, m.league, m.season, m.round_no,
+        m.match_date, m.match_time, m.home_team, m.away_team,
+        m.home_score, m.away_score, m.full_time_result, m.scraped_at
+      FROM matches m
       ${whereClause}
-      ORDER BY match_date DESC NULLS LAST, match_time DESC NULLS LAST, scraped_at DESC
+      ORDER BY m.match_date DESC NULLS LAST, m.match_time DESC NULLS LAST, m.scraped_at DESC
       LIMIT $${dataValues.length - 1}
       OFFSET $${dataValues.length}
     `;
     const dataResult = await db.query(dataSql, dataValues);
 
-    res.json({
-      total,
-      limit,
-      offset,
-      data: dataResult.rows,
-    });
+    res.json({ total, limit, offset, data: dataResult.rows });
   } catch (error) {
     next(error);
   }

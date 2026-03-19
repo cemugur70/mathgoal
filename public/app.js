@@ -239,16 +239,23 @@ function getBaseFilters() {
   if (el.fDateTo.value.trim()) filters.dateTo = el.fDateTo.value.trim();
   if (el.fBookmaker.value) filters.bookmaker = el.fBookmaker.value;
   if (el.fResult.value) filters.result = el.fResult.value;
+
+  // Add odds range filters
+  ADV_ODDS_FILTERS.forEach(f => {
+    const minEl = document.getElementById(`${f.id}_min`);
+    const maxEl = document.getElementById(`${f.id}_max`);
+    if (minEl && minEl.value) filters[`${f.id}_min`] = minEl.value;
+    if (maxEl && maxEl.value) filters[`${f.id}_max`] = maxEl.value;
+  });
+
   return filters;
 }
 
 // ─── Match Table ───
 async function loadMatches() {
   const filters = getBaseFilters();
-  const advFilters = getAdvFilters();
-  const hasAdvFilters = Object.keys(advFilters).length > 0;
 
-  const params = new URLSearchParams({ limit: hasAdvFilters ? 200 : state.limit, offset: hasAdvFilters ? 0 : state.offset, ...filters });
+  const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
   const data = await fetchJSON(`${API}/api/matches?${params}`);
 
   const bookmaker = el.fBookmaker.value;
@@ -256,7 +263,7 @@ async function loadMatches() {
   let rows = data.data || [];
   const matchIds = rows.map((m) => m.match_id);
 
-  // Fetch mapped odds for each visible match
+  // Fetch mapped odds for each visible match (only for display, not filtering)
   const oddsMap = {};
   if (matchIds.length) {
     await Promise.all(
@@ -268,22 +275,7 @@ async function loadMatches() {
     );
   }
 
-  // Apply advanced odds filters client-side
-  if (hasAdvFilters) {
-    rows = rows.filter(r => {
-      const cols = filterByOddsType(oddsMap[r.match_id] || {}, oddsType);
-      return matchesAdvFilters(cols, advFilters);
-    });
-  }
-
-  if (hasAdvFilters) {
-    state.total = rows.length;
-    const start = state.offset;
-    const end = Math.min(start + state.limit, rows.length);
-    rows = rows.slice(start, end);
-  } else {
-    state.total = data.total || 0;
-  }
+  state.total = data.total || 0;
 
   renderTable(rows, oddsMap, oddsType);
   updatePagination();
