@@ -124,6 +124,9 @@
         font-family: inherit; font-size: 0.85rem; font-weight: 600;
         cursor: pointer; transition: all 0.2s;
       }
+      .btn:disabled {
+        opacity: 0.6; cursor: not-allowed;
+      }
       .btn-primary {
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: #fff;
@@ -534,10 +537,10 @@
       </section>
 
       <!-- Advanced Odds Filters -->
-      <button class="adv-toggle" id="advToggle">
+      <button class="adv-toggle" id="advToggle" aria-expanded="false" aria-controls="advFilters">
         <span class="arrow">▼</span> Oran Filtreleri (Min/Max)
       </button>
-      <section class="adv-filters" id="advFilters">
+      <section class="adv-filters" id="advFilters" role="region" aria-labelledby="advToggle">
         <div class="adv-filters-grid" id="advFiltersGrid">
           <!-- Dynamically populated -->
         </div>
