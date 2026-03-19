@@ -213,6 +213,189 @@ app.get("/api/columns", (req, res) => {
   res.json({ columns: ALL_COLUMNS, total: ALL_COLUMNS.length });
 });
 
+// Distinct filter options for dropdowns
+app.get("/api/filters/options", async (req, res, next) => {
+  try {
+    const [countries, leagues, seasons] = await Promise.all([
+      db.query("SELECT DISTINCT country FROM matches WHERE country IS NOT NULL ORDER BY country"),
+      db.query("SELECT DISTINCT league FROM matches WHERE league IS NOT NULL ORDER BY league"),
+      db.query("SELECT DISTINCT season FROM matches WHERE season IS NOT NULL ORDER BY season DESC"),
+    ]);
+    res.json({
+      countries: countries.rows.map(r => r.country),
+      leagues: leagues.rows.map(r => r.league),
+      seasons: seasons.rows.map(r => r.season),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Market statistics endpoint
+app.get("/api/stats/markets", async (req, res, next) => {
+  try {
+    const country = (req.query.country || "").trim();
+    const league = (req.query.league || "").trim();
+    const season = (req.query.season || "").trim();
+    const search = (req.query.search || "").trim();
+    const dateFrom = (req.query.dateFrom || "").trim();
+    const dateTo = (req.query.dateTo || "").trim();
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+
+    const filters = [];
+    const values = [];
+
+    if (country) { values.push(`%${country}%`); filters.push(`m.country ILIKE $${values.length}`); }
+    if (league) { values.push(`%${league}%`); filters.push(`m.league ILIKE $${values.length}`); }
+    if (season) { values.push(`%${season}%`); filters.push(`m.season ILIKE $${values.length}`); }
+    if (search) {
+      values.push(`%${search}%`);
+      const t = `$${values.length}`;
+      filters.push(`(m.home_team ILIKE ${t} OR m.away_team ILIKE ${t})`);
+    }
+    if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
+    if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
+
+    values.push(bookmaker);
+    const bmIdx = values.length;
+    filters.push(`mac.bookmaker = $${bmIdx}`);
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+    const sql = `
+      SELECT
+        COUNT(*)::int AS total_matches,
+
+        -- Maç Sonucu (Full Time Result)
+        COUNT(*) FILTER (WHERE m.full_time_result = 'MS 1')::int AS ft_home_wins,
+        COUNT(*) FILTER (WHERE m.full_time_result = 'MS 0')::int AS ft_draws,
+        COUNT(*) FILTER (WHERE m.full_time_result = 'MS 2')::int AS ft_away_wins,
+
+        -- Skor tabanlı istatistikler
+        ROUND(AVG(m.home_score)::numeric, 2) AS avg_home_goals,
+        ROUND(AVG(m.away_score)::numeric, 2) AS avg_away_goals,
+        ROUND(AVG(COALESCE(m.home_score,0) + COALESCE(m.away_score,0))::numeric, 2) AS avg_total_goals,
+
+        -- KG VAR/YOK (BTTS)
+        COUNT(*) FILTER (WHERE m.home_score > 0 AND m.away_score > 0)::int AS btts_yes,
+        COUNT(*) FILTER (WHERE m.home_score = 0 OR m.away_score = 0)::int AS btts_no,
+
+        -- Alt/Üst 2.5
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 2)::int AS over_2_5,
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) <= 2)::int AS under_2_5,
+
+        -- Alt/Üst 1.5
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 1)::int AS over_1_5,
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) <= 1)::int AS under_1_5,
+
+        -- Alt/Üst 3.5
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 3)::int AS over_3_5,
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) <= 3)::int AS under_3_5,
+
+        -- Alt/Üst 0.5
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 0)::int AS over_0_5,
+        COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) = 0)::int AS under_0_5,
+
+        -- Ev sahibi golleri
+        COUNT(*) FILTER (WHERE m.home_score > 0)::int AS home_scored,
+        COUNT(*) FILTER (WHERE m.home_score = 0)::int AS home_clean_sheet,
+        COUNT(*) FILTER (WHERE m.home_score >= 2)::int AS home_scored_2plus,
+        COUNT(*) FILTER (WHERE m.home_score >= 3)::int AS home_scored_3plus,
+
+        -- Deplasman golleri
+        COUNT(*) FILTER (WHERE m.away_score > 0)::int AS away_scored,
+        COUNT(*) FILTER (WHERE m.away_score = 0)::int AS away_clean_sheet,
+        COUNT(*) FILTER (WHERE m.away_score >= 2)::int AS away_scored_2plus,
+        COUNT(*) FILTER (WHERE m.away_score >= 3)::int AS away_scored_3plus,
+
+        -- Tek/Çift
+        COUNT(*) FILTER (WHERE (COALESCE(m.home_score,0) + COALESCE(m.away_score,0)) % 2 = 1)::int AS total_odd,
+        COUNT(*) FILTER (WHERE (COALESCE(m.home_score,0) + COALESCE(m.away_score,0)) % 2 = 0)::int AS total_even,
+
+        -- Çifte Şans
+        COUNT(*) FILTER (WHERE m.full_time_result IN ('MS 1', 'MS 0'))::int AS dc_1x,
+        COUNT(*) FILTER (WHERE m.full_time_result IN ('MS 0', 'MS 2'))::int AS dc_x2,
+        COUNT(*) FILTER (WHERE m.full_time_result IN ('MS 1', 'MS 2'))::int AS dc_12,
+
+        -- İlk yarı gol
+        COUNT(*) FILTER (WHERE m.home_score IS NOT NULL)::int AS has_score
+
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${whereClause}
+    `;
+
+    const result = await db.query(sql, values);
+    const row = result.rows[0] || {};
+    const total = row.total_matches || 0;
+
+    function pct(val) {
+      if (!total || val == null) return 0;
+      return Math.round((val / total) * 10000) / 100;
+    }
+
+    res.json({
+      total_matches: total,
+      bookmaker,
+      markets: {
+        "Maç Sonucu": {
+          "Ev Kazanır (1)": { count: row.ft_home_wins, pct: pct(row.ft_home_wins) },
+          "Beraberlik (X)": { count: row.ft_draws, pct: pct(row.ft_draws) },
+          "Dep. Kazanır (2)": { count: row.ft_away_wins, pct: pct(row.ft_away_wins) },
+        },
+        "Çifte Şans": {
+          "1X (Ev veya Ber.)": { count: row.dc_1x, pct: pct(row.dc_1x) },
+          "X2 (Ber. veya Dep.)": { count: row.dc_x2, pct: pct(row.dc_x2) },
+          "12 (Ev veya Dep.)": { count: row.dc_12, pct: pct(row.dc_12) },
+        },
+        "KG VAR/YOK (BTTS)": {
+          "KG VAR": { count: row.btts_yes, pct: pct(row.btts_yes) },
+          "KG YOK": { count: row.btts_no, pct: pct(row.btts_no) },
+        },
+        "Alt/Üst 2.5": {
+          "2.5 Üst": { count: row.over_2_5, pct: pct(row.over_2_5) },
+          "2.5 Alt": { count: row.under_2_5, pct: pct(row.under_2_5) },
+        },
+        "Alt/Üst 1.5": {
+          "1.5 Üst": { count: row.over_1_5, pct: pct(row.over_1_5) },
+          "1.5 Alt": { count: row.under_1_5, pct: pct(row.under_1_5) },
+        },
+        "Alt/Üst 3.5": {
+          "3.5 Üst": { count: row.over_3_5, pct: pct(row.over_3_5) },
+          "3.5 Alt": { count: row.under_3_5, pct: pct(row.under_3_5) },
+        },
+        "Alt/Üst 0.5": {
+          "0.5 Üst": { count: row.over_0_5, pct: pct(row.over_0_5) },
+          "0.5 Alt (Gol Yok)": { count: row.under_0_5, pct: pct(row.under_0_5) },
+        },
+        "Tek/Çift": {
+          "Tek": { count: row.total_odd, pct: pct(row.total_odd) },
+          "Çift": { count: row.total_even, pct: pct(row.total_even) },
+        },
+        "Gol Ortalamaları": {
+          "Ev Sahibi Ort. Gol": { value: row.avg_home_goals },
+          "Deplasman Ort. Gol": { value: row.avg_away_goals },
+          "Toplam Ort. Gol": { value: row.avg_total_goals },
+        },
+        "Ev Sahibi Gol": {
+          "Gol Atar": { count: row.home_scored, pct: pct(row.home_scored) },
+          "Gol Yemez": { count: row.home_clean_sheet, pct: pct(row.home_clean_sheet) },
+          "2+ Gol Atar": { count: row.home_scored_2plus, pct: pct(row.home_scored_2plus) },
+          "3+ Gol Atar": { count: row.home_scored_3plus, pct: pct(row.home_scored_3plus) },
+        },
+        "Deplasman Gol": {
+          "Gol Atar": { count: row.away_scored, pct: pct(row.away_scored) },
+          "Gol Yemez": { count: row.away_clean_sheet, pct: pct(row.away_clean_sheet) },
+          "2+ Gol Atar": { count: row.away_scored_2plus, pct: pct(row.away_scored_2plus) },
+          "3+ Gol Atar": { count: row.away_scored_3plus, pct: pct(row.away_scored_3plus) },
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── Ingestion API (Python scraper -> DB via HTTPS) ────────────────────────
 function requireIngestKey(req, res, next) {
   if (!config.ingestApiKey) {

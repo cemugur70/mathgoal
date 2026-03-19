@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════════════
-   Mathgoal Dashboard — Frontend Logic v2
-   Uses all_columns.txt Turkish mapping
+   Mathgoal Dashboard — Frontend Logic v3
+   Tabs: Matches + Statistics
+   Advanced column/odds filters
    ═══════════════════════════════════════════════════════ */
 
 const API = "";
-const state = { limit: 50, offset: 0, total: 0, selectedMatchId: null, allColumns: [] };
+const state = { limit: 50, offset: 0, total: 0, selectedMatchId: null, allColumns: [], activeTab: "matchesTab" };
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -13,7 +14,7 @@ const el = {
   statLastDate: $("statLastDate"), statOdds: $("statOdds"),
   fSearch: $("fSearch"), fCountry: $("fCountry"), fLeague: $("fLeague"),
   fSeason: $("fSeason"), fDateFrom: $("fDateFrom"), fDateTo: $("fDateTo"),
-  fBookmaker: $("fBookmaker"), fOddsType: $("fOddsType"),
+  fBookmaker: $("fBookmaker"), fOddsType: $("fOddsType"), fResult: $("fResult"),
   btnApply: $("btnApply"), btnClear: $("btnClear"),
   matchesBody: $("matchesBody"),
   pageInfo: $("pageInfo"), btnPrev: $("btnPrev"), btnNext: $("btnNext"),
@@ -21,6 +22,9 @@ const el = {
   oddsPanel: $("oddsPanel"), oddsHome: $("oddsHome"), oddsScore: $("oddsScore"),
   oddsAway: $("oddsAway"), oddsInfo: $("oddsInfo"), oddsClose: $("oddsClose"),
   oddsCategoryTabs: $("oddsCategoryTabs"), oddsGrid: $("oddsGrid"),
+  advToggle: $("advToggle"), advFilters: $("advFilters"), advFiltersGrid: $("advFiltersGrid"),
+  statsGrid: $("statsGrid"), statsTotalMatches: $("statsTotalMatches"),
+  statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
 };
 
 // ─── Helpers ───
@@ -45,13 +49,139 @@ function fmtOdds(v) {
   const n = parseFloat(v); return isNaN(n) ? String(v) : n.toFixed(2);
 }
 
+// ─── Tab Navigation ───
+document.querySelectorAll(".main-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".main-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    const tab = document.getElementById(btn.dataset.tab);
+    if (tab) tab.classList.add("active");
+    state.activeTab = btn.dataset.tab;
+    if (state.activeTab === "statsTab") loadMarketStats();
+  });
+});
+
+// ─── Advanced Filters Toggle ───
+el.advToggle.addEventListener("click", () => {
+  el.advToggle.classList.toggle("open");
+  el.advFilters.classList.toggle("open");
+});
+
+// ─── Build Advanced Odds Filters ───
+const ADV_ODDS_FILTERS = [
+  { id: "odds_1", label: "1 (Ev Kazanır)" },
+  { id: "odds_x", label: "X (Beraberlik)" },
+  { id: "odds_2", label: "2 (Dep. Kazanır)" },
+  { id: "odds_ou25_over", label: "2.5 Üst" },
+  { id: "odds_ou25_under", label: "2.5 Alt" },
+  { id: "odds_btts_yes", label: "KG VAR" },
+  { id: "odds_btts_no", label: "KG YOK" },
+  { id: "odds_dc_1x", label: "Çifte Şans 1X" },
+  { id: "odds_dc_x2", label: "Çifte Şans X2" },
+  { id: "odds_dc_12", label: "Çifte Şans 12" },
+  { id: "odds_iy_1", label: "İY 1" },
+  { id: "odds_iy_x", label: "İY X" },
+  { id: "odds_iy_2", label: "İY 2" },
+  { id: "odds_ou15_over", label: "1.5 Üst" },
+  { id: "odds_ou35_over", label: "3.5 Üst" },
+];
+
+function buildAdvFilters() {
+  el.advFiltersGrid.innerHTML = ADV_ODDS_FILTERS.map(f => `
+    <div class="adv-filter-item">
+      <label>${f.label}</label>
+      <div class="adv-range">
+        <input type="number" step="0.01" placeholder="Min" id="${f.id}_min" />
+        <span>-</span>
+        <input type="number" step="0.01" placeholder="Max" id="${f.id}_max" />
+      </div>
+    </div>
+  `).join("");
+}
+buildAdvFilters();
+
+function getAdvFilters() {
+  const filters = {};
+  ADV_ODDS_FILTERS.forEach(f => {
+    const minEl = document.getElementById(`${f.id}_min`);
+    const maxEl = document.getElementById(`${f.id}_max`);
+    const min = minEl ? parseFloat(minEl.value) : NaN;
+    const max = maxEl ? parseFloat(maxEl.value) : NaN;
+    if (!isNaN(min) || !isNaN(max)) {
+      filters[f.id] = { min: isNaN(min) ? null : min, max: isNaN(max) ? null : max };
+    }
+  });
+  return filters;
+}
+
+// Map adv filter IDs to Turkish column names
+const ADV_COLUMN_MAP = {
+  odds_1: ["1", "AÇ 1"],
+  odds_x: ["X", "AÇ X"],
+  odds_2: ["2", "AÇ 2"],
+  odds_ou25_over: ["2 5 Üst", "AÇ 2 5 Üst"],
+  odds_ou25_under: ["2 5 Alt", "AÇ 2 5 Alt"],
+  odds_btts_yes: ["btts true", "AÇ btts true"],
+  odds_btts_no: ["btts false", "AÇ btts false"],
+  odds_dc_1x: ["dc 1X", "AÇ dc 1X"],
+  odds_dc_x2: ["dc X2", "AÇ dc X2"],
+  odds_dc_12: ["dc 12", "AÇ dc 12"],
+  odds_iy_1: ["İY 1", "AÇ İY 1"],
+  odds_iy_x: ["İY X", "AÇ İY X"],
+  odds_iy_2: ["İY 2", "AÇ İY 2"],
+  odds_ou15_over: ["1 5 Üst", "AÇ 1 5 Üst"],
+  odds_ou35_over: ["3 5 Üst", "AÇ 3 5 Üst"],
+};
+
+function matchesAdvFilters(cols, advFilters) {
+  for (const [filterId, range] of Object.entries(advFilters)) {
+    const colNames = ADV_COLUMN_MAP[filterId];
+    if (!colNames) continue;
+    let val = null;
+    for (const cn of colNames) {
+      if (cols[cn] != null && cols[cn] !== "" && cols[cn] !== "-") {
+        val = parseFloat(cols[cn]);
+        break;
+      }
+    }
+    if (val == null || isNaN(val)) return false;
+    if (range.min != null && val < range.min) return false;
+    if (range.max != null && val > range.max) return false;
+  }
+  return true;
+}
+
+// ─── Load Filter Options ───
+async function loadFilterOptions() {
+  try {
+    const data = await fetchJSON(`${API}/api/filters/options`);
+    if (data.countries) {
+      const current = el.fCountry.value;
+      el.fCountry.innerHTML = '<option value="">Tümü</option>' +
+        data.countries.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+      el.fCountry.value = current;
+    }
+    if (data.leagues) {
+      const current = el.fLeague.value;
+      el.fLeague.innerHTML = '<option value="">Tümü</option>' +
+        data.leagues.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join("");
+      el.fLeague.value = current;
+    }
+    if (data.seasons) {
+      const current = el.fSeason.value;
+      el.fSeason.innerHTML = '<option value="">Tümü</option>' +
+        data.seasons.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+      el.fSeason.value = current;
+    }
+  } catch (e) { console.warn("Filter options yüklenemedi:", e); }
+}
+
 // ─── Overview ───
 async function loadOverview() {
   const bookmaker = el.fBookmaker.value;
   let url = `${API}/api/stats/overview`;
-  if (bookmaker) {
-    url += `?bookmaker=${encodeURIComponent(bookmaker)}`;
-  }
+  if (bookmaker) url += `?bookmaker=${encodeURIComponent(bookmaker)}`;
   const d = await fetchJSON(url);
   el.statMatches.textContent = (d.total_matches ?? 0).toLocaleString("tr-TR");
   el.statLeagues.textContent = (d.total_leagues ?? 0).toLocaleString("tr-TR");
@@ -80,52 +210,52 @@ const CATEGORIES = {
     "AÇ ht ft 1 2", "ht ft 1 2", "AÇ ht ft X 2", "ht ft X 2", "AÇ ht ft 2 2", "ht ft 2 2"],
 };
 
-// Dynamic categories (generated from all_columns.txt patterns)
 function buildDynCategories(allCols) {
-  // Over/Under (main)
   const ouMain = allCols.filter((c) => /^(AÇ )?\d+ \d+ (Üst|Alt)$/.test(c));
   if (ouMain.length) CATEGORIES["Alt/Üst"] = ouMain;
-  // Over/Under HT
   const ouHT = allCols.filter((c) => /^(AÇ )?İY \d+ \d+ (Üst|Alt)$/.test(c));
   if (ouHT.length) CATEGORIES["İY Alt/Üst"] = ouHT;
-  // Over/Under 2H
   const ou2H = allCols.filter((c) => /^(AÇ )?2Y \d+ \d+ (Üst|Alt)$/.test(c));
   if (ou2H.length) CATEGORIES["2Y Alt/Üst"] = ou2H;
-  // Asian Handicap (main)
   const ahMain = allCols.filter((c) => /^(AÇ )?ah (minus )?\d+ \d+ [12]$/.test(c));
   if (ahMain.length) CATEGORIES["Asya Handikap"] = ahMain;
-  // Asian Handicap HT
   const ahHT = allCols.filter((c) => /^(AÇ )?İY ah (minus )?\d+ \d+ [12]$/.test(c));
   if (ahHT.length) CATEGORIES["İY Asya H."] = ahHT;
-  // European Handicap
   const eh = allCols.filter((c) => /^(AÇ )?(İY )?eh (minus|plus)\d+ [12X]$/.test(c));
   if (eh.length) CATEGORIES["Avrupa H."] = eh;
-  // Correct Score Full Time
   const csFT = allCols.filter((c) => /^(AÇ )?full time \d+ \d+$/.test(c));
   if (csFT.length) CATEGORIES["Skor (MS)"] = csFT;
-  // Correct Score HT
   const csHT = allCols.filter((c) => /^(AÇ )?İY \d+ \d+$/.test(c) && !/(Üst|Alt)/.test(c));
   if (csHT.length) CATEGORIES["Skor (İY)"] = csHT;
 }
 
-// ─── Match Table ───
-async function loadMatches() {
+// ─── Gather active filters ───
+function getBaseFilters() {
   const filters = {};
   if (el.fSearch.value.trim()) filters.search = el.fSearch.value.trim();
-  if (el.fCountry.value.trim()) filters.country = el.fCountry.value.trim();
-  if (el.fLeague.value.trim()) filters.league = el.fLeague.value.trim();
-  if (el.fSeason.value.trim()) filters.season = el.fSeason.value.trim();
+  if (el.fCountry.value) filters.country = el.fCountry.value;
+  if (el.fLeague.value) filters.league = el.fLeague.value;
+  if (el.fSeason.value) filters.season = el.fSeason.value;
   if (el.fDateFrom.value.trim()) filters.dateFrom = el.fDateFrom.value.trim();
   if (el.fDateTo.value.trim()) filters.dateTo = el.fDateTo.value.trim();
   if (el.fBookmaker.value) filters.bookmaker = el.fBookmaker.value;
+  return filters;
+}
 
-  const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
+// ─── Match Table ───
+async function loadMatches() {
+  const filters = getBaseFilters();
+  const resultFilter = el.fResult.value;
+  const advFilters = getAdvFilters();
+  const hasAdvFilters = Object.keys(advFilters).length > 0;
+
+  const params = new URLSearchParams({ limit: hasAdvFilters ? 200 : state.limit, offset: hasAdvFilters ? 0 : state.offset, ...filters });
   const data = await fetchJSON(`${API}/api/matches?${params}`);
-  state.total = data.total || 0;
 
   const bookmaker = el.fBookmaker.value;
   const oddsType = el.fOddsType.value;
-  const matchIds = (data.data || []).map((m) => m.match_id);
+  let rows = data.data || [];
+  const matchIds = rows.map((m) => m.match_id);
 
   // Fetch mapped odds for each visible match
   const oddsMap = {};
@@ -139,7 +269,29 @@ async function loadMatches() {
     );
   }
 
-  renderTable(data.data || [], oddsMap, oddsType);
+  // Apply result filter client-side
+  if (resultFilter) {
+    rows = rows.filter(r => r.full_time_result === resultFilter);
+  }
+
+  // Apply advanced odds filters client-side
+  if (hasAdvFilters) {
+    rows = rows.filter(r => {
+      const cols = filterByOddsType(oddsMap[r.match_id] || {}, oddsType);
+      return matchesAdvFilters(cols, advFilters);
+    });
+  }
+
+  if (hasAdvFilters) {
+    state.total = rows.length;
+    const start = state.offset;
+    const end = Math.min(start + state.limit, rows.length);
+    rows = rows.slice(start, end);
+  } else {
+    state.total = resultFilter ? rows.length : (data.total || 0);
+  }
+
+  renderTable(rows, oddsMap, oddsType);
   updatePagination();
 }
 
@@ -170,7 +322,6 @@ function renderTable(rows, oddsMap, oddsType) {
     const score = r.home_score != null ? `${r.home_score} - ${r.away_score}` : "-";
     const cols = filterByOddsType(oddsMap[r.match_id] || {}, oddsType);
 
-    // For table summary: 1X2 and O/U 2.5
     const o1 = fmtOdds(cols["1"] || cols["AÇ 1"]);
     const oX = fmtOdds(cols["X"] || cols["AÇ X"]);
     const o2 = fmtOdds(cols["2"] || cols["AÇ 2"]);
@@ -229,8 +380,7 @@ async function selectMatch(matchId) {
     el.oddsHome.textContent = match.home_team;
     el.oddsScore.textContent = score;
     el.oddsAway.textContent = match.away_team;
-    el.oddsInfo.textContent = `${fmtDate(match.match_date)} · ${match.league || ""} · ${bookmaker} · ${oddsType === "opening" ? "Açılış" : oddsType === "closing" ? "Kapanış" : "Tümü"
-      }`;
+    el.oddsInfo.textContent = `${fmtDate(match.match_date)} · ${match.league || ""} · ${bookmaker} · ${oddsType === "opening" ? "Açılış" : oddsType === "closing" ? "Kapanış" : "Tümü"}`;
 
     renderOddsPanel(cols);
     el.oddsPanel.classList.add("active");
@@ -242,23 +392,19 @@ async function selectMatch(matchId) {
 }
 
 function renderOddsPanel(cols) {
-  // Build categories from data
   const catData = {};
   const catOrder = [
     "1X2", "İY 1X2", "2Y 1X2", "DNB", "Çifte Şans", "İY Çifte Şans",
     "Tek/Çift", "İY Tek/Çift", "2Y Tek/Çift",
     "KG Var/Yok", "İY KG", "2Y KG",
     "Alt/Üst", "İY Alt/Üst", "2Y Alt/Üst",
-    "Asya Handikap", "İY Asya H.",
-    "Avrupa H.",
-    "İY-MS",
+    "Asya Handikap", "İY Asya H.", "Avrupa H.", "İY-MS",
     "Skor (MS)", "Skor (İY)",
   ];
 
   for (const catName of catOrder) {
     const catCols = CATEGORIES[catName];
     if (!catCols) continue;
-
     const items = [];
     for (const col of catCols) {
       if (cols[col] != null && cols[col] !== "" && cols[col] !== "-") {
@@ -268,7 +414,6 @@ function renderOddsPanel(cols) {
     if (items.length) catData[catName] = items;
   }
 
-  // Check for unmatched columns -> "Diğer"
   const assignedCols = new Set();
   Object.values(CATEGORIES).forEach((arr) => arr.forEach((c) => assignedCols.add(c)));
   const BASE_KEYS = new Set([
@@ -284,14 +429,12 @@ function renderOddsPanel(cols) {
   }
   if (other.length) catData["Diğer"] = other;
 
-  // Render tabs
   const catNames = Object.keys(catData);
   el.oddsCategoryTabs.innerHTML = catNames
     .map((name, i) => {
       const count = catData[name].length;
       return `<button class="odds-cat-btn${i === 0 ? " active" : ""}" data-cat="${name}">${name} <span style="opacity:0.5;font-size:0.7rem">(${count})</span></button>`;
-    })
-    .join("");
+    }).join("");
 
   if (catNames.length) {
     renderCategoryCards(catData, catNames[0]);
@@ -299,7 +442,6 @@ function renderOddsPanel(cols) {
     el.oddsGrid.innerHTML = `<div style="color:var(--text-muted);padding:20px;">Bu bookmaker için oran verisi bulunamadı.</div>`;
   }
 
-  // Tab click
   el.oddsCategoryTabs.querySelectorAll(".odds-cat-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       el.oddsCategoryTabs.querySelectorAll(".odds-cat-btn").forEach((b) => b.classList.remove("active"));
@@ -315,8 +457,6 @@ function renderCategoryCards(catData, catName) {
     el.oddsGrid.innerHTML = `<div style="color:var(--text-muted);padding:20px;">Veri yok.</div>`;
     return;
   }
-
-  // Group into cards of 10
   const chunks = [];
   for (let i = 0; i < items.length; i += 10) chunks.push(items.slice(i, i + 10));
 
@@ -334,10 +474,85 @@ function renderCategoryCards(catData, catName) {
           <span class="odds-value">${fmtOdds(item.value)}</span>
         </div>`;
     }).join("");
-
     const title = chunks.length > 1 ? `${catName} (${ci + 1}/${chunks.length})` : catName;
     return `<div class="odds-card"><div class="odds-card-title">${title}</div>${rows}</div>`;
   }).join("");
+}
+
+// ─── Market Statistics ───
+const STAT_ICONS = {
+  "Maç Sonucu": "🎯", "Çifte Şans": "🔀", "KG VAR/YOK (BTTS)": "⚽",
+  "Alt/Üst 2.5": "📈", "Alt/Üst 1.5": "📊", "Alt/Üst 3.5": "📉",
+  "Alt/Üst 0.5": "🔢", "Tek/Çift": "🎲", "Gol Ortalamaları": "📐",
+  "Ev Sahibi Gol": "🏠", "Deplasman Gol": "✈️",
+};
+const STAT_COLORS = ["green", "blue", "red", "yellow", "purple", "green", "blue", "red"];
+
+async function loadMarketStats() {
+  const filters = getBaseFilters();
+  const params = new URLSearchParams(filters);
+
+  el.statsGrid.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted);"><span class="spinner"></span> İstatistikler yükleniyor...</div>`;
+
+  try {
+    const data = await fetchJSON(`${API}/api/stats/markets?${params}`);
+    const markets = data.markets || {};
+    const total = data.total_matches || 0;
+
+    el.statsTotalMatches.textContent = total.toLocaleString("tr-TR");
+    el.statsBookmaker.textContent = `📋 ${data.bookmaker || "bet365"}`;
+
+    if (!total) {
+      el.statsGrid.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted);">Bu filtreler için veri bulunamadı.</div>`;
+      return;
+    }
+
+    let html = "";
+    let colorIdx = 0;
+
+    for (const [marketName, marketData] of Object.entries(markets)) {
+      const icon = STAT_ICONS[marketName] || "📋";
+      let rowsHtml = "";
+
+      for (const [label, stat] of Object.entries(marketData)) {
+        if (stat.value !== undefined) {
+          // Averages (no bar)
+          rowsHtml += `
+            <div class="stat-row">
+              <span class="stat-label">${esc(label)}</span>
+              <span class="stat-value-big">${stat.value ?? "-"}</span>
+            </div>`;
+        } else {
+          const pct = stat.pct || 0;
+          const count = stat.count || 0;
+          const color = STAT_COLORS[colorIdx % STAT_COLORS.length];
+          const pctColor = pct >= 60 ? "var(--green)" : pct >= 40 ? "var(--accent)" : pct >= 20 ? "var(--yellow)" : "var(--red)";
+          rowsHtml += `
+            <div class="stat-row">
+              <span class="stat-label">${esc(label)}</span>
+              <div class="stat-bar-wrap">
+                <div class="stat-bar-bg">
+                  <div class="stat-bar-fill ${color}" style="width: ${pct}%"></div>
+                </div>
+              </div>
+              <span class="stat-pct" style="color:${pctColor}">%${pct}</span>
+              <span class="stat-count">${count.toLocaleString("tr-TR")}</span>
+            </div>`;
+        }
+      }
+
+      html += `
+        <div class="stat-card">
+          <div class="stat-card-title"><span class="icon">${icon}</span> ${esc(marketName)}</div>
+          ${rowsHtml}
+        </div>`;
+      colorIdx++;
+    }
+
+    el.statsGrid.innerHTML = html;
+  } catch (err) {
+    el.statsGrid.innerHTML = `<div style="padding:40px; text-align:center; color:var(--red);">Hata: ${esc(err.message)}</div>`;
+  }
 }
 
 // ─── Refresh ───
@@ -345,6 +560,7 @@ async function refreshAll() {
   setStatus("Veriler yükleniyor...", "loading");
   try {
     await Promise.all([loadOverview(), loadMatches()]);
+    if (state.activeTab === "statsTab") await loadMarketStats();
     setStatus("Hazır", "ok");
   } catch (err) {
     setStatus(`Hata: ${err.message}`, "err");
@@ -352,10 +568,26 @@ async function refreshAll() {
 }
 
 // ─── Events ───
-el.btnApply.addEventListener("click", () => { state.offset = 0; state.selectedMatchId = null; el.oddsPanel.classList.remove("active"); refreshAll(); });
+el.btnApply.addEventListener("click", () => {
+  state.offset = 0; state.selectedMatchId = null;
+  el.oddsPanel.classList.remove("active");
+  refreshAll();
+  if (state.activeTab === "statsTab") loadMarketStats();
+});
 el.btnClear.addEventListener("click", () => {
-  [el.fSearch, el.fCountry, el.fLeague, el.fSeason, el.fDateFrom, el.fDateTo].forEach((i) => (i.value = ""));
-  state.offset = 0; state.selectedMatchId = null; el.oddsPanel.classList.remove("active"); refreshAll();
+  [el.fSearch, el.fDateFrom, el.fDateTo].forEach((i) => (i.value = ""));
+  el.fCountry.value = ""; el.fLeague.value = ""; el.fSeason.value = "";
+  el.fResult.value = "";
+  // Clear advanced filters
+  ADV_ODDS_FILTERS.forEach(f => {
+    const minEl = document.getElementById(`${f.id}_min`);
+    const maxEl = document.getElementById(`${f.id}_max`);
+    if (minEl) minEl.value = "";
+    if (maxEl) maxEl.value = "";
+  });
+  state.offset = 0; state.selectedMatchId = null;
+  el.oddsPanel.classList.remove("active");
+  refreshAll();
 });
 el.btnPrev.addEventListener("click", () => { state.offset = Math.max(0, state.offset - state.limit); refreshAll(); });
 el.btnNext.addEventListener("click", () => { state.offset += state.limit; refreshAll(); });
@@ -379,5 +611,6 @@ window.selectMatch = selectMatch;
   } catch (e) {
     console.warn("all_columns yüklenemedi:", e);
   }
+  await loadFilterOptions();
   refreshAll();
 })();

@@ -28,6 +28,8 @@
         --yellow: #fbbf24;
         --yellow-bg: rgba(251, 191, 36, 0.1);
         --blue-bg: rgba(56, 189, 248, 0.1);
+        --purple: #a78bfa;
+        --purple-bg: rgba(167, 139, 250, 0.12);
         --radius: 10px;
         --radius-lg: 14px;
       }
@@ -65,6 +67,26 @@
       /* ─── Main Layout ─── */
       .container { max-width: 1480px; margin: 0 auto; padding: 20px 24px; }
 
+      /* ─── Tab Navigation ─── */
+      .main-tabs {
+        display: flex; gap: 4px; margin-bottom: 16px;
+        background: var(--panel); border-radius: 12px; padding: 4px;
+        width: fit-content;
+      }
+      .main-tab-btn {
+        padding: 10px 24px; border-radius: 10px; border: none;
+        background: transparent; color: var(--text-dim);
+        font-family: inherit; font-size: 0.9rem; font-weight: 600;
+        cursor: pointer; transition: all 0.25s;
+      }
+      .main-tab-btn:hover { color: var(--text); background: var(--panel-2); }
+      .main-tab-btn.active {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.25);
+      }
+      .tab-content { display: none; }
+      .tab-content.active { display: block; }
+
       /* ─── Filter Bar ─── */
       .filter-bar {
         background: var(--panel);
@@ -87,7 +109,7 @@
         padding: 8px 12px;
         font-family: inherit;
         font-size: 0.85rem;
-        min-width: 140px;
+        min-width: 130px;
         outline: none;
         transition: border-color 0.2s;
       }
@@ -95,6 +117,7 @@
         border-color: var(--accent);
       }
       .filter-group select { cursor: pointer; }
+      .filter-group input[type="number"] { width: 80px; min-width: 80px; }
       .filter-actions { display: flex; gap: 8px; align-items: end; margin-left: auto; }
       .btn {
         padding: 8px 18px; border-radius: 8px; border: none;
@@ -111,6 +134,48 @@
         border: 1px solid var(--border);
       }
       .btn-ghost:hover { background: var(--panel-3); color: var(--text); }
+
+      /* ─── Collapsible Advanced Filters ─── */
+      .adv-toggle {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+        background: var(--panel-2); color: var(--accent);
+        font-family: inherit; font-size: 0.82rem; font-weight: 600;
+        cursor: pointer; transition: all 0.2s; margin-bottom: 12px;
+      }
+      .adv-toggle:hover { background: var(--panel-3); }
+      .adv-toggle .arrow { transition: transform 0.3s; }
+      .adv-toggle.open .arrow { transform: rotate(180deg); }
+      .adv-filters {
+        display: none;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px 20px;
+        margin-bottom: 16px;
+        animation: slideDown 0.3s ease;
+      }
+      .adv-filters.open { display: block; }
+      .adv-filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+      }
+      .adv-filter-item { display: flex; flex-direction: column; gap: 4px; }
+      .adv-filter-item label {
+        font-size: 0.7rem; color: var(--text-dim); font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.5px;
+      }
+      .adv-range {
+        display: flex; gap: 4px; align-items: center;
+      }
+      .adv-range input {
+        width: 70px; background: var(--bg-2); border: 1px solid var(--border);
+        border-radius: 6px; color: var(--text); padding: 6px 8px;
+        font-family: inherit; font-size: 0.82rem; outline: none;
+      }
+      .adv-range input:focus { border-color: var(--accent); }
+      .adv-range span { color: var(--text-muted); font-size: 0.8rem; }
 
       /* ─── Match Table ─── */
       .table-container {
@@ -131,7 +196,11 @@
         text-align: left;
         position: sticky; top: 0; z-index: 2;
         border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        user-select: none;
       }
+      thead th:hover { color: var(--accent); }
+      thead th .sort-icon { font-size: 0.65rem; margin-left: 3px; opacity: 0.5; }
       tbody tr {
         cursor: pointer;
         transition: background 0.15s;
@@ -198,10 +267,7 @@
         transition: all 0.2s;
       }
       .odds-close-btn:hover { background: var(--red-bg); color: var(--red); }
-
       .odds-body { padding: 16px 20px; }
-
-      /* Odds Category Tabs */
       .odds-categories {
         display: flex; gap: 4px; flex-wrap: wrap;
         margin-bottom: 16px;
@@ -218,8 +284,6 @@
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: #fff;
       }
-
-      /* Odds Grid */
       .odds-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -252,18 +316,83 @@
       }
       .odds-value.highlight-green { color: var(--green); background: var(--green-bg); }
       .odds-value.highlight-red { color: var(--red); background: var(--red-bg); }
-
-      /* Opening/Closing comparison */
-      .odds-compare {
-        display: flex; gap: 8px; align-items: center;
-      }
+      .odds-compare { display: flex; gap: 8px; align-items: center; }
       .odds-tag {
         font-size: 0.65rem; font-weight: 700; padding: 2px 6px;
         border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;
       }
       .tag-opening { background: var(--yellow-bg); color: var(--yellow); }
       .tag-closing { background: var(--blue-bg); color: var(--accent); }
-      .odds-arrow { color: var(--text-muted); font-size: 0.75rem; }
+
+      /* ─── Statistics Tab ─── */
+      .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
+      }
+      .stat-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        transition: border-color 0.3s, transform 0.2s;
+      }
+      .stat-card:hover { border-color: var(--border-hl); transform: translateY(-2px); }
+      .stat-card-title {
+        font-size: 0.82rem; font-weight: 700; color: var(--accent);
+        text-transform: uppercase; letter-spacing: 1px;
+        margin-bottom: 14px; padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 8px;
+      }
+      .stat-card-title .icon { font-size: 1.1rem; }
+      .stat-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 0;
+      }
+      .stat-row + .stat-row { border-top: 1px solid rgba(99, 132, 175, 0.06); }
+      .stat-label { flex: 1; font-size: 0.85rem; color: var(--text-dim); }
+      .stat-bar-wrap {
+        flex: 1.5; display: flex; align-items: center; gap: 8px;
+      }
+      .stat-bar-bg {
+        flex: 1; height: 8px; background: var(--panel-3);
+        border-radius: 4px; overflow: hidden;
+      }
+      .stat-bar-fill {
+        height: 100%; border-radius: 4px;
+        transition: width 0.6s ease;
+      }
+      .stat-bar-fill.green { background: linear-gradient(90deg, #34d399, #6ee7b7); }
+      .stat-bar-fill.blue { background: linear-gradient(90deg, #38bdf8, #818cf8); }
+      .stat-bar-fill.red { background: linear-gradient(90deg, #f87171, #fca5a5); }
+      .stat-bar-fill.yellow { background: linear-gradient(90deg, #fbbf24, #fde68a); }
+      .stat-bar-fill.purple { background: linear-gradient(90deg, #a78bfa, #c4b5fd); }
+      .stat-pct {
+        min-width: 50px; text-align: right;
+        font-weight: 700; font-size: 0.9rem;
+      }
+      .stat-count {
+        min-width: 55px; text-align: right;
+        font-size: 0.78rem; color: var(--text-muted);
+      }
+      .stat-value-big {
+        font-size: 1.5rem; font-weight: 800;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      }
+      .stats-total-badge {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px 24px;
+        margin-bottom: 16px;
+        display: flex; align-items: center; gap: 16px;
+        font-size: 0.95rem;
+      }
+      .stats-total-badge .big {
+        font-size: 1.8rem; font-weight: 800; color: var(--accent);
+      }
 
       /* ─── Footer ─── */
       .footer-bar {
@@ -277,8 +406,6 @@
       .status-ok { color: var(--green); }
       .status-err { color: var(--red); }
       .status-loading { color: var(--yellow); }
-
-      /* ─── Loading Spinner ─── */
       .spinner {
         display: inline-block; width: 16px; height: 16px;
         border: 2px solid var(--border); border-top-color: var(--accent);
@@ -286,17 +413,15 @@
         margin-right: 6px; vertical-align: middle;
       }
       @keyframes spin { to { transform: rotate(360deg); } }
-
-      /* ─── Empty State ─── */
       .empty-row td { text-align: center; padding: 40px; color: var(--text-muted); }
-
-      /* ─── Responsive ─── */
       .table-scroll { overflow-x: auto; max-height: 65vh; overflow-y: auto; }
       @media (max-width: 768px) {
         .header-stats { display: none; }
         .filter-bar { flex-direction: column; }
         .filter-actions { margin-left: 0; width: 100%; }
         .odds-grid { grid-template-columns: 1fr; }
+        .stats-summary { grid-template-columns: 1fr; }
+        .adv-filters-grid { grid-template-columns: 1fr 1fr; }
       }
     </style>
   </head>
@@ -338,7 +463,13 @@
     </header>
 
     <main class="container">
-      <!-- Filters -->
+      <!-- Main Tab Navigation -->
+      <div class="main-tabs">
+        <button class="main-tab-btn active" data-tab="matchesTab" id="tabMatchesBtn">⚽ Maçlar</button>
+        <button class="main-tab-btn" data-tab="statsTab" id="tabStatsBtn">📊 İstatistikler</button>
+      </div>
+
+      <!-- Filters (shared) -->
       <section class="filter-bar">
         <div class="filter-group">
           <label for="fSearch">Ara</label>
@@ -346,15 +477,15 @@
         </div>
         <div class="filter-group">
           <label for="fCountry">Ülke</label>
-          <input id="fCountry" type="text" placeholder="England" />
+          <select id="fCountry"><option value="">Tümü</option></select>
         </div>
         <div class="filter-group">
           <label for="fLeague">Lig</label>
-          <input id="fLeague" type="text" placeholder="Premier League" />
+          <select id="fLeague"><option value="">Tümü</option></select>
         </div>
         <div class="filter-group">
           <label for="fSeason">Sezon</label>
-          <input id="fSeason" type="text" placeholder="2025-2026" />
+          <select id="fSeason"><option value="">Tümü</option></select>
         </div>
         <div class="filter-group">
           <label for="fDateFrom">Başlangıç</label>
@@ -387,63 +518,97 @@
             <option value="closing">Sadece Kapanış</option>
           </select>
         </div>
+        <div class="filter-group">
+          <label for="fResult">MS Sonucu</label>
+          <select id="fResult">
+            <option value="">Tümü</option>
+            <option value="MS 1">MS 1 (Ev Kazanır)</option>
+            <option value="MS 0">MS 0 (Beraberlik)</option>
+            <option value="MS 2">MS 2 (Dep. Kazanır)</option>
+          </select>
+        </div>
         <div class="filter-actions">
           <button class="btn btn-primary" id="btnApply">Filtrele</button>
           <button class="btn btn-ghost" id="btnClear">Temizle</button>
         </div>
       </section>
 
-      <!-- Odds Detail Panel (shows when a match is clicked) -->
-      <section class="odds-panel" id="oddsPanel">
-        <div class="odds-header">
-          <div class="odds-match-info">
-            <span class="home" id="oddsHome">-</span>
-            <span class="odds-score" id="oddsScore">-</span>
-            <span class="away" id="oddsAway">-</span>
-            <span class="text-dim" id="oddsInfo"></span>
+      <!-- Advanced Odds Filters -->
+      <button class="adv-toggle" id="advToggle">
+        <span class="arrow">▼</span> Oran Filtreleri (Min/Max)
+      </button>
+      <section class="adv-filters" id="advFilters">
+        <div class="adv-filters-grid" id="advFiltersGrid">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+      <!-- ═══ TAB 1: Matches ═══ -->
+      <div class="tab-content active" id="matchesTab">
+        <!-- Odds Detail Panel -->
+        <section class="odds-panel" id="oddsPanel">
+          <div class="odds-header">
+            <div class="odds-match-info">
+              <span class="home" id="oddsHome">-</span>
+              <span class="odds-score" id="oddsScore">-</span>
+              <span class="away" id="oddsAway">-</span>
+              <span class="text-dim" id="oddsInfo"></span>
+            </div>
+            <button class="odds-close-btn" id="oddsClose">✕ Kapat</button>
           </div>
-          <button class="odds-close-btn" id="oddsClose">✕ Kapat</button>
-        </div>
-        <div class="odds-body">
-          <div class="odds-categories" id="oddsCategoryTabs"></div>
-          <div class="odds-grid" id="oddsGrid"></div>
-        </div>
-      </section>
+          <div class="odds-body">
+            <div class="odds-categories" id="oddsCategoryTabs"></div>
+            <div class="odds-grid" id="oddsGrid"></div>
+          </div>
+        </section>
 
-      <!-- Match Table -->
-      <section class="table-container">
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Tarih</th>
-                <th>Saat</th>
-                <th>Lig</th>
-                <th>Ev Sahibi</th>
-                <th>Skor</th>
-                <th>Deplasman</th>
-                <th>MS</th>
-                <th>İY</th>
-                <th>1</th>
-                <th>X</th>
-                <th>2</th>
-                <th>O/U 2.5</th>
-              </tr>
-            </thead>
-            <tbody id="matchesBody"></tbody>
-          </table>
-        </div>
-      </section>
+        <!-- Match Table -->
+        <section class="table-container">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Saat</th>
+                  <th>Lig</th>
+                  <th>Ev Sahibi</th>
+                  <th>Skor</th>
+                  <th>Deplasman</th>
+                  <th>MS</th>
+                  <th>İY</th>
+                  <th>1</th>
+                  <th>X</th>
+                  <th>2</th>
+                  <th>O/U 2.5</th>
+                </tr>
+              </thead>
+              <tbody id="matchesBody"></tbody>
+            </table>
+          </div>
+        </section>
 
-      <!-- Footer -->
-      <footer class="footer-bar">
-        <span id="statusText"></span>
-        <span id="pageInfo">-</span>
-        <div class="pagination">
-          <button class="btn btn-ghost" id="btnPrev" disabled>← Önceki</button>
-          <button class="btn btn-ghost" id="btnNext" disabled>Sonraki →</button>
+        <!-- Footer -->
+        <footer class="footer-bar">
+          <span id="statusText"></span>
+          <span id="pageInfo">-</span>
+          <div class="pagination">
+            <button class="btn btn-ghost" id="btnPrev" disabled>← Önceki</button>
+            <button class="btn btn-ghost" id="btnNext" disabled>Sonraki →</button>
+          </div>
+        </footer>
+      </div>
+
+      <!-- ═══ TAB 2: Statistics ═══ -->
+      <div class="tab-content" id="statsTab">
+        <div class="stats-total-badge" id="statsTotalBadge">
+          <span class="big" id="statsTotalMatches">-</span>
+          <span>maç analiz edildi</span>
+          <span style="color:var(--text-muted); margin-left: auto;" id="statsBookmaker">-</span>
         </div>
-      </footer>
+        <div class="stats-summary" id="statsGrid">
+          <div style="padding:40px; text-align:center; color:var(--text-muted);">Filtreleri uygulayıp "Filtrele" butonuna tıklayın.</div>
+        </div>
+      </div>
     </main>
 
     <script src="/app.js"></script>
