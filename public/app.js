@@ -64,8 +64,9 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
 
 // ─── Advanced Filters Toggle ───
 el.advToggle.addEventListener("click", () => {
-  el.advToggle.classList.toggle("open");
-  el.advFilters.classList.toggle("open");
+  const isOpen = el.advFilters.classList.toggle("open");
+  el.advToggle.classList.toggle("open", isOpen);
+  el.advToggle.setAttribute("aria-expanded", String(isOpen));
 });
 
 // ─── Build Advanced Odds Filters ───
@@ -300,7 +301,12 @@ function filterByOddsType(cols, oddsType) {
 
 function renderTable(rows, oddsMap, oddsType) {
   if (!rows.length) {
-    el.matchesBody.innerHTML = `<tr class="empty-row"><td colspan="12">Kayıt bulunamadı.</td></tr>`;
+    el.matchesBody.innerHTML = `<tr class="empty-row"><td colspan="12">
+      <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+        <span style="font-size:2rem; opacity:0.5;">🔍</span>
+        <span>Aramanıza uygun kayıt bulunamadı. Lütfen filtreleri değiştirerek tekrar deneyin.</span>
+      </div>
+    </td></tr>`;
     return;
   }
 
@@ -544,12 +550,18 @@ async function loadMarketStats() {
 // ─── Refresh ───
 async function refreshAll() {
   setStatus("Veriler yükleniyor...", "loading");
+  const originalApplyText = el.btnApply.innerHTML;
+  el.btnApply.disabled = true;
+  el.btnApply.innerHTML = `<span class="spinner"></span> Yükleniyor...`;
   try {
     await Promise.all([loadOverview(), loadMatches()]);
     if (state.activeTab === "statsTab") await loadMarketStats();
     setStatus("Hazır", "ok");
   } catch (err) {
     setStatus(`Hata: ${err.message}`, "err");
+  } finally {
+    el.btnApply.disabled = false;
+    el.btnApply.innerHTML = originalApplyText;
   }
 }
 
