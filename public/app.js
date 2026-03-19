@@ -539,7 +539,7 @@ async function loadMarketStats() {
   }
 }
 
-// ─── Analysis (Eko Rating) ───
+// ─── Analysis (Rating) ───
 async function loadAnalysis() {
   const filters = getBaseFilters();
   const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
