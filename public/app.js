@@ -86,23 +86,27 @@ const ADV_ODDS_FILTERS = [
   { id: "odds_iy_2", label: "İY 2" },
   { id: "odds_ou15_over", label: "1.5 Üst" },
   { id: "odds_ou35_over", label: "3.5 Üst" },
-  { id: "elo_home_5", label: "Ev 5M Rating" },
-  { id: "elo_home_10", label: "Ev 10M Rating" },
-  { id: "elo_home_20", label: "Ev 20M Rating" },
-  { id: "elo_away_5", label: "Dep 5M Rating" },
-  { id: "elo_away_10", label: "Dep 10M Rating" },
-  { id: "elo_away_20", label: "Dep 20M Rating" }
+  { id: "cpr_home", label: "CPR Home %" },
+  { id: "cpr_draw", label: "CPR Draw %" },
+  { id: "cpr_away", label: "CPR Away %" },
+  { id: "cpr_tahmin", label: "CPR Tahmin (1,X,2)" },
+  { id: "cpr_guven", label: "Güven %" },
+  { id: "cpr_cs", label: "Çifte Şans (1X,X2,12)" },
+  { id: "cpr_skor", label: "Tahmini Skor (Örn: 2-1)" }
 ];
 
 function buildAdvFilters() {
-  el.advFiltersGrid.innerHTML = ADV_ODDS_FILTERS.map(f => `
-    <div class="adv-filter-item">
-      <label>${f.label}</label>
-      <div class="adv-range" style="grid-template-columns: 1fr;">
-        <input type="number" step="0.01" placeholder="Tam Değer" id="${f.id}" style="width: 100%;" />
+  el.advFiltersGrid.innerHTML = ADV_ODDS_FILTERS.map(f => {
+    const isText = ["cpr_tahmin", "cpr_cs", "cpr_skor"].includes(f.id);
+    return `
+      <div class="adv-filter-item">
+        <label>${f.label}</label>
+        <div class="adv-range" style="grid-template-columns: 1fr;">
+          <input type="${isText ? 'text' : 'number'}" ${!isText ? 'step="0.01"' : ''} placeholder="Tam Değer" id="${f.id}" style="width: 100%;" />
+        </div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
 buildAdvFilters();
 
@@ -566,7 +570,7 @@ async function loadAnalysis() {
 function renderAnalysisTable(rows) {
   const tbody = $("analysisBody");
   if (!rows.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="22">
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="16">
       <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
         <span style="font-size:2rem; opacity:0.5;">🔍</span>
         <span>Aramanıza uygun analiz verisi bulunamadı.</span>
@@ -594,13 +598,7 @@ function renderAnalysisTable(rows) {
         <td class="text-dim">${fmtDate(r.match_date)}</td>
         <td class="text-dim">${esc(r.league || "")}</td>
         <td class="team-name">${esc(r.home_team)}</td>
-        <td style="color: var(--accent); font-weight: 700;">${r.home_5m || 0}</td>
-        <td style="color: var(--accent); font-weight: 700;">${r.home_10m || 0}</td>
-        <td style="color: var(--accent); font-weight: 700;">${r.home_20m || 0}</td>
         <td class="team-name">${esc(r.away_team)}</td>
-        <td style="color: var(--purple); font-weight: 700;">${r.away_5m || 0}</td>
-        <td style="color: var(--purple); font-weight: 700;">${r.away_10m || 0}</td>
-        <td style="color: var(--purple); font-weight: 700;">${r.away_20m || 0}</td>
         <td class="odds-value">${r.odds_1 ? parseFloat(r.odds_1).toFixed(2) : "-"}</td>
         <td class="odds-value">${r.odds_x ? parseFloat(r.odds_x).toFixed(2) : "-"}</td>
         <td class="odds-value">${r.odds_2 ? parseFloat(r.odds_2).toFixed(2) : "-"}</td>

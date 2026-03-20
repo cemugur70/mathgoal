@@ -7,6 +7,7 @@ const pinoHttp = require("pino-http");
 const config = require("./config");
 const db = require("./db");
 const { predictMatch } = require("./cpr");
+const { syncAllCpr } = require("./sync_cpr");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
 
 // Initialize DB specific functions and indexes
@@ -132,20 +133,22 @@ function buildBaseFilters(query, values) {
   if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
   if (ftResult) { values.push(ftResult); filters.push(`m.full_time_result = $${values.length}`); }
 
-  const ELO_KEYS = [
-    { param: "elo_home_5", args: "m.home_team, m.match_date, 5" },
-    { param: "elo_home_10", args: "m.home_team, m.match_date, 10" },
-    { param: "elo_home_20", args: "m.home_team, m.match_date, 20" },
-    { param: "elo_away_5", args: "m.away_team, m.match_date, 5" },
-    { param: "elo_away_10", args: "m.away_team, m.match_date, 10" },
-    { param: "elo_away_20", args: "m.away_team, m.match_date, 20" }
-  ];
-
-  for (const f of ELO_KEYS) {
-    const val = parseFloat(query[f.param]);
-    if (!isNaN(val)) {
+  // Exclude 0 filter on backend since we marked unprocessed rows as cpr_home=0
+  const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
+  for (const key of CPR_NUM_KEYS) {
+    const val = parseFloat(query[key]);
+    if (!isNaN(val) && val > 0) {
       values.push(val);
-      filters.push(`get_team_elo(${f.args}) = $${values.length}`);
+      filters.push(`m.${key} = $${values.length}`);
+    }
+  }
+
+  const CPR_TXT_KEYS = ["cpr_tahmin", "cpr_cs", "cpr_skor"];
+  for (const key of CPR_TXT_KEYS) {
+    const val = (query[key] || "").trim();
+    if (val) {
+      values.push(val);
+      filters.push(`m.${key} = $${values.length}`);
     }
   }
 

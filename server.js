@@ -4,6 +4,10 @@ const { app, logger } = require("./src/app");
 
 const server = app.listen(config.port, () => {
   logger.info(`API ayakta: http://0.0.0.0:${config.port}`);
+  const { syncAllCpr } = require("./src/sync_cpr");
+  setTimeout(() => {
+    syncAllCpr().catch(e => logger.error({ err: e }, "Fatal CPR Sync error"));
+  }, 5000);
 });
 
 async function gracefulShutdown(signal) {
