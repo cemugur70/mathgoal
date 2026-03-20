@@ -168,6 +168,21 @@ app.get("/api/health", async (req, res, next) => {
   }
 });
 
+app.get("/api/cpr-status", async (req, res, next) => {
+  try {
+    const total = await db.query("SELECT COUNT(*)::int AS c FROM matches WHERE cpr_home IS NOT NULL");
+    const all = await db.query("SELECT COUNT(*)::int AS c FROM matches");
+    res.json({
+      status: "Yapay zeka (CPR) hesaplaması çalışıyor.",
+      islenmisMacSayisi: total.rows[0].c,
+      toplamMacSayisi: all.rows[0].c,
+      tamamlanmaOrani: ((total.rows[0].c / all.rows[0].c) * 100).toFixed(2) + "%"
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/stats/overview", async (req, res, next) => {
   try {
     const bookmaker = (req.query.bookmaker || "bet365").trim();
