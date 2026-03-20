@@ -6,6 +6,7 @@ const pino = require("pino");
 const pinoHttp = require("pino-http");
 const config = require("./config");
 const db = require("./db");
+const { predictMatch } = require("./cpr");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
 
 // Initialize DB specific functions and indexes
@@ -233,7 +234,9 @@ app.get("/api/analysis", async (req, res, next) => {
         get_team_elo(m.home_team, m.match_date, 20) AS home_20m,
         get_team_elo(m.away_team, m.match_date, 5) AS away_5m,
         get_team_elo(m.away_team, m.match_date, 10) AS away_10m,
-        get_team_elo(m.away_team, m.match_date, 20) AS away_20m
+        get_team_elo(m.away_team, m.match_date, 20) AS away_20m,
+        get_team_elo(m.home_team, m.match_date, 1000) AS home_general,
+        get_team_elo(m.away_team, m.match_date, 1000) AS away_general
       FROM matches m
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${whereClause}
@@ -253,8 +256,20 @@ app.get("/api/analysis", async (req, res, next) => {
       db.query(countQuery, values)
     ]);
 
+    const processedRows = rowsResult.rows.map(r => {
+      const cprData = predictMatch({
+        oddsHome: r.odds_1, oddsDraw: r.odds_x, oddsAway: r.odds_2,
+        homeEloGeneral: r.home_general, awayEloGeneral: r.away_general,
+        homeForm5: r.home_5m, awayForm5: r.away_5m,
+        homeForm10: r.home_10m, awayForm10: r.away_10m,
+        homeForm20: r.home_20m, awayForm20: r.away_20m,
+        leagueAvgElo: 0
+      });
+      return { ...r, cpr: cprData };
+    });
+
     res.json({
-      data: rowsResult.rows,
+      data: processedRows,
       total: countResult.rows[0].total,
       limit,
       offset,

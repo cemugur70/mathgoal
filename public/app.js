@@ -566,7 +566,7 @@ async function loadAnalysis() {
 function renderAnalysisTable(rows) {
   const tbody = $("analysisBody");
   if (!rows.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="14">
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="17">
       <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
         <span style="font-size:2rem; opacity:0.5;">🔍</span>
         <span>Aramanıza uygun analiz verisi bulunamadı.</span>
@@ -577,6 +577,12 @@ function renderAnalysisTable(rows) {
 
   tbody.innerHTML = rows.map((r) => {
     const score = r.home_score != null ? `${r.home_score} - ${r.away_score}` : "-";
+    
+    const cpr = r.cpr || {};
+    const prediction = cpr.prediction ? `MS ${cpr.prediction} (${cpr.doubleChance})` : "-";
+    const confLabel = cpr.confidenceLevel ? `${cpr.confidenceLevel} / %${(cpr.confidence * 100).toFixed(1)}` : "-";
+    const bSkor = cpr.predictedScore || "-";
+
     return `
       <tr data-id="${r.match_id}">
         <td class="text-dim">${fmtDate(r.match_date)}</td>
@@ -592,6 +598,9 @@ function renderAnalysisTable(rows) {
         <td class="odds-value">${r.odds_1 ? parseFloat(r.odds_1).toFixed(2) : "-"}</td>
         <td class="odds-value">${r.odds_x ? parseFloat(r.odds_x).toFixed(2) : "-"}</td>
         <td class="odds-value">${r.odds_2 ? parseFloat(r.odds_2).toFixed(2) : "-"}</td>
+        <td style="color: var(--green); font-weight: 700;">${prediction}</td>
+        <td style="color: var(--yellow);">${confLabel}</td>
+        <td style="color: var(--accent); font-weight: 700;">${bSkor}</td>
         <td><span class="score">${esc(score)}</span></td>
       </tr>`;
   }).join("");
