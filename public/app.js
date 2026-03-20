@@ -566,7 +566,7 @@ async function loadAnalysis() {
 function renderAnalysisTable(rows) {
   const tbody = $("analysisBody");
   if (!rows.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="17">
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="22">
       <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
         <span style="font-size:2rem; opacity:0.5;">🔍</span>
         <span>Aramanıza uygun analiz verisi bulunamadı.</span>
@@ -579,9 +579,15 @@ function renderAnalysisTable(rows) {
     const score = r.home_score != null ? `${r.home_score} - ${r.away_score}` : "-";
     
     const cpr = r.cpr || {};
-    const prediction = cpr.prediction ? `MS ${cpr.prediction} (${cpr.doubleChance})` : "-";
-    const confLabel = cpr.confidenceLevel ? `${cpr.confidenceLevel} / %${(cpr.confidence * 100).toFixed(1)}` : "-";
-    const bSkor = cpr.predictedScore || "-";
+    const probH = cpr.probHome != null ? (cpr.probHome * 100).toFixed(1) + "%" : "-";
+    const probD = cpr.probDraw != null ? (cpr.probDraw * 100).toFixed(1) + "%" : "-";
+    const probA = cpr.probAway != null ? (cpr.probAway * 100).toFixed(1) + "%" : "-";
+    
+    const tahmin = cpr.prediction || "-";
+    const guven = cpr.confidence != null ? (cpr.confidence * 100).toFixed(1) + "%" : "-";
+    const doubleChance = cpr.doubleChance || "-";
+    const tahminSkor = cpr.predictedScore || "-";
+    const top3 = cpr.top3Scores ? cpr.top3Scores.join(", ") : "-";
 
     return `
       <tr data-id="${r.match_id}">
@@ -598,9 +604,14 @@ function renderAnalysisTable(rows) {
         <td class="odds-value">${r.odds_1 ? parseFloat(r.odds_1).toFixed(2) : "-"}</td>
         <td class="odds-value">${r.odds_x ? parseFloat(r.odds_x).toFixed(2) : "-"}</td>
         <td class="odds-value">${r.odds_2 ? parseFloat(r.odds_2).toFixed(2) : "-"}</td>
-        <td style="color: var(--green); font-weight: 700;">${prediction}</td>
-        <td style="color: var(--yellow);">${confLabel}</td>
-        <td style="color: var(--accent); font-weight: 700;">${bSkor}</td>
+        <td style="color: var(--accent); font-weight: 700;">${probH}</td>
+        <td style="color: var(--accent); font-weight: 700;">${probD}</td>
+        <td style="color: var(--accent); font-weight: 700;">${probA}</td>
+        <td style="color: var(--green); font-weight: 800;">${tahmin}</td>
+        <td style="color: var(--yellow); font-weight: 700;">${guven}</td>
+        <td style="color: var(--purple); font-weight: 700;">${doubleChance}</td>
+        <td style="color: var(--accent); font-weight: 700;">${tahminSkor}</td>
+        <td class="text-dim">${top3}</td>
         <td><span class="score">${esc(score)}</span></td>
       </tr>`;
   }).join("");
