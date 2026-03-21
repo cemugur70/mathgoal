@@ -202,33 +202,32 @@ app.get("/api/analysis", async (req, res, next) => {
     const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
     const bookmaker = (req.query.bookmaker || "bet365").trim();
 
-    // Extract CPR filter params (these will be applied AFTER CPR calculation)
-    const cprFilters = {};
+    const values = [];
+    const filters = buildBaseFilters(req.query, values);
+    const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
+
+    // CPR filters — applied at SQL level on pre-calculated columns (instant)
     const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
     for (const key of CPR_NUM_KEYS) {
       const val = parseFloat(req.query[key]);
-      if (!isNaN(val) && val > 0) cprFilters[key] = val;
+      if (!isNaN(val) && val > 0) {
+        values.push(val);
+        filters.push(`m.${key} = $${values.length}`);
+      }
     }
     const CPR_TXT_KEYS = ["cpr_tahmin", "cpr_cs", "cpr_skor"];
     for (const key of CPR_TXT_KEYS) {
       const val = (req.query[key] || "").trim();
-      if (val) cprFilters[key] = val;
+      if (val) {
+        values.push(val);
+        filters.push(`m.${key} = $${values.length}`);
+      }
     }
-    const hasCprFilters = Object.keys(cprFilters).length > 0;
 
-    const values = [];
-    const filters = buildBaseFilters(req.query, values);
-    const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
-
-    // For analysis we ALWAYS join match_all_columns to get current odds
     values.push(bookmaker);
     const bmIdx = values.length;
     const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
-
-    // If CPR filters are active, fetch more rows to filter in JS
-    const fetchLimit = hasCprFilters ? 5000 : limit;
-    const fetchOffset = hasCprFilters ? 0 : offset;
 
     const selectQuery = `
       SELECT
@@ -245,65 +244,38 @@ app.get("/api/analysis", async (req, res, next) => {
         m.half_time_result,
         (mac.raw_data->>'${bookmaker}_home')::numeric AS odds_1,
         (mac.raw_data->>'${bookmaker}_draw')::numeric AS odds_x,
-        (mac.raw_data->>'${bookmaker}_away')::numeric AS odds_2,
-        get_team_elo(m.home_team, m.match_date, 5) AS home_5m,
-        get_team_elo(m.home_team, m.match_date, 10) AS home_10m,
-        get_team_elo(m.home_team, m.match_date, 20) AS home_20m,
-        get_team_elo(m.away_team, m.match_date, 5) AS away_5m,
-        get_team_elo(m.away_team, m.match_date, 10) AS away_10m,
-        get_team_elo(m.away_team, m.match_date, 20) AS away_20m,
-        get_team_elo(m.home_team, m.match_date, 1000) AS home_general,
-        get_team_elo(m.away_team, m.match_date, 1000) AS away_general
+        (mac.raw_data->>'${bookmaker}_away')::numeric AS odds_2
       FROM matches m
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${whereClause}
       ORDER BY m.match_date DESC, m.match_time DESC
-      LIMIT ${fetchLimit} OFFSET ${fetchOffset}
+      LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const rowsResult = await db.query(selectQuery, values);
-
-    // Calculate CPR for each row using the SELECTED bookmaker's odds
-    let processedRows = rowsResult.rows.map(r => {
-      const cprData = predictMatch({
-        oddsHome: r.odds_1, oddsDraw: r.odds_x, oddsAway: r.odds_2,
-        homeEloGeneral: r.home_general, awayEloGeneral: r.away_general,
-        homeForm5: r.home_5m, awayForm5: r.away_5m,
-        homeForm10: r.home_10m, awayForm10: r.away_10m,
-        homeForm20: r.home_20m, awayForm20: r.away_20m,
-        leagueAvgElo: 0
-      });
-      return { ...r, cpr: cprData };
-    });
-
-    // Apply CPR filters AFTER calculation (so they use the selected bookmaker's CPR)
-    if (hasCprFilters) {
-      processedRows = processedRows.filter(r => {
-        const c = r.cpr;
-        if (cprFilters.cpr_home && parseFloat((c.probHome * 100).toFixed(1)) !== cprFilters.cpr_home) return false;
-        if (cprFilters.cpr_draw && parseFloat((c.probDraw * 100).toFixed(1)) !== cprFilters.cpr_draw) return false;
-        if (cprFilters.cpr_away && parseFloat((c.probAway * 100).toFixed(1)) !== cprFilters.cpr_away) return false;
-        if (cprFilters.cpr_guven && parseFloat((c.confidence * 100).toFixed(1)) !== cprFilters.cpr_guven) return false;
-        if (cprFilters.cpr_tahmin && c.prediction !== cprFilters.cpr_tahmin) return false;
-        if (cprFilters.cpr_cs && c.doubleChance !== cprFilters.cpr_cs) return false;
-        if (cprFilters.cpr_skor && c.predictedScore !== cprFilters.cpr_skor) return false;
-        return true;
-      });
-
-      const total = processedRows.length;
-      processedRows = processedRows.slice(offset, offset + limit);
-
-      return res.json({ data: processedRows, total, limit, offset });
-    }
-
-    // No CPR filters — use normal count
     const countQuery = `
       SELECT COUNT(DISTINCT m.match_id)::int AS total
       FROM matches m
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${whereClause}
     `;
-    const countResult = await db.query(countQuery, values);
+
+    const [rowsResult, countResult] = await Promise.all([
+      db.query(selectQuery, values),
+      db.query(countQuery, values)
+    ]);
+
+    // Calculate CPR for display using selected bookmaker's odds (lightweight — no DB calls)
+    const processedRows = rowsResult.rows.map(r => {
+      const cprData = predictMatch({
+        oddsHome: r.odds_1, oddsDraw: r.odds_x, oddsAway: r.odds_2,
+        homeEloGeneral: 0, awayEloGeneral: 0,
+        homeForm5: 0, awayForm5: 0,
+        homeForm10: 0, awayForm10: 0,
+        homeForm20: 0, awayForm20: 0,
+        leagueAvgElo: 0
+      });
+      return { ...r, cpr: cprData };
+    });
 
     res.json({
       data: processedRows,
