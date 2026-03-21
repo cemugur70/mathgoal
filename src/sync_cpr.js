@@ -22,25 +22,8 @@ async function syncAllCpr() {
   while (true) {
     try {
       const res = await db.query(`
-        SELECT m.match_id, m.match_date, m.home_team, m.away_team, 
-               COALESCE(
-                 (mac.raw_data->>'bet365_home')::numeric,
-                 (mac.raw_data->>'unibet_home')::numeric,
-                 (mac.raw_data->>'williamhill_home')::numeric,
-                 (mac.raw_data->>'bwin_home')::numeric
-               ) AS odds_1,
-               COALESCE(
-                 (mac.raw_data->>'bet365_draw')::numeric,
-                 (mac.raw_data->>'unibet_draw')::numeric,
-                 (mac.raw_data->>'williamhill_draw')::numeric,
-                 (mac.raw_data->>'bwin_draw')::numeric
-               ) AS odds_x,
-               COALESCE(
-                 (mac.raw_data->>'bet365_away')::numeric,
-                 (mac.raw_data->>'unibet_away')::numeric,
-                 (mac.raw_data->>'williamhill_away')::numeric,
-                 (mac.raw_data->>'bwin_away')::numeric
-               ) AS odds_2,
+        SELECT m.match_id, m.match_date, m.home_team, m.away_team,
+               odds.odds_1, odds.odds_x, odds.odds_2,
                get_team_elo(m.home_team, m.match_date, 5) AS home_5m,
                get_team_elo(m.home_team, m.match_date, 10) AS home_10m,
                get_team_elo(m.home_team, m.match_date, 20) AS home_20m,
@@ -50,9 +33,15 @@ async function syncAllCpr() {
                get_team_elo(m.home_team, m.match_date, 1000) AS home_general,
                get_team_elo(m.away_team, m.match_date, 1000) AS away_general
         FROM matches m
-        LEFT JOIN match_all_columns mac ON m.match_id = mac.match_id
+        LEFT JOIN LATERAL (
+          SELECT
+            MAX(COALESCE((raw_data->>'bet365_home')::numeric, (raw_data->>'unibet_home')::numeric, (raw_data->>'williamhill_home')::numeric, (raw_data->>'bwin_home')::numeric)) AS odds_1,
+            MAX(COALESCE((raw_data->>'bet365_draw')::numeric, (raw_data->>'unibet_draw')::numeric, (raw_data->>'williamhill_draw')::numeric, (raw_data->>'bwin_draw')::numeric)) AS odds_x,
+            MAX(COALESCE((raw_data->>'bet365_away')::numeric, (raw_data->>'unibet_away')::numeric, (raw_data->>'williamhill_away')::numeric, (raw_data->>'bwin_away')::numeric)) AS odds_2
+          FROM match_all_columns
+          WHERE match_id = m.match_id
+        ) odds ON true
         WHERE m.cpr_home IS NULL
-        GROUP BY m.match_id, m.match_date, m.home_team, m.away_team, mac.raw_data
         ORDER BY m.match_date DESC
         LIMIT 250
       `);
