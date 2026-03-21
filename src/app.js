@@ -133,25 +133,6 @@ function buildBaseFilters(query, values) {
   if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
   if (ftResult) { values.push(ftResult); filters.push(`m.full_time_result = $${values.length}`); }
 
-  // Exclude 0 filter on backend since we marked unprocessed rows as cpr_home=0
-  const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
-  for (const key of CPR_NUM_KEYS) {
-    const val = parseFloat(query[key]);
-    if (!isNaN(val) && val > 0) {
-      values.push(val);
-      filters.push(`m.${key} = $${values.length}`);
-    }
-  }
-
-  const CPR_TXT_KEYS = ["cpr_tahmin", "cpr_cs", "cpr_skor"];
-  for (const key of CPR_TXT_KEYS) {
-    const val = (query[key] || "").trim();
-    if (val) {
-      values.push(val);
-      filters.push(`m.${key} = $${values.length}`);
-    }
-  }
-
   return filters;
 }
 
@@ -221,6 +202,20 @@ app.get("/api/analysis", async (req, res, next) => {
     const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
     const bookmaker = (req.query.bookmaker || "bet365").trim();
 
+    // Extract CPR filter params (these will be applied AFTER CPR calculation)
+    const cprFilters = {};
+    const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
+    for (const key of CPR_NUM_KEYS) {
+      const val = parseFloat(req.query[key]);
+      if (!isNaN(val) && val > 0) cprFilters[key] = val;
+    }
+    const CPR_TXT_KEYS = ["cpr_tahmin", "cpr_cs", "cpr_skor"];
+    for (const key of CPR_TXT_KEYS) {
+      const val = (req.query[key] || "").trim();
+      if (val) cprFilters[key] = val;
+    }
+    const hasCprFilters = Object.keys(cprFilters).length > 0;
+
     const values = [];
     const filters = buildBaseFilters(req.query, values);
     const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
@@ -230,6 +225,10 @@ app.get("/api/analysis", async (req, res, next) => {
     const bmIdx = values.length;
     const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
+
+    // If CPR filters are active, fetch more rows to filter in JS
+    const fetchLimit = hasCprFilters ? 5000 : limit;
+    const fetchOffset = hasCprFilters ? 0 : offset;
 
     const selectQuery = `
       SELECT
@@ -259,22 +258,13 @@ app.get("/api/analysis", async (req, res, next) => {
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${whereClause}
       ORDER BY m.match_date DESC, m.match_time DESC
-      LIMIT ${limit} OFFSET ${offset}
+      LIMIT ${fetchLimit} OFFSET ${fetchOffset}
     `;
 
-    const countQuery = `
-      SELECT COUNT(DISTINCT m.match_id)::int AS total
-      FROM matches m
-      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
-      ${whereClause}
-    `;
+    const rowsResult = await db.query(selectQuery, values);
 
-    const [rowsResult, countResult] = await Promise.all([
-      db.query(selectQuery, values),
-      db.query(countQuery, values)
-    ]);
-
-    const processedRows = rowsResult.rows.map(r => {
+    // Calculate CPR for each row using the SELECTED bookmaker's odds
+    let processedRows = rowsResult.rows.map(r => {
       const cprData = predictMatch({
         oddsHome: r.odds_1, oddsDraw: r.odds_x, oddsAway: r.odds_2,
         homeEloGeneral: r.home_general, awayEloGeneral: r.away_general,
@@ -285,6 +275,35 @@ app.get("/api/analysis", async (req, res, next) => {
       });
       return { ...r, cpr: cprData };
     });
+
+    // Apply CPR filters AFTER calculation (so they use the selected bookmaker's CPR)
+    if (hasCprFilters) {
+      processedRows = processedRows.filter(r => {
+        const c = r.cpr;
+        if (cprFilters.cpr_home && parseFloat((c.probHome * 100).toFixed(1)) !== cprFilters.cpr_home) return false;
+        if (cprFilters.cpr_draw && parseFloat((c.probDraw * 100).toFixed(1)) !== cprFilters.cpr_draw) return false;
+        if (cprFilters.cpr_away && parseFloat((c.probAway * 100).toFixed(1)) !== cprFilters.cpr_away) return false;
+        if (cprFilters.cpr_guven && parseFloat((c.confidence * 100).toFixed(1)) !== cprFilters.cpr_guven) return false;
+        if (cprFilters.cpr_tahmin && c.prediction !== cprFilters.cpr_tahmin) return false;
+        if (cprFilters.cpr_cs && c.doubleChance !== cprFilters.cpr_cs) return false;
+        if (cprFilters.cpr_skor && c.predictedScore !== cprFilters.cpr_skor) return false;
+        return true;
+      });
+
+      const total = processedRows.length;
+      processedRows = processedRows.slice(offset, offset + limit);
+
+      return res.json({ data: processedRows, total, limit, offset });
+    }
+
+    // No CPR filters — use normal count
+    const countQuery = `
+      SELECT COUNT(DISTINCT m.match_id)::int AS total
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${whereClause}
+    `;
+    const countResult = await db.query(countQuery, values);
 
     res.json({
       data: processedRows,
