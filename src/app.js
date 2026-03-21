@@ -250,6 +250,8 @@ app.get("/api/analysis", async (req, res, next) => {
        oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
     }
 
+    const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
+
     const selectQuery = `
       SELECT
         m.match_id,
@@ -284,7 +286,7 @@ app.get("/api/analysis", async (req, res, next) => {
         LIMIT 1
       ) odds ON true
       ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
-      ORDER BY m.match_date DESC, m.match_time DESC
+      ORDER BY m.match_date ${orderDir}, m.match_time ${orderDir}
       LIMIT ${limit} OFFSET ${offset}
     `;
 
@@ -331,6 +333,7 @@ app.get("/api/matches", async (req, res, next) => {
     const limit = Math.min(toPositiveInt(req.query.limit, config.dashboardPageSize), 200);
     const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
     const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
 
     const values = [];
     const filters = buildBaseFilters(req.query, values);
@@ -361,7 +364,7 @@ app.get("/api/matches", async (req, res, next) => {
         FROM matches m
         INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
         ${whereClause}
-        ORDER BY m.match_date DESC NULLS LAST, m.match_time DESC NULLS LAST, m.scraped_at DESC, m.match_id
+        ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.scraped_at DESC, m.match_id
         LIMIT $${dataValues.length - 1}
         OFFSET $${dataValues.length}
       `;
@@ -390,7 +393,7 @@ app.get("/api/matches", async (req, res, next) => {
         m.home_score, m.away_score, m.full_time_result, m.scraped_at
       FROM matches m
       ${whereClause}
-      ORDER BY m.match_date DESC NULLS LAST, m.match_time DESC NULLS LAST, m.scraped_at DESC
+      ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.scraped_at DESC
       LIMIT $${dataValues.length - 1}
       OFFSET $${dataValues.length}
     `;

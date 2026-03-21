@@ -244,6 +244,7 @@ function getBaseFilters() {
   if (el.fDateTo.value.trim()) filters.dateTo = el.fDateTo.value.trim();
   if (el.fBookmaker.value) filters.bookmaker = el.fBookmaker.value;
   if (el.fResult.value) filters.result = el.fResult.value;
+  if (state.order) filters.order = state.order;
 
   // Add exact odds filters
   ADV_ODDS_FILTERS.forEach(f => {
@@ -642,6 +643,7 @@ async function refreshAll() {
 // ─── Events ───
 el.btnApply.addEventListener("click", () => {
   state.offset = 0; state.selectedMatchId = null;
+  state.order = "desc"; // Reset order when user manually clicks Filtrele
   el.oddsPanel.classList.remove("active");
   refreshAll();
 });
@@ -655,9 +657,37 @@ el.btnClear.addEventListener("click", () => {
     if (elId) elId.value = "";
   });
   state.offset = 0; state.selectedMatchId = null;
+  state.order = "desc";
   el.oddsPanel.classList.remove("active");
   refreshAll();
 });
+
+const btnUpcoming = document.getElementById("btnUpcoming");
+if (btnUpcoming) {
+  btnUpcoming.addEventListener("click", () => {
+    const today = new Date();
+    const next7Days = new Date();
+    next7Days.setDate(today.getDate() + 7);
+
+    el.fDateFrom.value = today.toISOString().split("T")[0];
+    el.fDateTo.value = next7Days.toISOString().split("T")[0];
+    
+    // Switch to Analysis tab automatically for better UX
+    document.querySelectorAll(".main-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+    const tabBtn = document.getElementById("tabAnalysisBtn");
+    const tabDiv = document.getElementById("analysisTab");
+    if (tabBtn) tabBtn.classList.add("active");
+    if (tabDiv) tabDiv.classList.add("active");
+    state.activeTab = "analysisTab";
+
+    state.order = "asc"; // ASC order for fixtures
+    state.offset = 0; state.selectedMatchId = null;
+    el.oddsPanel.classList.remove("active");
+    refreshAll();
+  });
+}
+
 el.btnPrev.addEventListener("click", () => { state.offset = Math.max(0, state.offset - state.limit); refreshAll(); });
 el.btnNext.addEventListener("click", () => { state.offset += state.limit; refreshAll(); });
 el.oddsClose.addEventListener("click", () => {
