@@ -49,36 +49,47 @@ async function syncAllCpr() {
       }
 
       for (const r of res.rows) {
-        if (!r.odds_1 || !r.odds_x || !r.odds_2) {
-            // mark as processed with 0s to avoid infinite loop
-            await db.query(`UPDATE matches SET cpr_home = 0 WHERE match_id = $1`, [r.match_id]);
-            continue;
-        }
-        
-        const cprData = predictMatch({
-          oddsHome: r.odds_1, oddsDraw: r.odds_x, oddsAway: r.odds_2,
-          homeEloGeneral: r.home_general, awayEloGeneral: r.away_general,
-          homeForm5: r.home_5m, awayForm5: r.away_5m,
-          homeForm10: r.home_10m, awayForm10: r.away_10m,
-          homeForm20: r.home_20m, awayForm20: r.away_20m,
-          leagueAvgElo: 0
-        });
+        try {
+          if (!r.odds_1 || !r.odds_x || !r.odds_2) {
+              // mark as processed with 0s to avoid infinite loop
+              await db.query(`UPDATE matches SET cpr_home = 0 WHERE match_id = $1`, [r.match_id]);
+              continue;
+          }
+          
+          const cprData = predictMatch({
+            oddsHome: r.odds_1, oddsDraw: r.odds_x, oddsAway: r.odds_2,
+            homeEloGeneral: r.home_general, awayEloGeneral: r.away_general,
+            homeForm5: r.home_5m, awayForm5: r.away_5m,
+            homeForm10: r.home_10m, awayForm10: r.away_10m,
+            homeForm20: r.home_20m, awayForm20: r.away_20m,
+            leagueAvgElo: 0
+          });
 
-        await db.query(`
-          UPDATE matches 
-          SET cpr_home = $1, cpr_draw = $2, cpr_away = $3, 
-              cpr_tahmin = $4, cpr_guven = $5, cpr_cs = $6, cpr_skor = $7
-          WHERE match_id = $8
-        `, [
-          parseFloat((cprData.probHome*100).toFixed(1)),
-          parseFloat((cprData.probDraw*100).toFixed(1)),
-          parseFloat((cprData.probAway*100).toFixed(1)),
-          cprData.prediction,
-          parseFloat((cprData.confidence*100).toFixed(1)),
-          cprData.doubleChance,
-          cprData.predictedScore,
-          r.match_id
-        ]);
+          // check for NaN to prevent DB numeric errors
+          if (isNaN(parseFloat(cprData.probHome))) {
+            throw new Error("ProbHome calculation resulted in NaN");
+          }
+
+          await db.query(`
+            UPDATE matches 
+            SET cpr_home = $1, cpr_draw = $2, cpr_away = $3, 
+                cpr_tahmin = $4, cpr_guven = $5, cpr_cs = $6, cpr_skor = $7
+            WHERE match_id = $8
+          `, [
+            parseFloat((cprData.probHome*100).toFixed(1)),
+            parseFloat((cprData.probDraw*100).toFixed(1)),
+            parseFloat((cprData.probAway*100).toFixed(1)),
+            cprData.prediction,
+            parseFloat((cprData.confidence*100).toFixed(1)),
+            cprData.doubleChance,
+            cprData.predictedScore,
+            r.match_id
+          ]);
+        } catch (err) {
+          console.error(`[CPR Sync] Skipped match ${r.match_id} due to calc error:`, err.message);
+          // Mark as processed (0) so it doesn't loop infinitely
+          await db.query(`UPDATE matches SET cpr_home = 0 WHERE match_id = $1`, [r.match_id]).catch(()=>{});
+        }
       }
       console.log(`[CPR Sync] Processed batch of ${res.rows.length} matches.`);
       await new Promise(r => setTimeout(r, 2000)); // Sleep 2 seconds between batches to avoid locking DB entirely
