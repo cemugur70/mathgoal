@@ -531,10 +531,16 @@
             <option value="MS 2">MS 2 (Dep. Kazanır)</option>
           </select>
         </div>
-        <div class="filter-actions">
+        <div class="filter-actions" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <button class="btn btn-primary" id="btnApply">Filtrele</button>
           <button class="btn btn-ghost" id="btnClear">Temizle</button>
-          <button class="btn" style="background:var(--purple); color:#fff; border:none; margin-left:8px;" id="btnUpcoming">+7 Gün Fikstür</button>
+          <button class="btn" style="background:var(--purple); color:#fff; border:none;" id="btnUpcoming">+7 Gün Fikstür</button>
+          <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; margin-left:8px; cursor:pointer;" title="Sadece henüz skoru belli olmayan oynanmamış maçlar">
+            <input type="checkbox" id="fUpcomingOnly" /> Oynanmamışlar
+          </label>
+          <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer;" title="Analiz tablosunda maçları lige göre grupla">
+            <input type="checkbox" id="fGroupLeague" /> Lig Grupla
+          </label>
         </div>
       </section>
 

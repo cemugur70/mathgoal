@@ -25,6 +25,7 @@ const el = {
   advToggle: $("advToggle"), advFilters: $("advFilters"), advFiltersGrid: $("advFiltersGrid"),
   statsGrid: $("statsGrid"), statsTotalMatches: $("statsTotalMatches"),
   statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
+  fUpcomingOnly: $("fUpcomingOnly"), fGroupLeague: $("fGroupLeague"),
 };
 
 // ─── Helpers ───
@@ -245,6 +246,7 @@ function getBaseFilters() {
   if (el.fBookmaker.value) filters.bookmaker = el.fBookmaker.value;
   if (el.fResult.value) filters.result = el.fResult.value;
   if (state.order) filters.order = state.order;
+  if (el.fUpcomingOnly.checked) filters.upcomingOnly = true;
 
   // Add exact odds filters
   ADV_ODDS_FILTERS.forEach(f => {
@@ -580,7 +582,31 @@ function renderAnalysisTable(rows) {
     return;
   }
 
-  tbody.innerHTML = rows.map((r) => {
+  let sortedRows = rows;
+  const groupLeague = el.fGroupLeague && el.fGroupLeague.checked;
+  
+  if (groupLeague) {
+    sortedRows = [...rows].sort((a, b) => {
+      const l1 = (a.league || "").trim().toLowerCase();
+      const l2 = (b.league || "").trim().toLowerCase();
+      if (l1 < l2) return -1;
+      if (l1 > l2) return 1;
+      return new Date(a.match_date) - new Date(b.match_date);
+    });
+  }
+
+  let html = "";
+  let lastLeague = null;
+
+  sortedRows.forEach((r) => {
+    if (groupLeague) {
+      const currentLeague = (r.league || "Diğer Ligler").trim();
+      if (currentLeague !== lastLeague) {
+        html += `<tr class="league-header-row" style="background:var(--bg-2);"><td colspan="16" style="text-align:left; padding:12px 14px; color:var(--accent); font-size:1.05rem; font-weight:700; border-top:2px solid var(--border-hl);">${esc(currentLeague)} - ${esc(r.country || "")}</td></tr>`;
+        lastLeague = currentLeague;
+      }
+    }
+
     const score = r.home_score != null ? `${r.home_score} - ${r.away_score}` : "-";
     
     const cpr = r.cpr || {};
@@ -595,7 +621,7 @@ function renderAnalysisTable(rows) {
     const top3 = cpr.top3Scores ? cpr.top3Scores.join(", ") : "-";
 
     const selClass = state.selectedMatchId === r.match_id ? " selected" : "";
-    return `
+    html += `
       <tr data-id="${r.match_id}" class="${selClass}" onclick="selectMatch('${r.match_id}')">
         <td class="text-dim">${fmtDate(r.match_date)}</td>
         <td class="text-dim">${esc(r.league || "")}</td>
@@ -614,7 +640,9 @@ function renderAnalysisTable(rows) {
         <td class="text-dim">${top3}</td>
         <td><span class="score">${esc(score)}</span></td>
       </tr>`;
-  }).join("");
+  });
+
+  tbody.innerHTML = html;
 }
 
 // ─── Refresh ───
@@ -681,6 +709,10 @@ if (btnUpcoming) {
     if (tabBtn) tabBtn.classList.add("active");
     if (tabDiv) tabDiv.classList.add("active");
     state.activeTab = "analysisTab";
+    
+    // Automatically turn on upcoming mode and group by league
+    if (el.fUpcomingOnly) el.fUpcomingOnly.checked = true;
+    if (el.fGroupLeague) el.fGroupLeague.checked = true;
 
     state.order = "asc"; // ASC order for fixtures
     state.offset = 0; state.selectedMatchId = null;

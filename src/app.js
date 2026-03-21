@@ -132,6 +132,7 @@ function buildBaseFilters(query, values) {
   if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
   if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
   if (ftResult) { values.push(ftResult); filters.push(`m.full_time_result = $${values.length}`); }
+  if (query.upcomingOnly === 'true') { filters.push(`m.home_score IS NULL`); }
 
   const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
   for (const key of CPR_NUM_KEYS) {
