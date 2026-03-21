@@ -594,8 +594,9 @@ function renderAnalysisTable(rows) {
     const tahminSkor = cpr.predictedScore || "-";
     const top3 = cpr.top3Scores ? cpr.top3Scores.join(", ") : "-";
 
+    const selClass = state.selectedMatchId === r.match_id ? " selected" : "";
     return `
-      <tr data-id="${r.match_id}">
+      <tr data-id="${r.match_id}" class="${selClass}" onclick="selectMatch('${r.match_id}')">
         <td class="text-dim">${fmtDate(r.match_date)}</td>
         <td class="text-dim">${esc(r.league || "")}</td>
         <td class="team-name">${esc(r.home_team)}</td>
