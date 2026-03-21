@@ -627,16 +627,16 @@ function renderAnalysisTable(rows) {
         <td class="text-dim">${esc(r.league || "")}</td>
         <td class="team-name">${esc(r.home_team)}</td>
         <td class="team-name">${esc(r.away_team)}</td>
-        <td class="odds-value">${r.odds_1 ? parseFloat(r.odds_1).toFixed(2) : "-"}</td>
-        <td class="odds-value">${r.odds_x ? parseFloat(r.odds_x).toFixed(2) : "-"}</td>
-        <td class="odds-value">${r.odds_2 ? parseFloat(r.odds_2).toFixed(2) : "-"}</td>
-        <td style="color: var(--accent); font-weight: 700;">${probH}</td>
-        <td style="color: var(--accent); font-weight: 700;">${probD}</td>
-        <td style="color: var(--accent); font-weight: 700;">${probA}</td>
-        <td style="color: var(--green); font-weight: 800;">${tahmin}</td>
-        <td style="color: var(--yellow); font-weight: 700;">${guven}</td>
-        <td style="color: var(--purple); font-weight: 700;">${doubleChance}</td>
-        <td style="color: var(--accent); font-weight: 700;">${tahminSkor}</td>
+        <td class="odds-value click-filter" onclick="applyFilter(event, 'odds_1', this.innerText)">${r.odds_1 ? parseFloat(r.odds_1).toFixed(2) : "-"}</td>
+        <td class="odds-value click-filter" onclick="applyFilter(event, 'odds_x', this.innerText)">${r.odds_x ? parseFloat(r.odds_x).toFixed(2) : "-"}</td>
+        <td class="odds-value click-filter" onclick="applyFilter(event, 'odds_2', this.innerText)">${r.odds_2 ? parseFloat(r.odds_2).toFixed(2) : "-"}</td>
+        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_home', this.innerText)">${probH}</td>
+        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_draw', this.innerText)">${probD}</td>
+        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_away', this.innerText)">${probA}</td>
+        <td class="click-filter" style="color: var(--green); font-weight: 800;" onclick="applyFilter(event, 'cpr_tahmin', this.innerText)">${tahmin}</td>
+        <td class="click-filter" style="color: var(--yellow); font-weight: 700;" onclick="applyFilter(event, 'cpr_guven', this.innerText)">${guven}</td>
+        <td class="click-filter" style="color: var(--purple); font-weight: 700;" onclick="applyFilter(event, 'cpr_cs', this.innerText)">${doubleChance}</td>
+        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_skor', this.innerText)">${tahminSkor}</td>
         <td class="text-dim">${top3}</td>
         <td><span class="score">${esc(score)}</span></td>
       </tr>`;
@@ -734,6 +734,31 @@ document.querySelectorAll(".filter-group input").forEach((input) => {
 });
 window.selectMatch = selectMatch;
 
+window.applyFilter = function(e, filterId, value) {
+  e.stopPropagation(); // prevent selectMatch from triggering
+  if (!value || value === "-" || String(value).trim() === "") return;
+  
+  const input = document.getElementById(filterId);
+  if (!input) return;
+
+  // Clean value (e.g. "45.2%" -> "45.2")
+  let cleanValue = String(value).replace("%", "").trim();
+  input.value = cleanValue;
+
+  // Visual feedback highlighting the target input
+  input.style.transition = "background-color 0.2s, color 0.2s";
+  input.style.backgroundColor = "var(--green)";
+  input.style.color = "#000";
+  setTimeout(() => {
+    input.style.backgroundColor = "";
+    input.style.color = "";
+  }, 1000);
+
+  // Open advanced filters if not already open
+  if (!el.advFilters.classList.contains("open")) {
+    el.advToggle.click();
+  }
+};
 document.querySelectorAll(".main-tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     if (btn.dataset.tab === "analysisTab" && state.activeTab !== "analysisTab") {
