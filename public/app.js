@@ -745,6 +745,12 @@ window.applyFilter = function(e, filterId, value) {
   let cleanValue = String(value).replace("%", "").trim();
   input.value = cleanValue;
 
+  // Automatically CLEAR dates and upcoming flags so we can BACKTEST entire history!
+  if (el.fDateFrom) el.fDateFrom.value = "";
+  if (el.fDateTo) el.fDateTo.value = "";
+  if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
+  if (el.fGroupLeague) el.fGroupLeague.checked = false;
+
   // Visual feedback highlighting the target input
   input.style.transition = "background-color 0.2s, color 0.2s";
   input.style.backgroundColor = "var(--green)";
@@ -758,6 +764,11 @@ window.applyFilter = function(e, filterId, value) {
   if (!el.advFilters.classList.contains("open")) {
     el.advToggle.click();
   }
+
+  // Refresh automatically to instantly backtest
+  state.offset = 0;
+  state.order = "desc"; // For backtest, user wants to see latest played matches
+  refreshAll();
 };
 document.querySelectorAll(".main-tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
