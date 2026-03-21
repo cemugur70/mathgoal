@@ -587,22 +587,41 @@ function renderAnalysisTable(rows) {
   
   if (groupLeague) {
     sortedRows = [...rows].sort((a, b) => {
+      // 1. Sort by Date
+      const d1 = new Date(a.match_date).setHours(0,0,0,0);
+      const d2 = new Date(b.match_date).setHours(0,0,0,0);
+      if (d1 < d2) return -1;
+      if (d1 > d2) return 1;
+
+      // 2. Sort by League
       const l1 = (a.league || "").trim().toLowerCase();
       const l2 = (b.league || "").trim().toLowerCase();
       if (l1 < l2) return -1;
       if (l1 > l2) return 1;
+
+      // 3. Fallback to exact time
       return new Date(a.match_date) - new Date(b.match_date);
     });
   }
 
   let html = "";
   let lastLeague = null;
+  let lastDateStr = null;
 
   sortedRows.forEach((r) => {
     if (groupLeague) {
+      const dRaw = new Date(r.match_date);
+      const currentDateStr = fmtDate(r.match_date); // reusing fmtDate
+
+      if (currentDateStr !== lastDateStr) {
+        html += `<tr class="date-header-row" style="background:var(--accent); color:#000;"><td colspan="16" style="text-align:center; padding:10px 14px; font-size:1.1rem; font-weight:800; border-top:3px solid var(--border-hl); letter-spacing:1px;">📅 ${currentDateStr} MAÇLARI</td></tr>`;
+        lastDateStr = currentDateStr;
+        lastLeague = null; // Reset league because a new day started!
+      }
+
       const currentLeague = (r.league || "Diğer Ligler").trim();
       if (currentLeague !== lastLeague) {
-        html += `<tr class="league-header-row" style="background:var(--bg-2);"><td colspan="16" style="text-align:left; padding:12px 14px; color:var(--accent); font-size:1.05rem; font-weight:700; border-top:2px solid var(--border-hl);">${esc(currentLeague)} - ${esc(r.country || "")}</td></tr>`;
+        html += `<tr class="league-header-row" style="background:var(--bg-2);"><td colspan="16" style="text-align:left; padding:12px 14px; color:var(--accent); font-size:1.05rem; font-weight:700; border-top:2px solid var(--border-hl); border-bottom:1px solid var(--border-hl);">🏆 ${esc(currentLeague)} - ${esc(r.country || "")}</td></tr>`;
         lastLeague = currentLeague;
       }
     }
@@ -780,7 +799,16 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
       loadMarketStats();
     } else if (btn.dataset.tab === "matchesTab" && state.activeTab !== "matchesTab") {
       state.activeTab = "matchesTab";
-      loadMatches();
+      
+      // Auto-clear filters to show 'eski maclar' (past matches) and reset ordering
+      if (el.fDateFrom) el.fDateFrom.value = "";
+      if (el.fDateTo) el.fDateTo.value = "";
+      if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
+      if (el.fGroupLeague) el.fGroupLeague.checked = false;
+      
+      state.order = "desc";
+      state.offset = 0;
+      refreshAll();
     }
   });
 });
