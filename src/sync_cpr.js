@@ -15,6 +15,12 @@ async function syncAllCpr() {
       ADD COLUMN IF NOT EXISTS cpr_skor varchar(10);
     `);
     console.log("[CPR Sync] Ensured matches table columns exist.");
+    
+    // Create necessary performance indexes synchronously in the background
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_matches_cpr_home ON matches(cpr_home) WHERE cpr_home IS NOT NULL`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_matches_cpr_tahmin ON matches(cpr_tahmin)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_matches_cpr_cs ON matches(cpr_cs)`);
+    console.log("[CPR Sync] CPR indexes verified.");
   } catch (err) {
     console.error("[CPR Sync] Column error:", err.message);
   }

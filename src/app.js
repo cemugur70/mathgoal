@@ -133,6 +133,24 @@ function buildBaseFilters(query, values) {
   if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
   if (ftResult) { values.push(ftResult); filters.push(`m.full_time_result = $${values.length}`); }
 
+  const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
+  for (const key of CPR_NUM_KEYS) {
+    const val = parseFloat(query[key]);
+    if (!isNaN(val) && val > 0) {
+      values.push(val);
+      filters.push(`m.${key} = $${values.length}`);
+    }
+  }
+
+  const CPR_TXT_KEYS = ["cpr_tahmin", "cpr_cs", "cpr_skor"];
+  for (const key of CPR_TXT_KEYS) {
+    const val = (query[key] || "").trim();
+    if (val) {
+      values.push(val);
+      filters.push(`m.${key} = $${values.length}`);
+    }
+  }
+
   return filters;
 }
 
@@ -146,6 +164,16 @@ app.get("/api/health", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+});
+
+app.get("/api/debug", async (req, res, next) => {
+  try {
+    const query = req.query.q || "SELECT m.cpr_home, mac.bookmaker FROM matches m INNER JOIN match_all_columns mac ON m.match_id = mac.match_id WHERE cpr_home = 45.2 LIMIT 5";
+    const result = await db.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -171,11 +199,14 @@ app.get("/api/stats/overview", async (req, res, next) => {
     const filters = buildBaseFilters(req.query, values);
     const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
 
-    // Always JOIN with match_all_columns (bookmaker is always set)
-    values.push(bookmaker);
-    const bmIdx = values.length;
-    const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
-    const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
+    // Provide the bookmaker if needed or filter requires it
+    if (needsJoin || oddsFilters.length) {
+      values.push(bookmaker);
+      const bmIdx = values.length;
+      filters.push(`mac.bookmaker = $${bmIdx}`);
+      for (const f of oddsFilters) filters.push(f);
+    }
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     const sql = `
       SELECT
@@ -206,28 +237,18 @@ app.get("/api/analysis", async (req, res, next) => {
     const filters = buildBaseFilters(req.query, values);
     const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
 
-    // CPR filters — applied at SQL level on pre-calculated columns (instant)
-    const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
-    for (const key of CPR_NUM_KEYS) {
-      const val = parseFloat(req.query[key]);
-      if (!isNaN(val) && val > 0) {
-        values.push(val);
-        filters.push(`m.${key} = $${values.length}`);
-      }
-    }
-    const CPR_TXT_KEYS = ["cpr_tahmin", "cpr_cs", "cpr_skor"];
-    for (const key of CPR_TXT_KEYS) {
-      const val = (req.query[key] || "").trim();
-      if (val) {
-        values.push(val);
-        filters.push(`m.${key} = $${values.length}`);
-      }
-    }
-
+    // Bookmaker validation filter on matches
     values.push(bookmaker);
     const bmIdx = values.length;
-    const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
-    const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
+    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx})`);
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+    // For odds filter, we wrap it in a subselect
+    let oddsWhere = "";
+    if (oddsFilters.length > 0) {
+       oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
+    }
 
     const selectQuery = `
       SELECT
@@ -242,12 +263,27 @@ app.get("/api/analysis", async (req, res, next) => {
         m.away_score,
         m.full_time_result,
         m.half_time_result,
-        (mac.raw_data->>'${bookmaker}_home')::numeric AS odds_1,
-        (mac.raw_data->>'${bookmaker}_draw')::numeric AS odds_x,
-        (mac.raw_data->>'${bookmaker}_away')::numeric AS odds_2
+        m.cpr_home,
+        m.cpr_draw,
+        m.cpr_away,
+        m.cpr_tahmin,
+        m.cpr_guven,
+        m.cpr_cs,
+        m.cpr_skor,
+        odds.odds_1,
+        odds.odds_x,
+        odds.odds_2
       FROM matches m
-      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
-      ${whereClause}
+      LEFT JOIN LATERAL (
+        SELECT 
+          (raw_data->>'${bookmaker}_home')::numeric AS odds_1,
+          (raw_data->>'${bookmaker}_draw')::numeric AS odds_x,
+          (raw_data->>'${bookmaker}_away')::numeric AS odds_2
+        FROM match_all_columns 
+        WHERE match_id = m.match_id AND bookmaker = $${bmIdx}
+        LIMIT 1
+      ) odds ON true
+      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
       ORDER BY m.match_date DESC, m.match_time DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
@@ -255,8 +291,7 @@ app.get("/api/analysis", async (req, res, next) => {
     const countQuery = `
       SELECT COUNT(DISTINCT m.match_id)::int AS total
       FROM matches m
-      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
-      ${whereClause}
+      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
     `;
 
     const [rowsResult, countResult] = await Promise.all([
@@ -264,17 +299,20 @@ app.get("/api/analysis", async (req, res, next) => {
       db.query(countQuery, values)
     ]);
 
-    // Calculate CPR for display using selected bookmaker's odds (lightweight — no DB calls)
+    // Format CPR back to expected object structure for frontend
     const processedRows = rowsResult.rows.map(r => {
-      const cprData = predictMatch({
-        oddsHome: r.odds_1, oddsDraw: r.odds_x, oddsAway: r.odds_2,
-        homeEloGeneral: 0, awayEloGeneral: 0,
-        homeForm5: 0, awayForm5: 0,
-        homeForm10: 0, awayForm10: 0,
-        homeForm20: 0, awayForm20: 0,
-        leagueAvgElo: 0
-      });
-      return { ...r, cpr: cprData };
+      return {
+        ...r,
+        cpr: {
+          probHome: r.cpr_home !== null ? r.cpr_home / 100 : 0,
+          probDraw: r.cpr_draw !== null ? r.cpr_draw / 100 : 0,
+          probAway: r.cpr_away !== null ? r.cpr_away / 100 : 0,
+          prediction: r.cpr_tahmin || "-",
+          confidence: r.cpr_guven !== null ? r.cpr_guven / 100 : 0,
+          doubleChance: r.cpr_cs || "-",
+          predictedScore: r.cpr_skor || "-"
+        }
+      };
     });
 
     res.json({
