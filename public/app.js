@@ -714,13 +714,19 @@ el.btnClear.addEventListener("click", () => {
 
 const fixtureSelect = document.getElementById("fixtureSelect");
 if (fixtureSelect) {
+  const getLocalDateStr = (dateObj) => {
+    const offset = dateObj.getTimezoneOffset();
+    const localD = new Date(dateObj.getTime() - (offset * 60 * 1000));
+    return localD.toISOString().split("T")[0];
+  };
+
   const populateFixtureDates = () => {
     fixtureSelect.innerHTML = `<option value="">📆 Fikstür Seç</option><option value="all">Tüm Liste (7 Gün)</option>`;
     const todayRaw = new Date();
     for (let i = 0; i < 7; i++) {
       const d = new Date(todayRaw);
       d.setDate(d.getDate() + i);
-      const val = d.toISOString().split("T")[0];
+      const val = getLocalDateStr(d);
       const params = { day: '2-digit', month: '2-digit', year: 'numeric' };
       let label = d.toLocaleDateString("tr-TR", params);
       if (i === 0) label = `Bugün (${label})`;
@@ -749,8 +755,8 @@ if (fixtureSelect) {
     if (val === "all") {
        const today = new Date();
        const next7 = new Date(); next7.setDate(today.getDate() + 7);
-       el.fDateFrom.value = today.toISOString().split("T")[0];
-       el.fDateTo.value = next7.toISOString().split("T")[0];
+       el.fDateFrom.value = getLocalDateStr(today);
+       el.fDateTo.value = getLocalDateStr(next7);
     } else {
        el.fDateFrom.value = val;
        el.fDateTo.value = val;
