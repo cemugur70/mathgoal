@@ -23,9 +23,24 @@ async function syncAllCpr() {
     try {
       const res = await db.query(`
         SELECT m.match_id, m.match_date, m.home_team, m.away_team, 
-               (mac.raw_data->>'bet365_home')::numeric AS odds_1,
-               (mac.raw_data->>'bet365_draw')::numeric AS odds_x,
-               (mac.raw_data->>'bet365_away')::numeric AS odds_2,
+               COALESCE(
+                 (mac.raw_data->>'bet365_home')::numeric,
+                 (mac.raw_data->>'unibet_home')::numeric,
+                 (mac.raw_data->>'williamhill_home')::numeric,
+                 (mac.raw_data->>'bwin_home')::numeric
+               ) AS odds_1,
+               COALESCE(
+                 (mac.raw_data->>'bet365_draw')::numeric,
+                 (mac.raw_data->>'unibet_draw')::numeric,
+                 (mac.raw_data->>'williamhill_draw')::numeric,
+                 (mac.raw_data->>'bwin_draw')::numeric
+               ) AS odds_x,
+               COALESCE(
+                 (mac.raw_data->>'bet365_away')::numeric,
+                 (mac.raw_data->>'unibet_away')::numeric,
+                 (mac.raw_data->>'williamhill_away')::numeric,
+                 (mac.raw_data->>'bwin_away')::numeric
+               ) AS odds_2,
                get_team_elo(m.home_team, m.match_date, 5) AS home_5m,
                get_team_elo(m.home_team, m.match_date, 10) AS home_10m,
                get_team_elo(m.home_team, m.match_date, 20) AS home_20m,
@@ -35,9 +50,9 @@ async function syncAllCpr() {
                get_team_elo(m.home_team, m.match_date, 1000) AS home_general,
                get_team_elo(m.away_team, m.match_date, 1000) AS away_general
         FROM matches m
-        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id AND mac.bookmaker = 'bet365'
-        WHERE m.cpr_home IS NULL 
-          AND (mac.raw_data->>'bet365_home') IS NOT NULL
+        LEFT JOIN match_all_columns mac ON m.match_id = mac.match_id
+        WHERE m.cpr_home IS NULL
+        GROUP BY m.match_id, m.match_date, m.home_team, m.away_team, mac.raw_data
         ORDER BY m.match_date DESC
         LIMIT 250
       `);
