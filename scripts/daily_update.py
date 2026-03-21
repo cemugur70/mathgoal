@@ -42,7 +42,7 @@ def get_daily_ids():
             
             # Go back to Yesterday first!
             try:
-                page.locator(".calendar__direction--yesterday").click(timeout=5000)
+                page.locator("button[aria-label='Previous day']").click(timeout=5000)
                 page.wait_for_timeout(3000)
             except: pass
             
@@ -71,7 +71,7 @@ def get_daily_ids():
             # Now click tomorrow to prepare for the next iteration
             if offset < 7:
                 try:
-                    page.locator(".calendar__direction--tomorrow").click(timeout=5000)
+                    page.locator("button[aria-label='Next day']").click(timeout=5000)
                     # wait for dom update
                     page.wait_for_timeout(3000)
                 except Exception as e:
