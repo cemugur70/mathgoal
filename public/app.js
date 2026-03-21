@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════ */
 
 const API = "";
-const state = { limit: 50, offset: 0, total: 0, selectedMatchId: null, allColumns: [], activeTab: "matchesTab" };
+const state = { limit: 200, offset: 0, total: 0, selectedMatchId: null, allColumns: [], activeTab: "matchesTab" };
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -699,6 +699,8 @@ el.btnClear.addEventListener("click", () => {
   [el.fSearch, el.fDateFrom, el.fDateTo].forEach((i) => (i.value = ""));
   el.fCountry.value = ""; el.fLeague.value = ""; el.fSeason.value = "";
   el.fResult.value = "";
+  const fSelect = document.getElementById("fixtureSelect");
+  if (fSelect) fSelect.value = "";
   // Clear advanced filters
   ADV_ODDS_FILTERS.forEach(f => {
     const elId = document.getElementById(f.id);
@@ -710,17 +712,32 @@ el.btnClear.addEventListener("click", () => {
   refreshAll();
 });
 
-const btnUpcoming = document.getElementById("btnUpcoming");
-if (btnUpcoming) {
-  btnUpcoming.addEventListener("click", () => {
-    const today = new Date();
-    const next7Days = new Date();
-    next7Days.setDate(today.getDate() + 7);
+const fixtureSelect = document.getElementById("fixtureSelect");
+if (fixtureSelect) {
+  const populateFixtureDates = () => {
+    fixtureSelect.innerHTML = `<option value="">📆 Fikstür Seç</option><option value="all">Tüm Liste (7 Gün)</option>`;
+    const todayRaw = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(todayRaw);
+      d.setDate(d.getDate() + i);
+      const val = d.toISOString().split("T")[0];
+      const params = { day: '2-digit', month: '2-digit', year: 'numeric' };
+      let label = d.toLocaleDateString("tr-TR", params);
+      if (i === 0) label = `Bugün (${label})`;
+      else if (i === 1) label = `Yarın (${label})`;
+      const opt = document.createElement("option");
+      opt.value = val;
+      opt.textContent = label;
+      fixtureSelect.appendChild(opt);
+    }
+  };
+  populateFixtureDates();
 
-    el.fDateFrom.value = today.toISOString().split("T")[0];
-    el.fDateTo.value = next7Days.toISOString().split("T")[0];
-    
-    // Switch to Analysis tab automatically for better UX
+  fixtureSelect.addEventListener("change", () => {
+    const val = fixtureSelect.value;
+    if (!val) return; // if they select the empty placeholder
+
+    // Switch to Analysis tab automatically
     document.querySelectorAll(".main-tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
     const tabBtn = document.getElementById("tabAnalysisBtn");
@@ -728,8 +745,17 @@ if (btnUpcoming) {
     if (tabBtn) tabBtn.classList.add("active");
     if (tabDiv) tabDiv.classList.add("active");
     state.activeTab = "analysisTab";
-    
-    // Automatically turn on upcoming mode and group by league
+
+    if (val === "all") {
+       const today = new Date();
+       const next7 = new Date(); next7.setDate(today.getDate() + 7);
+       el.fDateFrom.value = today.toISOString().split("T")[0];
+       el.fDateTo.value = next7.toISOString().split("T")[0];
+    } else {
+       el.fDateFrom.value = val;
+       el.fDateTo.value = val;
+    }
+
     if (el.fUpcomingOnly) el.fUpcomingOnly.checked = true;
     if (el.fGroupLeague) el.fGroupLeague.checked = true;
 
@@ -769,6 +795,8 @@ window.applyFilter = function(e, filterId, value) {
   if (el.fDateTo) el.fDateTo.value = "";
   if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
   if (el.fGroupLeague) el.fGroupLeague.checked = false;
+  const fts = document.getElementById("fixtureSelect");
+  if (fts) fts.value = "";
 
   // Visual feedback highlighting the target input
   input.style.transition = "background-color 0.2s, color 0.2s";
@@ -805,6 +833,8 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
       if (el.fDateTo) el.fDateTo.value = "";
       if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
       if (el.fGroupLeague) el.fGroupLeague.checked = false;
+      const fts = document.getElementById("fixtureSelect");
+      if (fts) fts.value = "";
       
       state.order = "desc";
       state.offset = 0;

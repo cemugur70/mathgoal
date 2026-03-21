@@ -47,7 +47,7 @@
         padding: 18px 0;
       }
       .header-inner {
-        max-width: 1480px; margin: 0 auto; padding: 0 24px;
+        max-width: 98%; margin: 0 auto; padding: 0 24px;
         display: flex; align-items: center; justify-content: space-between;
       }
       .brand { display: flex; align-items: center; gap: 10px; }
@@ -65,7 +65,7 @@
       .header-stat .lbl { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 
       /* ─── Main Layout ─── */
-      .container { max-width: 1480px; margin: 0 auto; padding: 20px 24px; }
+      .container { max-width: 98%; margin: 0 auto; padding: 20px 24px; }
 
       /* ─── Tab Navigation ─── */
       .main-tabs {
@@ -190,8 +190,8 @@
       table { width: 100%; border-collapse: collapse; }
       thead th {
         background: var(--bg-2);
-        padding: 12px 14px;
-        font-size: 0.75rem;
+        padding: 8px 10px;
+        font-size: 0.72rem;
         font-weight: 600;
         color: var(--text-dim);
         text-transform: uppercase;
@@ -212,8 +212,8 @@
       tbody tr:hover { background: rgba(56, 189, 248, 0.04); }
       tbody tr.selected { background: rgba(56, 189, 248, 0.08); }
       tbody td {
-        padding: 10px 14px;
-        font-size: 0.88rem;
+        padding: 8px 8px;
+        font-size: 0.85rem;
         white-space: nowrap;
       }
       .click-filter:hover {
@@ -539,7 +539,10 @@
         <div class="filter-actions" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <button class="btn btn-primary" id="btnApply">Filtrele</button>
           <button class="btn btn-ghost" id="btnClear">Temizle</button>
-          <button class="btn" style="background:var(--purple); color:#fff; border:none;" id="btnUpcoming">+7 Gün Fikstür</button>
+          <select id="fixtureSelect" aria-label="Fikstürden Tarih Seç" style="background:var(--purple); color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem; outline:none; appearance:none;">
+            <!-- Dynamically filled by JS -->
+            <option value="">📆 Fikstür Seç</option>
+          </select>
           <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; margin-left:8px; cursor:pointer;" title="Sadece henüz skoru belli olmayan oynanmamış maçlar">
             <input type="checkbox" id="fUpcomingOnly" /> Oynanmamışlar
           </label>
