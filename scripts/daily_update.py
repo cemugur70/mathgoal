@@ -36,6 +36,20 @@ def get_daily_ids():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
+        page.goto("https://www.flashscore.co.uk/football/")
+        try:
+            page.wait_for_selector(".sportName.soccer", timeout=15000)
+            
+            # Go back to Yesterday first!
+            try:
+                page.locator(".calendar__direction--yesterday").click(timeout=5000)
+                page.wait_for_timeout(3000)
+            except: pass
+            
+        except Exception as e:
+            LOGGER.error(f"Flashscore ana sayfa yuklenemedi: {e}")
+            return []
+
         for offset in range(-1, 8):
             if offset == -1: label = "Dun"
             elif offset == 0: label = "Bugun"
@@ -43,20 +57,7 @@ def get_daily_ids():
             else: label = f"+{offset} Gun"
             
             LOGGER.info(f"{label} (d={offset}) maclari cekiliyor...")
-            url = f"https://www.flashscore.co.uk/football/?d={offset}" if offset != 0 else "https://www.flashscore.co.uk/football/"
-            page.goto(url)
             
-            # CRITICAL: Flashscore is a React SPA. When you navigate to /?d=1, it initially loads Today's HTML, 
-            # then Javascript completely replaces the DOM with Tomorrow's matches. 
-            # If we don't wait, we scrape Today's matches repeatedly!
-            page.wait_for_timeout(5000)
-            
-            try:
-                page.wait_for_selector(".sportName.soccer", timeout=15000)
-            except Exception as e:
-                LOGGER.warning(f"  -> Tablo yuklenemedi (offset={offset}): {e}")
-                continue
-                
             # scroll down multiple times to lazy load
             for _ in range(7):
                 page.mouse.wheel(0, 6000)
@@ -66,6 +67,15 @@ def get_daily_ids():
             ids = [m.get_attribute("id")[4:] for m in matches if m.get_attribute("id")]
             day_matches[label] = ids
             LOGGER.info(f"  -> {label} icin {len(ids)} mac bulundu")
+            
+            # Now click tomorrow to prepare for the next iteration
+            if offset < 7:
+                try:
+                    page.locator(".calendar__direction--tomorrow").click(timeout=5000)
+                    # wait for dom update
+                    page.wait_for_timeout(3000)
+                except Exception as e:
+                    LOGGER.warning(f"Failed to click tomorrow: {e}")
         browser.close()
     
     # Merge and deduplicate
