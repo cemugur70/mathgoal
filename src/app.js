@@ -798,11 +798,20 @@ app.post("/api/cpr/reset", requireIngestKey, async (req, res, next) => {
 
 app.post("/api/cpr/recalc-all", requireIngestKey, async (req, res, next) => {
   try {
-    const result = await db.query(
-      `UPDATE matches SET cpr_home = NULL, cpr_draw = NULL, cpr_away = NULL,
-       cpr_tahmin = NULL, cpr_guven = NULL, cpr_cs = NULL, cpr_skor = NULL`
-    );
-    res.json({ ok: true, reset: result.rowCount });
+    let totalReset = 0;
+    // Process in batches to avoid statement timeout on large tables
+    while (true) {
+      const result = await db.query(
+        `UPDATE matches SET cpr_home = NULL, cpr_draw = NULL, cpr_away = NULL,
+         cpr_tahmin = NULL, cpr_guven = NULL, cpr_cs = NULL, cpr_skor = NULL
+         WHERE match_id IN (
+           SELECT match_id FROM matches WHERE cpr_home IS NOT NULL LIMIT 5000
+         )`
+      );
+      totalReset += result.rowCount || 0;
+      if (!result.rowCount || result.rowCount === 0) break;
+    }
+    res.json({ ok: true, reset: totalReset });
   } catch (error) {
     next(error);
   }

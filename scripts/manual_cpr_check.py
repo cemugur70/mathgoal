@@ -310,11 +310,13 @@ def recalc_all():
         print("   İptal edildi.")
         return
 
+    print("   ⏳ Veritabanı güncelleniyor (bu birkaç dakika sürebilir)...")
+
     try:
         r = session.post(
             f"{url}/api/cpr/recalc-all",
             json={},
-            timeout=60
+            timeout=600  # 10 dakika timeout
         )
         if r.status_code == 200:
             result = r.json()
@@ -322,9 +324,12 @@ def recalc_all():
             print("   CPR Worker otomatik olarak yeniden hesaplamaya başlayacak.")
         elif r.status_code == 404:
             print("⚠️  /api/cpr/recalc-all endpoint'i bulunamadı.")
-            print("   Bu endpoint'i sunucuya eklemem gerekiyor.")
+            print("   Sunucu deploy edilmemiş olabilir.")
         else:
             print(f"❌ Hata: {r.status_code} - {r.text}")
+    except requests.exceptions.ReadTimeout:
+        print("⚠️  Sunucu yanıt süresi doldu ama işlem arka planda devam ediyor olabilir.")
+        print("   Birkaç dakika bekleyip --fix ile kontrol edebilirsiniz.")
     except Exception as e:
         print(f"❌ İstek hatası: {e}")
 
