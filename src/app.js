@@ -71,21 +71,21 @@ function toPositiveInt(value, fallback) {
 
 // ─── Shared: Odds range filter builder ─────────────────────────────
 const ODDS_KEY_MAP = {
-  odds_1:          { closing: "home" },
-  odds_x:          { closing: "draw" },
-  odds_2:          { closing: "away" },
-  odds_ou25_over:  { closing: "2_5_over" },
+  odds_1: { closing: "home" },
+  odds_x: { closing: "draw" },
+  odds_2: { closing: "away" },
+  odds_ou25_over: { closing: "2_5_over" },
   odds_ou25_under: { closing: "2_5_under" },
-  odds_btts_yes:   { closing: "yes" },
-  odds_btts_no:    { closing: "no" },
-  odds_dc_1x:      { closing: "home_draw_odds" },
-  odds_dc_x2:      { closing: "away_draw_odds" },
-  odds_dc_12:      { closing: "home_away_odds" },
-  odds_iy_1:       { closing: "first_half_home" },
-  odds_iy_x:       { closing: "first_half_draw" },
-  odds_iy_2:       { closing: "first_half_away" },
-  odds_ou15_over:  { closing: "1_5_over" },
-  odds_ou35_over:  { closing: "3_5_over" },
+  odds_btts_yes: { closing: "yes" },
+  odds_btts_no: { closing: "no" },
+  odds_dc_1x: { closing: "home_draw_odds" },
+  odds_dc_x2: { closing: "away_draw_odds" },
+  odds_dc_12: { closing: "home_away_odds" },
+  odds_iy_1: { closing: "first_half_home" },
+  odds_iy_x: { closing: "first_half_draw" },
+  odds_iy_2: { closing: "first_half_away" },
+  odds_ou15_over: { closing: "1_5_over" },
+  odds_ou35_over: { closing: "3_5_over" },
 };
 
 /**
@@ -248,7 +248,7 @@ app.get("/api/analysis", async (req, res, next) => {
     // For odds filter, we wrap it in a subselect
     let oddsWhere = "";
     if (oddsFilters.length > 0) {
-       oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
+      oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
     }
 
     const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
@@ -772,6 +772,37 @@ app.get("/api/ingest/status", requireIngestKey, async (req, res, next) => {
       match_all_columns: macResult.rows[0]?.c || 0,
       matches: matchResult.rows[0]?.c || 0,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── CPR Management APIs (for manual_cpr_check.py) ─────────────────────
+app.post("/api/cpr/reset", requireIngestKey, async (req, res, next) => {
+  try {
+    const { match_ids } = req.body;
+    if (!match_ids || !Array.isArray(match_ids) || match_ids.length === 0) {
+      return res.status(400).json({ message: "match_ids array gerekli." });
+    }
+    const result = await db.query(
+      `UPDATE matches SET cpr_home = NULL, cpr_draw = NULL, cpr_away = NULL,
+       cpr_tahmin = NULL, cpr_guven = NULL, cpr_cs = NULL, cpr_skor = NULL
+       WHERE match_id = ANY($1)`,
+      [match_ids]
+    );
+    res.json({ ok: true, reset: result.rowCount });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/cpr/recalc-all", requireIngestKey, async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `UPDATE matches SET cpr_home = NULL, cpr_draw = NULL, cpr_away = NULL,
+       cpr_tahmin = NULL, cpr_guven = NULL, cpr_cs = NULL, cpr_skor = NULL`
+    );
+    res.json({ ok: true, reset: result.rowCount });
   } catch (error) {
     next(error);
   }
