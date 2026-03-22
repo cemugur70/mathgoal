@@ -413,18 +413,11 @@ async function loadMatches() {
   const bookmaker = el.fBookmaker.value;
   const oddsType = el.fOddsType.value;
   let rows = data.data || [];
-  const matchIds = rows.map((m) => m.match_id);
 
-  // Fetch mapped odds for each visible match (only for display, not filtering)
+  // Build oddsMap instantly using the inline columns from backend
   const oddsMap = {};
-  if (matchIds.length) {
-    await Promise.all(
-      matchIds.map((id) =>
-        fetchJSON(`${API}/api/matches/${id}/odds?bookmaker=${bookmaker}`)
-          .then((d) => { oddsMap[id] = d.columns || {}; })
-          .catch(() => { oddsMap[id] = {}; })
-      )
-    );
+  for (const r of rows) {
+    oddsMap[r.match_id] = r.odds_columns || {};
   }
 
   state.total = data.total || 0;

@@ -428,51 +428,27 @@ app.get("/api/matches", async (req, res, next) => {
 
     const values = [];
     const filters = buildBaseFilters(req.query, values);
-    const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
+    const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
 
-    // Build query with optional JOIN
-    if (needsJoin) {
-      values.push(bookmaker);
-      const bmIdx = values.length;
-      const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
-      const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
-
-      const countSql = `
-        SELECT COUNT(DISTINCT m.match_id)::int AS total
-        FROM matches m
-        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
-        ${whereClause}
-      `;
-      const countResult = await db.query(countSql, values);
-      const total = countResult.rows[0]?.total || 0;
-
-      const dataValues = [...values, limit, offset];
-      const dataSql = `
-        SELECT DISTINCT ON (m.match_date, m.match_time, m.scraped_at, m.match_id)
-          m.match_id, m.country, m.league, m.season, m.round_no,
-          m.match_date, m.match_time, m.home_team, m.away_team,
-          m.home_score, m.away_score, m.full_time_result, m.scraped_at
-        FROM matches m
-        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
-        ${whereClause}
-        ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.scraped_at DESC, m.match_id
-        LIMIT $${dataValues.length - 1}
-        OFFSET $${dataValues.length}
-      `;
-      const dataResult = await db.query(dataSql, dataValues);
-
-      return res.json({ total, limit, offset, data: dataResult.rows });
-    }
-
-    // No odds filters — simple query (no JOIN for performance)
-    if (bookmaker) {
-      values.push(bookmaker);
-      filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_all_columns.match_id = m.match_id AND match_all_columns.bookmaker = $${values.length})`);
-    }
+    // Bookmaker validation filter
+    values.push(bookmaker);
+    const bmIdx = values.length;
+    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx})`);
 
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
-    const countSql = `SELECT COUNT(*)::int AS total FROM matches m ${whereClause}`;
+    // Odds Where Clause
+    let oddsWhere = "";
+    if (oddsFilters.length > 0) {
+      oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
+    }
+
+    const countSql = `
+      SELECT COUNT(DISTINCT m.match_id)::int AS total
+      FROM matches m
+      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
+    `;
+    
     const countResult = await db.query(countSql, values);
     const total = countResult.rows[0]?.total || 0;
 
@@ -481,18 +457,24 @@ app.get("/api/matches", async (req, res, next) => {
       SELECT
         m.match_id, m.country, m.league, m.season, m.round_no,
         m.match_date, m.match_time, m.home_team, m.away_team,
-        m.home_score, m.away_score, m.full_time_result, m.scraped_at
+        m.home_score, m.away_score, m.full_time_result, m.scraped_at,
+        m.cpr_home, m.cpr_draw, m.cpr_away, m.cpr_tahmin, m.cpr_guven, m.cpr_cs, m.cpr_skor,
+        odds.columns AS odds_columns
       FROM matches m
-      ${whereClause}
-      ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.scraped_at DESC
-      LIMIT $${dataValues.length - 1}
-      OFFSET $${dataValues.length}
+      LEFT JOIN LATERAL (
+        SELECT columns FROM match_all_columns 
+        WHERE match_id = m.match_id AND bookmaker = $${bmIdx}
+        LIMIT 1
+      ) odds ON true
+      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
+      ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.match_id
+      LIMIT $${dataValues.length - 1} OFFSET $${dataValues.length}
     `;
-    const dataResult = await db.query(dataSql, dataValues);
 
+    const dataResult = await db.query(dataSql, dataValues);
     res.json({ total, limit, offset, data: dataResult.rows });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 });
 
