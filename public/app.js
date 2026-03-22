@@ -194,11 +194,11 @@ function buildAdvFilters() {
       const isText = ["cpr_tahmin", "cpr_cs", "cpr_skor"].includes(f.id);
       
       const inputHtml = isText
-        ? `<input type="text" placeholder="Değer" id="${f.id}" style="width: 100%; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.8rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />`
+        ? `<input type="text" placeholder="Değer" id="${f.id}" style="width: 100%; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.82rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />`
         : `<div style="display:flex; align-items:center; background:var(--bg-2); border:1px solid var(--border); border-radius:6px; overflow:hidden; transition:border-color 0.2s;">
-             <input type="number" step="0.01" placeholder="- %" id="${f.id}_minus" style="width:30%; padding:8px 2px; background:transparent; border:none; border-right:1px solid rgba(255,255,255,0.05); color:#fca5a5; font-size:0.75rem; outline:none; text-align:center;" title="Alt Sapma" />
-             <input type="number" step="0.01" placeholder="Merkez" id="${f.id}" style="width:40%; padding:8px 4px; background:transparent; border:none; color:var(--accent); font-weight:700; font-size:0.8rem; outline:none; text-align:center;" title="Merkez Değer" />
-             <input type="number" step="0.01" placeholder="+ %" id="${f.id}_plus" style="width:30%; padding:8px 2px; background:transparent; border:none; border-left:1px solid rgba(255,255,255,0.05); color:#6ee7b7; font-size:0.75rem; outline:none; text-align:center;" title="Üst Sapma" />
+             <input type="number" step="0.01" placeholder="-" id="${f.id}_minus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-right:1px solid rgba(255,255,255,0.05); color:#fca5a5; font-size:0.8rem; outline:none; text-align:center;" title="Alt Sapma (Eksi)" />
+             <input type="number" step="0.01" placeholder="Merkez" id="${f.id}" style="flex:1.4; min-width:0; padding:8px 4px; background:transparent; border:none; color:var(--accent); font-weight:700; font-size:0.85rem; outline:none; text-align:center;" title="Merkez Değer" />
+             <input type="number" step="0.01" placeholder="+" id="${f.id}_plus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-left:1px solid rgba(255,255,255,0.05); color:#6ee7b7; font-size:0.8rem; outline:none; text-align:center;" title="Üst Sapma (Artı)" />
            </div>`;
 
       return `
@@ -215,7 +215,7 @@ function buildAdvFilters() {
           <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent);"></div>
           ${groupName}
         </h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px;">
           ${itemsHtml}
         </div>
       </div>
@@ -223,7 +223,7 @@ function buildAdvFilters() {
   }
   
   el.advFiltersGrid.style.display = "grid";
-  el.advFiltersGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(320px, 1fr))";
+  el.advFiltersGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(350px, 1fr))";
   el.advFiltersGrid.style.gap = "20px";
   el.advFiltersGrid.innerHTML = html;
 }
@@ -243,11 +243,12 @@ function getAdvFilters() {
       if (!isNaN(val)) {
         const minusEl = document.getElementById(f.id + "_minus");
         const plusEl = document.getElementById(f.id + "_plus");
-        const minusVal = eval(minusEl ? minusEl.value : null);
-        const plusVal = eval(plusEl ? plusEl.value : null);
         
-        const m = (typeof minusVal === 'number' && !isNaN(minusVal)) ? Math.abs(minusVal) : 0;
-        const p = (typeof plusVal === 'number' && !isNaN(plusVal)) ? Math.abs(plusVal) : 0;
+        const minusVal = minusEl?.value ? parseFloat(minusEl.value) : 0;
+        const plusVal = plusEl?.value ? parseFloat(plusEl.value) : 0;
+        
+        const m = !isNaN(minusVal) ? Math.abs(minusVal) : 0;
+        const p = !isNaN(plusVal) ? Math.abs(plusVal) : 0;
         
         if (m === 0 && p === 0) {
           filters[f.id] = val;
