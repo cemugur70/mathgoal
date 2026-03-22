@@ -5,6 +5,15 @@ const cors = require("cors");
 const pino = require("pino");
 const pinoHttp = require("pino-http");
 const config = require("./config");
+
+function sanitizeBookmaker(bm) {
+  if (!bm || typeof bm !== "string") return "bet365";
+  const trimmed = bm.trim();
+  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+    return "bet365";
+  }
+  return trimmed;
+}
 const db = require("./db");
 const { predictMatch } = require("./cpr");
 const { syncAllCpr } = require("./sync_cpr");
@@ -169,18 +178,24 @@ function buildOddsFilters(query, bookmaker, values) {
 
     if (!isNaN(minVal)) {
       needsJoin = true;
+      values.push(jsonKey);
+      const keyIdx = values.length;
       values.push(minVal);
-      oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric >= $${values.length}`);
+      oddsFilters.push(`(mac.raw_data->>$${keyIdx})::numeric >= $${values.length}`);
     }
     if (!isNaN(maxVal)) {
       needsJoin = true;
+      values.push(jsonKey);
+      const keyIdx = values.length;
       values.push(maxVal);
-      oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric <= $${values.length}`);
+      oddsFilters.push(`(mac.raw_data->>$${keyIdx})::numeric <= $${values.length}`);
     }
     if (!isNaN(exactVal) && isNaN(minVal) && isNaN(maxVal)) {
       needsJoin = true;
+      values.push(jsonKey);
+      const keyIdx = values.length;
       values.push(exactVal);
-      oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric = $${values.length}`);
+      oddsFilters.push(`(mac.raw_data->>$${keyIdx})::numeric = $${values.length}`);
     }
   }
   return { oddsFilters, needsJoin };
@@ -285,7 +300,7 @@ app.get("/api/cpr-status", async (req, res, next) => {
 
 app.get("/api/stats/overview", async (req, res, next) => {
   try {
-    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const bookmaker = sanitizeBookmaker(req.query.bookmaker);
     const values = [];
     const filters = buildBaseFilters(req.query, values);
     const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
@@ -322,7 +337,7 @@ app.get("/api/analysis", async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(toPositiveInt(req.query.limit, 50), 1), 1000);
     const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
-    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const bookmaker = sanitizeBookmaker(req.query.bookmaker);
 
     const values = [];
     const filters = buildBaseFilters(req.query, values);
@@ -423,7 +438,7 @@ app.get("/api/matches", async (req, res, next) => {
   try {
     const limit = Math.min(toPositiveInt(req.query.limit, config.dashboardPageSize), 200);
     const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
-    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const bookmaker = sanitizeBookmaker(req.query.bookmaker);
     const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
 
     const values = [];
@@ -519,7 +534,7 @@ app.get("/api/matches/:matchId", async (req, res, next) => {
 
 app.get("/api/matches/:matchId/all-columns", async (req, res, next) => {
   try {
-    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const bookmaker = sanitizeBookmaker(req.query.bookmaker);
     const result = await db.query(
       `
       SELECT *
@@ -544,7 +559,7 @@ app.get("/api/matches/:matchId/all-columns", async (req, res, next) => {
 // Turkish column-mapped odds endpoint
 app.get("/api/matches/:matchId/odds", async (req, res, next) => {
   try {
-    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const bookmaker = sanitizeBookmaker(req.query.bookmaker);
     const result = await db.query(
       `SELECT raw_data FROM match_all_columns WHERE match_id = $1 AND bookmaker = $2 LIMIT 1`,
       [req.params.matchId, bookmaker],
@@ -590,7 +605,7 @@ app.get("/api/filters/options", async (req, res, next) => {
 // Market statistics endpoint
 app.get("/api/stats/markets", async (req, res, next) => {
   try {
-    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const bookmaker = sanitizeBookmaker(req.query.bookmaker);
 
     const values = [];
     const filters = buildBaseFilters(req.query, values);
