@@ -168,17 +168,55 @@ const ADV_ODDS_FILTERS = [
 ];
 
 function buildAdvFilters() {
-  el.advFiltersGrid.innerHTML = ADV_ODDS_FILTERS.map(f => {
-    const isText = ["cpr_tahmin", "cpr_cs", "cpr_skor"].includes(f.id);
-    return `
-      <div class="adv-filter-item">
-        <label>${f.label}</label>
-        <div class="adv-range" style="grid-template-columns: 1fr;">
-          <input type="${isText ? 'text' : 'number'}" ${!isText ? 'step="0.01"' : ''} placeholder="Tam Değer" id="${f.id}" style="width: 100%;" />
+  const groups = {
+    "Maç & Taraf Seçimi": [],
+    "İlk / İkinci Yarı": [],
+    "Alt / Üst Gol": [],
+    "Handikap (AH & EH)": [],
+    "Geniş Marketler": [],
+    "CPR Tahminleri": []
+  };
+
+  ADV_ODDS_FILTERS.forEach(f => {
+    if (f.id.startsWith("cpr_")) groups["CPR Tahminleri"].push(f);
+    else if (f.id.startsWith("odds_ah_") || f.id.startsWith("odds_eh_")) groups["Handikap (AH & EH)"].push(f);
+    else if (f.id.includes("ou")) groups["Alt / Üst Gol"].push(f);
+    else if (f.id.startsWith("odds_iy_") || f.id.startsWith("odds_2y_")) groups["İlk / İkinci Yarı"].push(f);
+    else if (f.id.includes("btts") || f.id.includes("odd") || f.id.includes("even")) groups["Geniş Marketler"].push(f);
+    else groups["Maç & Taraf Seçimi"].push(f);
+  });
+
+  let html = "";
+  for (const [groupName, filters] of Object.entries(groups)) {
+    if (filters.length === 0) continue;
+    
+    let itemsHtml = filters.map(f => {
+      const isText = ["cpr_tahmin", "cpr_cs", "cpr_skor"].includes(f.id);
+      return `
+        <div class="adv-filter-item">
+          <label style="font-size: 0.75rem; color: var(--text-dim); display:block; margin-bottom: 4px;">${f.label}</label>
+          <input type="${isText ? 'text' : 'number'}" ${!isText ? 'step="0.01"' : ''} placeholder="${isText ? 'Değer' : 'Tam Değer'}" id="${f.id}" style="width: 100%; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.8rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+        </div>
+      `;
+    }).join("");
+
+    html += `
+      <div style="background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+        <h4 style="margin: 0 0 14px 0; font-size: 0.85rem; color: var(--accent); border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent);"></div>
+          ${groupName}
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;">
+          ${itemsHtml}
         </div>
       </div>
     `;
-  }).join("");
+  }
+  
+  el.advFiltersGrid.style.display = "grid";
+  el.advFiltersGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(320px, 1fr))";
+  el.advFiltersGrid.style.gap = "20px";
+  el.advFiltersGrid.innerHTML = html;
 }
 buildAdvFilters();
 
@@ -186,8 +224,15 @@ function getAdvFilters() {
   const filters = {};
   ADV_ODDS_FILTERS.forEach(f => {
     const elId = document.getElementById(f.id);
-    const val = elId ? parseFloat(elId.value) : NaN;
-    if (!isNaN(val)) filters[f.id] = val;
+    if (!elId || !elId.value) return;
+
+    const isText = ["cpr_tahmin", "cpr_cs", "cpr_skor"].includes(f.id);
+    if (isText) {
+      filters[f.id] = elId.value.trim();
+    } else {
+      const val = parseFloat(elId.value);
+      if (!isNaN(val)) filters[f.id] = val;
+    }
   });
   return filters;
 }
