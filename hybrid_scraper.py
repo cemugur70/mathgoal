@@ -211,15 +211,19 @@ async def scrape_match_hybrid(page, match_id: str, bookmakers: list, bet_types: 
     """
     HYBRID approach: HTTP for basic info + odds, Playwright for SAAT/İY.
     """
-    # Step 1: Get basic info via HTTP (fast)
-    result = fetch_basic_info_http(match_id)
+    # Execute HTTP requests and Playwright task concurrently
+    basic_info_task = asyncio.to_thread(fetch_basic_info_http, match_id)
+    odds_task = asyncio.to_thread(fetch_odds_http, match_id, bookmakers, bet_types)
+    summary_task = scrape_summary_playwright(page, match_id)
     
-    # Step 2: Get odds via HTTP (fast)
-    odds = fetch_odds_http(match_id, bookmakers, bet_types)
+    result, odds, summary = await asyncio.gather(
+        basic_info_task,
+        odds_task,
+        summary_task
+    )
+    
+    # Merge results
     result.update(odds)
-    
-    # Step 3: Get SAAT and İY via Playwright (accurate)
-    summary = await scrape_summary_playwright(page, match_id)
     result['SAAT'] = summary.get('SAAT', '')
     result['İY'] = summary.get('İY', '')
     result['İY SONUCU'] = summary.get('İY SONUCU', '')
