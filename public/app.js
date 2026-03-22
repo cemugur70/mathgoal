@@ -215,7 +215,7 @@ function buildAdvFilters() {
           <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent);"></div>
           ${groupName}
         </h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px;">
           ${itemsHtml}
         </div>
       </div>
@@ -397,10 +397,8 @@ function getBaseFilters() {
   if (el.fUpcomingOnly.checked) filters.upcomingOnly = true;
 
   // Add exact odds filters
-  ADV_ODDS_FILTERS.forEach(f => {
-    const elId = document.getElementById(f.id);
-    if (elId && elId.value) filters[f.id] = elId.value;
-  });
+  const advFilters = getAdvFilters();
+  Object.assign(filters, advFilters);
 
   return filters;
 }
