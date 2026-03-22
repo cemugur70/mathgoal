@@ -162,10 +162,23 @@ function buildOddsFilters(query, bookmaker, values) {
   const oddsFilters = [];
   let needsJoin = false;
   for (const [paramKey, keyMap] of Object.entries(ODDS_KEY_MAP)) {
+    const minVal = parseFloat(query[`${paramKey}_min`]);
+    const maxVal = parseFloat(query[`${paramKey}_max`]);
     const exactVal = parseFloat(query[paramKey]);
-    if (!isNaN(exactVal)) {
+    const jsonKey = `${bookmaker}_${keyMap.closing}`;
+
+    if (!isNaN(minVal)) {
       needsJoin = true;
-      const jsonKey = `${bookmaker}_${keyMap.closing}`;
+      values.push(minVal);
+      oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric >= $${values.length}`);
+    }
+    if (!isNaN(maxVal)) {
+      needsJoin = true;
+      values.push(maxVal);
+      oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric <= $${values.length}`);
+    }
+    if (!isNaN(exactVal) && isNaN(minVal) && isNaN(maxVal)) {
+      needsJoin = true;
       values.push(exactVal);
       oddsFilters.push(`(mac.raw_data->>'${jsonKey}')::numeric = $${values.length}`);
     }
@@ -202,9 +215,20 @@ function buildBaseFilters(query, values) {
 
   const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
   for (const key of CPR_NUM_KEYS) {
-    const val = parseFloat(query[key]);
-    if (!isNaN(val) && val > 0) {
-      values.push(val);
+    const minVal = parseFloat(query[`${key}_min`]);
+    const maxVal = parseFloat(query[`${key}_max`]);
+    const exactVal = parseFloat(query[key]);
+    
+    if (!isNaN(minVal)) {
+      values.push(minVal);
+      filters.push(`m.${key} >= $${values.length}`);
+    }
+    if (!isNaN(maxVal)) {
+      values.push(maxVal);
+      filters.push(`m.${key} <= $${values.length}`);
+    }
+    if (!isNaN(exactVal) && isNaN(minVal) && isNaN(maxVal) && exactVal > 0) {
+      values.push(exactVal);
       filters.push(`m.${key} = $${values.length}`);
     }
   }
