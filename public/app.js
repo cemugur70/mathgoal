@@ -196,9 +196,9 @@ function buildAdvFilters() {
       const inputHtml = isText
         ? `<input type="text" placeholder="Değer" id="${f.id}" style="width: 100%; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.82rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />`
         : `<div style="display:flex; align-items:center; background:var(--bg-2); border:1px solid var(--border); border-radius:6px; overflow:hidden; transition:border-color 0.2s;">
-             <input type="number" step="0.01" placeholder="-" id="${f.id}_minus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-right:1px solid rgba(255,255,255,0.05); color:#fca5a5; font-size:0.8rem; outline:none; text-align:center;" title="Alt Sapma (Eksi)" />
-             <input type="number" step="0.01" placeholder="Merkez" id="${f.id}" style="flex:1.4; min-width:0; padding:8px 4px; background:transparent; border:none; color:var(--accent); font-weight:700; font-size:0.85rem; outline:none; text-align:center;" title="Merkez Değer" />
-             <input type="number" step="0.01" placeholder="+" id="${f.id}_plus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-left:1px solid rgba(255,255,255,0.05); color:#6ee7b7; font-size:0.8rem; outline:none; text-align:center;" title="Üst Sapma (Artı)" />
+             <input type="text" placeholder="-" id="${f.id}_minus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-right:1px solid rgba(255,255,255,0.05); color:#fca5a5; font-size:0.8rem; outline:none; text-align:center;" title="Alt Sapma (Eksi)" inputmode="decimal" />
+             <input type="text" placeholder="Merkez" id="${f.id}" style="flex:1.4; min-width:0; padding:8px 4px; background:transparent; border:none; color:var(--accent); font-weight:700; font-size:0.85rem; outline:none; text-align:center;" title="Merkez Değer" inputmode="decimal" />
+             <input type="text" placeholder="+" id="${f.id}_plus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-left:1px solid rgba(255,255,255,0.05); color:#6ee7b7; font-size:0.8rem; outline:none; text-align:center;" title="Üst Sapma (Artı)" inputmode="decimal" />
            </div>`;
 
       return `
@@ -231,6 +231,13 @@ buildAdvFilters();
 
 function getAdvFilters() {
   const filters = {};
+  
+  // Helper to parse localized numbers (e.g. "40,5" -> 40.5)
+  const parseLocalFloat = (str) => {
+    if (!str) return NaN;
+    return parseFloat(str.toString().replace(/,/g, '.'));
+  };
+
   ADV_ODDS_FILTERS.forEach(f => {
     const elId = document.getElementById(f.id);
     if (!elId || !elId.value) return;
@@ -239,13 +246,13 @@ function getAdvFilters() {
     if (isText) {
       filters[f.id] = elId.value.trim();
     } else {
-      const val = parseFloat(elId.value);
+      const val = parseLocalFloat(elId.value);
       if (!isNaN(val)) {
         const minusEl = document.getElementById(f.id + "_minus");
         const plusEl = document.getElementById(f.id + "_plus");
         
-        const minusVal = minusEl?.value ? parseFloat(minusEl.value) : 0;
-        const plusVal = plusEl?.value ? parseFloat(plusEl.value) : 0;
+        const minusVal = parseLocalFloat(minusEl?.value);
+        const plusVal = parseLocalFloat(plusEl?.value);
         
         const m = !isNaN(minusVal) ? Math.abs(minusVal) : 0;
         const p = !isNaN(plusVal) ? Math.abs(plusVal) : 0;
