@@ -459,10 +459,10 @@ app.get("/api/matches", async (req, res, next) => {
         m.match_date, m.match_time, m.home_team, m.away_team,
         m.home_score, m.away_score, m.full_time_result, m.scraped_at,
         m.cpr_home, m.cpr_draw, m.cpr_away, m.cpr_tahmin, m.cpr_guven, m.cpr_cs, m.cpr_skor,
-        odds.columns AS odds_columns
+        odds.raw_data_odds
       FROM matches m
       LEFT JOIN LATERAL (
-        SELECT columns FROM match_all_columns 
+        SELECT raw_data AS raw_data_odds FROM match_all_columns 
         WHERE match_id = m.match_id AND bookmaker = $${bmIdx}
         LIMIT 1
       ) odds ON true
@@ -472,7 +472,24 @@ app.get("/api/matches", async (req, res, next) => {
     `;
 
     const dataResult = await db.query(dataSql, dataValues);
-    res.json({ total, limit, offset, data: dataResult.rows });
+    
+    // Process rows to map raw_data into structured odds_columns
+    const processedRows = dataResult.rows.map(r => {
+      let mappedColumns = {};
+      if (r.raw_data_odds) {
+        let rd = r.raw_data_odds;
+        if (typeof rd === "string") {
+          try { rd = JSON.parse(rd); } catch(e) { /* ignore */ }
+        }
+        mappedColumns = mapRawToColumns(rd, bookmaker);
+      }
+      
+      const newR = { ...r, odds_columns: mappedColumns };
+      delete newR.raw_data_odds; // Do not send raw_data over network to save bandwidth
+      return newR;
+    });
+
+    res.json({ total, limit, offset, data: processedRows });
   } catch (err) {
     next(err);
   }
