@@ -72,21 +72,68 @@ el.advToggle.addEventListener("click", () => {
 
 // ─── Build Advanced Odds Filters ───
 const ADV_ODDS_FILTERS = [
+  // MS 1X2
   { id: "odds_1", label: "1 (Ev Kazanır)" },
   { id: "odds_x", label: "X (Beraberlik)" },
   { id: "odds_2", label: "2 (Dep. Kazanır)" },
-  { id: "odds_ou25_over", label: "2.5 Üst" },
-  { id: "odds_ou25_under", label: "2.5 Alt" },
-  { id: "odds_btts_yes", label: "KG VAR" },
-  { id: "odds_btts_no", label: "KG YOK" },
-  { id: "odds_dc_1x", label: "Çifte Şans 1X" },
-  { id: "odds_dc_x2", label: "Çifte Şans X2" },
-  { id: "odds_dc_12", label: "Çifte Şans 12" },
+  
+  // IY 1X2
   { id: "odds_iy_1", label: "İY 1" },
   { id: "odds_iy_x", label: "İY X" },
   { id: "odds_iy_2", label: "İY 2" },
+
+  // 2Y 1X2
+  { id: "odds_2y_1", label: "2Y 1" },
+  { id: "odds_2y_x", label: "2Y X" },
+  { id: "odds_2y_2", label: "2Y 2" },
+
+  // Çifte Şans
+  { id: "odds_dc_1x", label: "Çifte Şans 1X" },
+  { id: "odds_dc_12", label: "Çifte Şans 12" },
+  { id: "odds_dc_x2", label: "Çifte Şans X2" },
+
+  // İY Çifte Şans
+  { id: "odds_iy_dc_1x", label: "İY Çifte Şans 1X" },
+  { id: "odds_iy_dc_12", label: "İY Çifte Şans 12" },
+  { id: "odds_iy_dc_x2", label: "İY Çifte Şans X2" },
+
+  // DNB (Beraberlikte İade)
+  { id: "odds_dnb_1", label: "DNB 1 (Beraberlikte İade)" },
+  { id: "odds_dnb_2", label: "DNB 2 (Beraberlikte İade)" },
+
+  // BTTS (Karşılıklı Gol)
+  { id: "odds_btts_yes", label: "KG VAR" },
+  { id: "odds_btts_no", label: "KG YOK" },
+  { id: "odds_iy_btts_yes", label: "İY KG VAR" },
+  { id: "odds_iy_btts_no", label: "İY KG YOK" },
+
+  // Tek/Çift
+  { id: "odds_odd", label: "Tek" },
+  { id: "odds_even", label: "Çift" },
+  { id: "odds_iy_odd", label: "İY Tek" },
+  { id: "odds_iy_even", label: "İY Çift" },
+
+  // Alt/Üst
+  { id: "odds_ou05_over", label: "0.5 Üst" },
+  { id: "odds_ou05_under", label: "0.5 Alt" },
   { id: "odds_ou15_over", label: "1.5 Üst" },
+  { id: "odds_ou15_under", label: "1.5 Alt" },
+  { id: "odds_ou25_over", label: "2.5 Üst" },
+  { id: "odds_ou25_under", label: "2.5 Alt" },
   { id: "odds_ou35_over", label: "3.5 Üst" },
+  { id: "odds_ou35_under", label: "3.5 Alt" },
+  { id: "odds_ou45_over", label: "4.5 Üst" },
+  { id: "odds_ou45_under", label: "4.5 Alt" },
+
+  // İY Alt/Üst
+  { id: "odds_iy_ou05_over", label: "İY 0.5 Üst" },
+  { id: "odds_iy_ou05_under", label: "İY 0.5 Alt" },
+  { id: "odds_iy_ou15_over", label: "İY 1.5 Üst" },
+  { id: "odds_iy_ou15_under", label: "İY 1.5 Alt" },
+  { id: "odds_iy_ou25_over", label: "İY 2.5 Üst" },
+  { id: "odds_iy_ou25_under", label: "İY 2.5 Alt" },
+
+  // CPR Özellikleri
   { id: "cpr_home", label: "CPR Home %" },
   { id: "cpr_draw", label: "CPR Draw %" },
   { id: "cpr_away", label: "CPR Away %" },

@@ -71,21 +71,63 @@ function toPositiveInt(value, fallback) {
 
 // ─── Shared: Odds range filter builder ─────────────────────────────
 const ODDS_KEY_MAP = {
+  // MS 1X2
   odds_1: { closing: "home" },
   odds_x: { closing: "draw" },
   odds_2: { closing: "away" },
-  odds_ou25_over: { closing: "2_5_over" },
-  odds_ou25_under: { closing: "2_5_under" },
-  odds_btts_yes: { closing: "yes" },
-  odds_btts_no: { closing: "no" },
-  odds_dc_1x: { closing: "home_draw_odds" },
-  odds_dc_x2: { closing: "away_draw_odds" },
-  odds_dc_12: { closing: "home_away_odds" },
+  // IY 1X2
   odds_iy_1: { closing: "first_half_home" },
   odds_iy_x: { closing: "first_half_draw" },
   odds_iy_2: { closing: "first_half_away" },
+  // 2Y 1X2
+  odds_2y_1: { closing: "second_half_home" },
+  odds_2y_x: { closing: "second_half_draw" },
+  odds_2y_2: { closing: "second_half_away" },
+  
+  // Cifte Sans
+  odds_dc_1x: { closing: "home_draw_odds" },
+  odds_dc_12: { closing: "home_away_odds" },
+  odds_dc_x2: { closing: "away_draw_odds" },
+  // IY Cifte Sans
+  odds_iy_dc_1x: { closing: "first_half_home_draw_odds" },
+  odds_iy_dc_12: { closing: "first_half_home_away_odds" },
+  odds_iy_dc_x2: { closing: "first_half_away_draw_odds" },
+
+  // DNB
+  odds_dnb_1: { closing: "draw_no_bet_home" },
+  odds_dnb_2: { closing: "draw_no_bet_away" },
+
+  // BTTS
+  odds_btts_yes: { closing: "yes" },
+  odds_btts_no: { closing: "no" },
+  odds_iy_btts_yes: { closing: "first_half_yes" },
+  odds_iy_btts_no: { closing: "first_half_no" },
+
+  // Odd/Even
+  odds_odd: { closing: "odd" },
+  odds_even: { closing: "even" },
+  odds_iy_odd: { closing: "first_half_odd" },
+  odds_iy_even: { closing: "first_half_even" },
+
+  // O/U
+  odds_ou05_over: { closing: "0_5_over" },
+  odds_ou05_under: { closing: "0_5_under" },
   odds_ou15_over: { closing: "1_5_over" },
+  odds_ou15_under: { closing: "1_5_under" },
+  odds_ou25_over: { closing: "2_5_over" },
+  odds_ou25_under: { closing: "2_5_under" },
   odds_ou35_over: { closing: "3_5_over" },
+  odds_ou35_under: { closing: "3_5_under" },
+  odds_ou45_over: { closing: "4_5_over" },
+  odds_ou45_under: { closing: "4_5_under" },
+
+  // IY O/U
+  odds_iy_ou05_over: { closing: "first_half_0_5_over" },
+  odds_iy_ou05_under: { closing: "first_half_0_5_under" },
+  odds_iy_ou15_over: { closing: "first_half_1_5_over" },
+  odds_iy_ou15_under: { closing: "first_half_1_5_under" },
+  odds_iy_ou25_over: { closing: "first_half_2_5_over" },
+  odds_iy_ou25_under: { closing: "first_half_2_5_under" },
 };
 
 /**
