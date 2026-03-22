@@ -1,0 +1,3 @@
+## 2024-03-22 - Replacing COUNT(DISTINCT) with COUNT(*) on Unique Keys without Row-Multiplying Joins
+**Learning:** PostgreSQL performs expensive distinct sorting when evaluating `COUNT(DISTINCT pk)`. If the query does not include any row-multiplying joins (like a simple table scan or joins combined within `EXISTS` clauses), the uniqueness is already guaranteed, making `DISTINCT` entirely redundant and a measurable performance bottleneck.
+**Action:** Always verify if a join multiplies rows. If it doesn't (or if using subselects like `EXISTS`), replace `COUNT(DISTINCT primary_key)` with `COUNT(*)` to bypass the unnecessary distinct aggregate sort step.

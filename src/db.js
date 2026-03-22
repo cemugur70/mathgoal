@@ -17,7 +17,7 @@ async function getStats(bookmaker) {
   if (bookmaker) {
     const sql = `
       SELECT
-        COUNT(DISTINCT m.match_id)::int AS total_matches,
+        COUNT(*)::int AS total_matches,
         COUNT(DISTINCT m.league)::int AS total_leagues,
         COUNT(DISTINCT m.country)::int AS total_countries,
         MIN(m.match_date) AS first_match_date,

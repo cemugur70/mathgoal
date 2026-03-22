@@ -301,7 +301,7 @@ app.get("/api/stats/overview", async (req, res, next) => {
 
     const sql = `
       SELECT
-        COUNT(DISTINCT m.match_id)::int AS total_matches,
+        COUNT(*)::int AS total_matches,
         COUNT(DISTINCT m.league)::int AS total_leagues,
         COUNT(DISTINCT m.country)::int AS total_countries,
         MIN(m.match_date) AS first_match_date,
@@ -331,15 +331,16 @@ app.get("/api/analysis", async (req, res, next) => {
     // Bookmaker validation filter on matches
     values.push(bookmaker);
     const bmIdx = values.length;
-    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx})`);
-
-    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     // For odds filter, we wrap it in a subselect
     let oddsWhere = "";
     if (oddsFilters.length > 0) {
       oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
     }
+
+    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})`);
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
 
@@ -376,15 +377,15 @@ app.get("/api/analysis", async (req, res, next) => {
         WHERE match_id = m.match_id AND bookmaker = $${bmIdx}
         LIMIT 1
       ) odds ON true
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
+      ${whereClause}
       ORDER BY m.match_date ${orderDir}, m.match_time ${orderDir}
       LIMIT ${limit} OFFSET ${offset}
     `;
 
     const countQuery = `
-      SELECT COUNT(DISTINCT m.match_id)::int AS total
+      SELECT COUNT(*)::int AS total
       FROM matches m
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
+      ${whereClause}
     `;
 
     const [rowsResult, countResult] = await Promise.all([
@@ -433,9 +434,6 @@ app.get("/api/matches", async (req, res, next) => {
     // Bookmaker validation filter
     values.push(bookmaker);
     const bmIdx = values.length;
-    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx})`);
-
-    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     // Odds Where Clause
     let oddsWhere = "";
@@ -443,10 +441,14 @@ app.get("/api/matches", async (req, res, next) => {
       oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
     }
 
+    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})`);
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
     const countSql = `
-      SELECT COUNT(DISTINCT m.match_id)::int AS total
+      SELECT COUNT(*)::int AS total
       FROM matches m
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
+      ${whereClause}
     `;
     
     const countResult = await db.query(countSql, values);
@@ -466,7 +468,7 @@ app.get("/api/matches", async (req, res, next) => {
         WHERE match_id = m.match_id AND bookmaker = $${bmIdx}
         LIMIT 1
       ) odds ON true
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
+      ${whereClause}
       ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.match_id
       LIMIT $${dataValues.length - 1} OFFSET $${dataValues.length}
     `;
