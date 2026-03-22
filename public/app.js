@@ -125,6 +125,30 @@ const ADV_ODDS_FILTERS = [
   { id: "odds_ou45_over", label: "4.5 Üst" },
   { id: "odds_ou45_under", label: "4.5 Alt" },
 
+  // Asya Handikap (AH)
+  { id: "odds_ah_minus_15_1", label: "AH -1.5 (1)" },
+  { id: "odds_ah_minus_15_2", label: "AH -1.5 (2)" },
+  { id: "odds_ah_minus_10_1", label: "AH -1.0 (1)" },
+  { id: "odds_ah_minus_10_2", label: "AH -1.0 (2)" },
+  { id: "odds_ah_minus_05_1", label: "AH -0.5 (1)" },
+  { id: "odds_ah_minus_05_2", label: "AH -0.5 (2)" },
+  { id: "odds_ah_00_1", label: "AH 0.0 (1)" },
+  { id: "odds_ah_00_2", label: "AH 0.0 (2)" },
+  { id: "odds_ah_plus_05_1", label: "AH +0.5 (1)" },
+  { id: "odds_ah_plus_05_2", label: "AH +0.5 (2)" },
+  { id: "odds_ah_plus_10_1", label: "AH +1.0 (1)" },
+  { id: "odds_ah_plus_10_2", label: "AH +1.0 (2)" },
+  { id: "odds_ah_plus_15_1", label: "AH +1.5 (1)" },
+  { id: "odds_ah_plus_15_2", label: "AH +1.5 (2)" },
+
+  // Avrupa Handikap (EH)
+  { id: "odds_eh_minus_1_1", label: "EH -1 (1)" },
+  { id: "odds_eh_minus_1_x", label: "EH -1 (X)" },
+  { id: "odds_eh_minus_1_2", label: "EH -1 (2)" },
+  { id: "odds_eh_plus_1_1", label: "EH +1 (1)" },
+  { id: "odds_eh_plus_1_x", label: "EH +1 (X)" },
+  { id: "odds_eh_plus_1_2", label: "EH +1 (2)" },
+
   // İY Alt/Üst
   { id: "odds_iy_ou05_over", label: "İY 0.5 Üst" },
   { id: "odds_iy_ou05_under", label: "İY 0.5 Alt" },

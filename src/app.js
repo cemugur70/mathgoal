@@ -121,6 +121,30 @@ const ODDS_KEY_MAP = {
   odds_ou45_over: { closing: "4_5_over" },
   odds_ou45_under: { closing: "4_5_under" },
 
+  // AH (Asian Handicap)
+  odds_ah_minus_15_1: { closing: "ah_minus_1_5_home" },
+  odds_ah_minus_15_2: { closing: "ah_minus_1_5_away" },
+  odds_ah_minus_10_1: { closing: "ah_minus_1_0_home" },
+  odds_ah_minus_10_2: { closing: "ah_minus_1_0_away" },
+  odds_ah_minus_05_1: { closing: "ah_minus_0_5_home" },
+  odds_ah_minus_05_2: { closing: "ah_minus_0_5_away" },
+  odds_ah_00_1: { closing: "ah_0_0_home" },
+  odds_ah_00_2: { closing: "ah_0_0_away" },
+  odds_ah_plus_05_1: { closing: "ah_0_5_home" },
+  odds_ah_plus_05_2: { closing: "ah_0_5_away" },
+  odds_ah_plus_10_1: { closing: "ah_1_0_home" },
+  odds_ah_plus_10_2: { closing: "ah_1_0_away" },
+  odds_ah_plus_15_1: { closing: "ah_1_5_home" },
+  odds_ah_plus_15_2: { closing: "ah_1_5_away" },
+
+  // EH (European Handicap)
+  odds_eh_minus_1_1: { closing: "eh_minus1_home" },
+  odds_eh_minus_1_x: { closing: "eh_minus1_draw" },
+  odds_eh_minus_1_2: { closing: "eh_minus1_away" },
+  odds_eh_plus_1_1: { closing: "eh_plus1_home" },
+  odds_eh_plus_1_x: { closing: "eh_plus1_draw" },
+  odds_eh_plus_1_2: { closing: "eh_plus1_away" },
+
   // IY O/U
   odds_iy_ou05_over: { closing: "first_half_0_5_over" },
   odds_iy_ou05_under: { closing: "first_half_0_5_under" },
