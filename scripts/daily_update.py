@@ -160,7 +160,7 @@ def main():
     for index, league in enumerate(sorted(list(updated_leagues)), 1):
         LOGGER.info(f"{index:03d} | {league}")
     LOGGER.info("=" * 60)
-    LOGGER.info("CPR hesaplamalari sistem tarafindan arka planda (Dokploy'da) otomatik olarak 2 dakika icinde baslayacak ve bitirilecektir.")
+    LOGGER.info("Arka plan guncellemeleri tamamlandi.")
 
 if __name__ == "__main__":
     from dotenv import load_dotenv

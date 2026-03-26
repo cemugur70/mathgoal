@@ -475,7 +475,6 @@
       <div class="main-tabs">
         <button class="main-tab-btn active" data-tab="matchesTab" id="tabMatchesBtn">⚽ Maçlar</button>
         <button class="main-tab-btn" data-tab="statsTab" id="tabStatsBtn">📊 İstatistikler</button>
-        <button class="main-tab-btn" data-tab="analysisTab" id="tabAnalysisBtn">📈 Analiz (Rating)</button>
       </div>
 
       <!-- Filters (shared) -->
@@ -545,9 +544,6 @@
           </select>
           <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; margin-left:8px; cursor:pointer;" title="Sadece henüz skoru belli olmayan oynanmamış maçlar">
             <input type="checkbox" id="fUpcomingOnly" /> Oynanmamışlar
-          </label>
-          <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer;" title="Analiz tablosunda maçları lige göre grupla">
-            <input type="checkbox" id="fGroupLeague" /> Lig Grupla
           </label>
         </div>
       </section>
@@ -630,41 +626,6 @@
         </div>
       </div>
 
-      <!-- ═══ TAB 3: Analysis (Rating) ═══ -->
-      <div class="tab-content" id="analysisTab">
-        <section class="table-container">
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tarih</th>
-                  <th>Lig</th>
-                  <th>Ev Sahibi</th>
-                  <th>Deplasman</th>
-                  <th>Oran 1</th>
-                  <th>Oran X</th>
-                  <th>Oran 2</th>
-                  <th style="color: var(--accent);">CPR Home %</th>
-                  <th style="color: var(--accent);">CPR Draw %</th>
-                  <th style="color: var(--accent);">CPR Away %</th>
-                  <th style="color: var(--green);">CPR Tahmin</th>
-                  <th style="color: var(--yellow);">Güven %</th>
-                  <th style="color: var(--purple);">Çifte Şans</th>
-                  <th style="color: var(--accent);">Tahmini Skor</th>
-                  <th style="color: var(--text-dim);">Top-3 Skor</th>
-                  <th>Skor (MS)</th>
-                </tr>
-              </thead>
-              <tbody id="analysisBody">
-                <tr class="empty-row"><td colspan="16" style="text-align:center; padding:40px; color:var(--text-muted);">Filtreleri uygulayıp analiz verilerini getirin.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <footer class="footer-bar" style="margin-top: 10px;">
-          <span>* Rating algoritması: Gerçek oran-beklentisi ve rakip zorluğuna dayalı özel bir tablosudur. (Maksimum doğruluk için güncel oran veritabanından çekilir).</span>
-        </footer>
-      </div>
     </main>
 
     <script src="/app.js"></script>

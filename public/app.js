@@ -5,7 +5,16 @@
    ═══════════════════════════════════════════════════════ */
 
 const API = "";
-const state = { limit: 200, offset: 0, total: 0, selectedMatchId: null, allColumns: [], activeTab: "matchesTab" };
+const state = {
+  limit: 200,
+  offset: 0,
+  total: 0,
+  selectedMatchId: null,
+  allColumns: [],
+  activeTab: "matchesTab",
+  overviewCacheKey: "",
+  overviewCacheData: null,
+};
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -25,7 +34,7 @@ const el = {
   advToggle: $("advToggle"), advFilters: $("advFilters"), advFiltersGrid: $("advFiltersGrid"),
   statsGrid: $("statsGrid"), statsTotalMatches: $("statsTotalMatches"),
   statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
-  fUpcomingOnly: $("fUpcomingOnly"), fGroupLeague: $("fGroupLeague"),
+  fUpcomingOnly: $("fUpcomingOnly"),
 };
 
 // ─── Helpers ───
@@ -156,15 +165,6 @@ const ADV_ODDS_FILTERS = [
   { id: "odds_iy_ou15_under", label: "İY 1.5 Alt" },
   { id: "odds_iy_ou25_over", label: "İY 2.5 Üst" },
   { id: "odds_iy_ou25_under", label: "İY 2.5 Alt" },
-
-  // CPR Özellikleri
-  { id: "cpr_home", label: "CPR Home %" },
-  { id: "cpr_draw", label: "CPR Draw %" },
-  { id: "cpr_away", label: "CPR Away %" },
-  { id: "cpr_tahmin", label: "CPR Tahmin (1,X,2)" },
-  { id: "cpr_guven", label: "Güven %" },
-  { id: "cpr_cs", label: "Çifte Şans (1X,X2,12)" },
-  { id: "cpr_skor", label: "Tahmini Skor (Örn: 2-1)" }
 ];
 
 function buildAdvFilters() {
@@ -174,12 +174,10 @@ function buildAdvFilters() {
     "Alt / Üst Gol": [],
     "Handikap (AH & EH)": [],
     "Geniş Marketler": [],
-    "CPR Tahminleri": []
   };
 
   ADV_ODDS_FILTERS.forEach(f => {
-    if (f.id.startsWith("cpr_")) groups["CPR Tahminleri"].push(f);
-    else if (f.id.startsWith("odds_ah_") || f.id.startsWith("odds_eh_")) groups["Handikap (AH & EH)"].push(f);
+    if (f.id.startsWith("odds_ah_") || f.id.startsWith("odds_eh_")) groups["Handikap (AH & EH)"].push(f);
     else if (f.id.includes("ou")) groups["Alt / Üst Gol"].push(f);
     else if (f.id.startsWith("odds_iy_") || f.id.startsWith("odds_2y_")) groups["İlk / İkinci Yarı"].push(f);
     else if (f.id.includes("btts") || f.id.includes("odd") || f.id.includes("even")) groups["Geniş Marketler"].push(f);
@@ -190,12 +188,8 @@ function buildAdvFilters() {
   for (const [groupName, filters] of Object.entries(groups)) {
     if (filters.length === 0) continue;
     
-    let itemsHtml = filters.map(f => {
-      const isText = ["cpr_tahmin", "cpr_cs", "cpr_skor"].includes(f.id);
-      
-      const inputHtml = isText
-        ? `<input type="text" placeholder="Değer" id="${f.id}" style="width: 100%; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.82rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />`
-        : `<div style="display:flex; align-items:center; background:var(--bg-2); border:1px solid var(--border); border-radius:6px; overflow:hidden; transition:border-color 0.2s;">
+    const itemsHtml = filters.map(f => {
+      const inputHtml = `<div style="display:flex; align-items:center; background:var(--bg-2); border:1px solid var(--border); border-radius:6px; overflow:hidden; transition:border-color 0.2s;">
              <input type="text" placeholder="-" id="${f.id}_minus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-right:1px solid rgba(255,255,255,0.05); color:#fca5a5; font-size:0.8rem; outline:none; text-align:center;" title="Alt Sapma (Eksi)" inputmode="decimal" />
              <input type="text" placeholder="Merkez" id="${f.id}" style="flex:1.4; min-width:0; padding:8px 4px; background:transparent; border:none; color:var(--accent); font-weight:700; font-size:0.85rem; outline:none; text-align:center;" title="Merkez Değer" inputmode="decimal" />
              <input type="text" placeholder="+" id="${f.id}_plus" style="flex:1; min-width:0; padding:8px 4px; background:transparent; border:none; border-left:1px solid rgba(255,255,255,0.05); color:#6ee7b7; font-size:0.8rem; outline:none; text-align:center;" title="Üst Sapma (Artı)" inputmode="decimal" />
@@ -242,27 +236,22 @@ function getAdvFilters() {
     const elId = document.getElementById(f.id);
     if (!elId || !elId.value) return;
 
-    const isText = ["cpr_tahmin", "cpr_cs", "cpr_skor"].includes(f.id);
-    if (isText) {
-      filters[f.id] = elId.value.trim();
-    } else {
-      const val = parseLocalFloat(elId.value);
-      if (!isNaN(val)) {
-        const minusEl = document.getElementById(f.id + "_minus");
-        const plusEl = document.getElementById(f.id + "_plus");
-        
-        const minusVal = parseLocalFloat(minusEl?.value);
-        const plusVal = parseLocalFloat(plusEl?.value);
-        
-        const m = !isNaN(minusVal) ? Math.abs(minusVal) : 0;
-        const p = !isNaN(plusVal) ? Math.abs(plusVal) : 0;
-        
-        if (m === 0 && p === 0) {
-          filters[f.id] = val;
-        } else {
-          filters[`${f.id}_min`] = Number((val - m).toFixed(2));
-          filters[`${f.id}_max`] = Number((val + p).toFixed(2));
-        }
+    const val = parseLocalFloat(elId.value);
+    if (!isNaN(val)) {
+      const minusEl = document.getElementById(f.id + "_minus");
+      const plusEl = document.getElementById(f.id + "_plus");
+      
+      const minusVal = parseLocalFloat(minusEl?.value);
+      const plusVal = parseLocalFloat(plusEl?.value);
+      
+      const m = !isNaN(minusVal) ? Math.abs(minusVal) : 0;
+      const p = !isNaN(plusVal) ? Math.abs(plusVal) : 0;
+      
+      if (m === 0 && p === 0) {
+        filters[f.id] = val;
+      } else {
+        filters[`${f.id}_min`] = Number((val - m).toFixed(2));
+        filters[`${f.id}_max`] = Number((val + p).toFixed(2));
       }
     }
   });
@@ -332,16 +321,36 @@ async function loadFilterOptions() {
 }
 
 // ─── Overview ───
-async function loadOverview() {
-  const filters = getBaseFilters();
-  const params = new URLSearchParams(filters);
-  const d = await fetchJSON(`${API}/api/stats/overview?${params}`);
+function applyOverview(d) {
   el.statMatches.textContent = (d.total_matches ?? 0).toLocaleString("tr-TR");
   el.statLeagues.textContent = (d.total_leagues ?? 0).toLocaleString("tr-TR");
   el.statCountries.textContent = d.total_countries ?? 0;
   el.statFirstDate.textContent = fmtDate(d.first_match_date);
   el.statLastDate.textContent = fmtDate(d.last_match_date);
   el.statOdds.textContent = (d.total_odds ?? 0).toLocaleString("tr-TR");
+}
+
+function getOverviewFilters() {
+  const filters = getBaseFilters();
+  delete filters.order;
+  return filters;
+}
+
+async function loadOverview() {
+  const filters = getOverviewFilters();
+  const params = new URLSearchParams(filters);
+  const cacheKey = params.toString();
+
+  if (state.overviewCacheKey === cacheKey && state.overviewCacheData) {
+    applyOverview(state.overviewCacheData);
+    return state.overviewCacheData;
+  }
+
+  const data = await fetchJSON(`${API}/api/stats/overview?${params}`);
+  state.overviewCacheKey = cacheKey;
+  state.overviewCacheData = data;
+  applyOverview(data);
+  return data;
 }
 
 // ─── Build column categories ───
@@ -410,19 +419,12 @@ async function loadMatches() {
   const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
   const data = await fetchJSON(`${API}/api/matches?${params}`);
 
-  const bookmaker = el.fBookmaker.value;
   const oddsType = el.fOddsType.value;
-  let rows = data.data || [];
-
-  // Build oddsMap instantly using the inline columns from backend
-  const oddsMap = {};
-  for (const r of rows) {
-    oddsMap[r.match_id] = r.odds_columns || {};
-  }
+  const rows = data.data || [];
 
   state.total = data.total || 0;
 
-  renderTable(rows, oddsMap, oddsType);
+  renderTable(rows, oddsType);
   updatePagination();
 }
 
@@ -443,7 +445,37 @@ function filterByOddsType(cols, oddsType) {
   return result;
 }
 
-function renderTable(rows, oddsMap, oddsType) {
+function pickSummaryOdds(row, oddsType) {
+  if (oddsType === "opening") {
+    return {
+      odds1: row.opening_odds_1,
+      oddsX: row.opening_odds_x,
+      odds2: row.opening_odds_2,
+      ouOver: row.opening_odds_ou25_over,
+      ouUnder: row.opening_odds_ou25_under,
+    };
+  }
+
+  if (oddsType === "closing") {
+    return {
+      odds1: row.closing_odds_1,
+      oddsX: row.closing_odds_x,
+      odds2: row.closing_odds_2,
+      ouOver: row.closing_odds_ou25_over,
+      ouUnder: row.closing_odds_ou25_under,
+    };
+  }
+
+  return {
+    odds1: row.closing_odds_1 ?? row.opening_odds_1,
+    oddsX: row.closing_odds_x ?? row.opening_odds_x,
+    odds2: row.closing_odds_2 ?? row.opening_odds_2,
+    ouOver: row.closing_odds_ou25_over ?? row.opening_odds_ou25_over,
+    ouUnder: row.closing_odds_ou25_under ?? row.opening_odds_ou25_under,
+  };
+}
+
+function renderTable(rows, oddsType) {
   if (!rows.length) {
     el.matchesBody.innerHTML = `<tr class="empty-row"><td colspan="12">
       <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
@@ -456,21 +488,21 @@ function renderTable(rows, oddsMap, oddsType) {
 
   el.matchesBody.innerHTML = rows.map((r) => {
     const score = r.home_score != null ? `${r.home_score} - ${r.away_score}` : "-";
-    const cols = filterByOddsType(oddsMap[r.match_id] || {}, oddsType);
+    const summaryOdds = pickSummaryOdds(r, oddsType);
 
-    const o1 = fmtOdds(cols["1"] || cols["AÇ 1"]);
-    const oX = fmtOdds(cols["X"] || cols["AÇ X"]);
-    const o2 = fmtOdds(cols["2"] || cols["AÇ 2"]);
-    const ouOver = fmtOdds(cols["2 5 Üst"] || cols["AÇ 2 5 Üst"]);
-    const ouUnder = fmtOdds(cols["2 5 Alt"] || cols["AÇ 2 5 Alt"]);
+    const o1 = fmtOdds(summaryOdds.odds1);
+    const oX = fmtOdds(summaryOdds.oddsX);
+    const o2 = fmtOdds(summaryOdds.odds2);
+    const ouOver = fmtOdds(summaryOdds.ouOver);
+    const ouUnder = fmtOdds(summaryOdds.ouUnder);
     const ouStr = ouOver !== "-" ? `${ouOver}/${ouUnder}` : "-";
-    const iy = cols["İY"] || r.iy || "-";
+    const iy = r.iy || "-";
     const sel = state.selectedMatchId === r.match_id ? " selected" : "";
 
     return `
       <tr data-id="${r.match_id}" class="${sel}" onclick="selectMatch('${r.match_id}')">
         <td class="text-dim">${fmtDate(r.match_date)}</td>
-        <td class="text-dim">${esc(r.match_time || cols["SAAT"] || "-")}</td>
+        <td class="text-dim">${esc(r.match_time_display || r.match_time || "-")}</td>
         <td class="text-dim">${esc(r.league || "")}</td>
         <td class="team-name">${esc(r.home_team)}</td>
         <td><span class="score">${esc(score)}</span></td>
@@ -691,118 +723,6 @@ async function loadMarketStats() {
   }
 }
 
-// ─── Analysis (Rating) ───
-async function loadAnalysis() {
-  const filters = getBaseFilters();
-  const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
-
-  const analysisBody = $("analysisBody");
-  analysisBody.innerHTML = `<tr class="empty-row"><td colspan="14"><span class="spinner"></span> Analiz verileri hesaplanıyor...</td></tr>`;
-
-  try {
-    const data = await fetchJSON(`${API}/api/analysis?${params}`);
-    state.total = data.total || 0;
-    renderAnalysisTable(data.data || []);
-    updatePagination();
-  } catch (err) {
-    analysisBody.innerHTML = `<tr class="empty-row"><td colspan="14" style="color:var(--red);">Hata: ${esc(err.message)}</td></tr>`;
-  }
-}
-
-function renderAnalysisTable(rows) {
-  const tbody = $("analysisBody");
-  if (!rows.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="16">
-      <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-        <span style="font-size:2rem; opacity:0.5;">🔍</span>
-        <span>Aramanıza uygun analiz verisi bulunamadı.</span>
-      </div>
-    </td></tr>`;
-    return;
-  }
-
-  let sortedRows = rows;
-  const groupLeague = el.fGroupLeague && el.fGroupLeague.checked;
-  
-  if (groupLeague) {
-    sortedRows = [...rows].sort((a, b) => {
-      // 1. Sort by Date
-      const d1 = new Date(a.match_date).setHours(0,0,0,0);
-      const d2 = new Date(b.match_date).setHours(0,0,0,0);
-      if (d1 < d2) return -1;
-      if (d1 > d2) return 1;
-
-      // 2. Sort by League
-      const l1 = (a.league || "").trim().toLowerCase();
-      const l2 = (b.league || "").trim().toLowerCase();
-      if (l1 < l2) return -1;
-      if (l1 > l2) return 1;
-
-      // 3. Fallback to exact time
-      return new Date(a.match_date) - new Date(b.match_date);
-    });
-  }
-
-  let html = "";
-  let lastLeague = null;
-  let lastDateStr = null;
-
-  sortedRows.forEach((r) => {
-    if (groupLeague) {
-      const dRaw = new Date(r.match_date);
-      const currentDateStr = fmtDate(r.match_date); // reusing fmtDate
-
-      if (currentDateStr !== lastDateStr) {
-        html += `<tr class="date-header-row" style="background:var(--accent); color:#000;"><td colspan="16" style="text-align:center; padding:10px 14px; font-size:1.1rem; font-weight:800; border-top:3px solid var(--border-hl); letter-spacing:1px;">📅 ${currentDateStr} MAÇLARI</td></tr>`;
-        lastDateStr = currentDateStr;
-        lastLeague = null; // Reset league because a new day started!
-      }
-
-      const currentLeague = (r.league || "Diğer Ligler").trim();
-      if (currentLeague !== lastLeague) {
-        html += `<tr class="league-header-row" style="background:var(--bg-2);"><td colspan="16" style="text-align:left; padding:12px 14px; color:var(--accent); font-size:1.05rem; font-weight:700; border-top:2px solid var(--border-hl); border-bottom:1px solid var(--border-hl);">🏆 ${esc(currentLeague)} - ${esc(r.country || "")}</td></tr>`;
-        lastLeague = currentLeague;
-      }
-    }
-
-    const score = r.home_score != null ? `${r.home_score} - ${r.away_score}` : "-";
-    
-    const cpr = r.cpr || {};
-    const probH = cpr.probHome != null ? (cpr.probHome * 100).toFixed(1) + "%" : "-";
-    const probD = cpr.probDraw != null ? (cpr.probDraw * 100).toFixed(1) + "%" : "-";
-    const probA = cpr.probAway != null ? (cpr.probAway * 100).toFixed(1) + "%" : "-";
-    
-    const tahmin = cpr.prediction || "-";
-    const guven = cpr.confidence != null ? (cpr.confidence * 100).toFixed(1) + "%" : "-";
-    const doubleChance = cpr.doubleChance || "-";
-    const tahminSkor = cpr.predictedScore || "-";
-    const top3 = cpr.top3Scores ? cpr.top3Scores.join(", ") : "-";
-
-    const selClass = state.selectedMatchId === r.match_id ? " selected" : "";
-    html += `
-      <tr data-id="${r.match_id}" class="${selClass}" onclick="selectMatch('${r.match_id}')">
-        <td class="text-dim">${fmtDate(r.match_date)}</td>
-        <td class="text-dim">${esc(r.league || "")}</td>
-        <td class="team-name">${esc(r.home_team)}</td>
-        <td class="team-name">${esc(r.away_team)}</td>
-        <td class="odds-value click-filter" onclick="applyFilter(event, 'odds_1', this.innerText)">${r.odds_1 ? parseFloat(r.odds_1).toFixed(2) : "-"}</td>
-        <td class="odds-value click-filter" onclick="applyFilter(event, 'odds_x', this.innerText)">${r.odds_x ? parseFloat(r.odds_x).toFixed(2) : "-"}</td>
-        <td class="odds-value click-filter" onclick="applyFilter(event, 'odds_2', this.innerText)">${r.odds_2 ? parseFloat(r.odds_2).toFixed(2) : "-"}</td>
-        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_home', this.innerText)">${probH}</td>
-        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_draw', this.innerText)">${probD}</td>
-        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_away', this.innerText)">${probA}</td>
-        <td class="click-filter" style="color: var(--green); font-weight: 800;" onclick="applyFilter(event, 'cpr_tahmin', this.innerText)">${tahmin}</td>
-        <td class="click-filter" style="color: var(--yellow); font-weight: 700;" onclick="applyFilter(event, 'cpr_guven', this.innerText)">${guven}</td>
-        <td class="click-filter" style="color: var(--purple); font-weight: 700;" onclick="applyFilter(event, 'cpr_cs', this.innerText)">${doubleChance}</td>
-        <td class="click-filter" style="color: var(--accent); font-weight: 700;" onclick="applyFilter(event, 'cpr_skor', this.innerText)">${tahminSkor}</td>
-        <td class="text-dim">${top3}</td>
-        <td><span class="score">${esc(score)}</span></td>
-      </tr>`;
-  });
-
-  tbody.innerHTML = html;
-}
-
 // ─── Refresh ───
 async function refreshAll() {
   setStatus("Veriler yükleniyor...", "loading");
@@ -815,8 +735,6 @@ async function refreshAll() {
       await loadMatches();
     } else if (state.activeTab === "statsTab") {
       await loadMarketStats();
-    } else if (state.activeTab === "analysisTab") {
-      await loadAnalysis();
     }
     setStatus("Hazır", "ok");
   } catch (err) {
@@ -882,14 +800,14 @@ if (fixtureSelect) {
     const val = fixtureSelect.value;
     if (!val) return; // if they select the empty placeholder
 
-    // Switch to Analysis tab automatically
+    // Switch to Matches tab automatically
     document.querySelectorAll(".main-tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
-    const tabBtn = document.getElementById("tabAnalysisBtn");
-    const tabDiv = document.getElementById("analysisTab");
+    const tabBtn = document.getElementById("tabMatchesBtn");
+    const tabDiv = document.getElementById("matchesTab");
     if (tabBtn) tabBtn.classList.add("active");
     if (tabDiv) tabDiv.classList.add("active");
-    state.activeTab = "analysisTab";
+    state.activeTab = "matchesTab";
 
     if (val === "all") {
        const today = new Date();
@@ -902,7 +820,6 @@ if (fixtureSelect) {
     }
 
     if (el.fUpcomingOnly) el.fUpcomingOnly.checked = true;
-    if (el.fGroupLeague) el.fGroupLeague.checked = true;
 
     state.order = "asc"; // ASC order for fixtures
     state.offset = 0; state.selectedMatchId = null;
@@ -924,50 +841,9 @@ document.querySelectorAll(".filter-group input").forEach((input) => {
 });
 window.selectMatch = selectMatch;
 
-window.applyFilter = function(e, filterId, value) {
-  e.stopPropagation(); // prevent selectMatch from triggering
-  if (!value || value === "-" || String(value).trim() === "") return;
-  
-  const input = document.getElementById(filterId);
-  if (!input) return;
-
-  // Clean value (e.g. "45.2%" -> "45.2")
-  let cleanValue = String(value).replace("%", "").trim();
-  input.value = cleanValue;
-
-  // Automatically CLEAR dates and upcoming flags so we can BACKTEST entire history!
-  if (el.fDateFrom) el.fDateFrom.value = "";
-  if (el.fDateTo) el.fDateTo.value = "";
-  if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
-  if (el.fGroupLeague) el.fGroupLeague.checked = false;
-  const fts = document.getElementById("fixtureSelect");
-  if (fts) fts.value = "";
-
-  // Visual feedback highlighting the target input
-  input.style.transition = "background-color 0.2s, color 0.2s";
-  input.style.backgroundColor = "var(--green)";
-  input.style.color = "#000";
-  setTimeout(() => {
-    input.style.backgroundColor = "";
-    input.style.color = "";
-  }, 1000);
-
-  // Open advanced filters if not already open
-  if (!el.advFilters.classList.contains("open")) {
-    el.advToggle.click();
-  }
-
-  // Refresh automatically to instantly backtest
-  state.offset = 0;
-  state.order = "desc"; // For backtest, user wants to see latest played matches
-  refreshAll();
-};
 document.querySelectorAll(".main-tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    if (btn.dataset.tab === "analysisTab" && state.activeTab !== "analysisTab") {
-      state.activeTab = "analysisTab";
-      loadAnalysis();
-    } else if (btn.dataset.tab === "statsTab" && state.activeTab !== "statsTab") {
+    if (btn.dataset.tab === "statsTab" && state.activeTab !== "statsTab") {
       state.activeTab = "statsTab";
       loadMarketStats();
     } else if (btn.dataset.tab === "matchesTab" && state.activeTab !== "matchesTab") {
@@ -977,7 +853,6 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
       if (el.fDateFrom) el.fDateFrom.value = "";
       if (el.fDateTo) el.fDateTo.value = "";
       if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
-      if (el.fGroupLeague) el.fGroupLeague.checked = false;
       const fts = document.getElementById("fixtureSelect");
       if (fts) fts.value = "";
       

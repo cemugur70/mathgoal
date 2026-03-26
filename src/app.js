@@ -6,46 +6,7 @@ const pino = require("pino");
 const pinoHttp = require("pino-http");
 const config = require("./config");
 const db = require("./db");
-const { predictMatch } = require("./cpr");
-const { syncAllCpr } = require("./sync_cpr");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
-
-// Initialize DB specific functions and indexes
-db.query(`
-CREATE INDEX IF NOT EXISTS idx_matches_home_date ON matches (home_team, match_date DESC);
-CREATE INDEX IF NOT EXISTS idx_matches_away_date ON matches (away_team, match_date DESC);
-
-CREATE OR REPLACE FUNCTION get_team_elo(p_team text, p_date date, p_limit int)
-RETURNS numeric AS $$
-DECLARE
-  v_elo numeric;
-BEGIN
-  SELECT ROUND(SUM(
-      10 * (
-        (CASE WHEN m2.home_team = p_team AND m2.full_time_result = 'MS 1' THEN 1
-              WHEN m2.away_team = p_team AND m2.full_time_result = 'MS 2' THEN 1
-              WHEN m2.full_time_result = 'MS 0' THEN 0.5 ELSE 0 END)
-        -
-        (CASE WHEN m2.home_team = p_team THEN 
-                COALESCE(1 / NULLIF((mac2.raw_data->>'bet365_home')::numeric, 0), 0.5)
-              ELSE 
-                COALESCE(1 / NULLIF((mac2.raw_data->>'bet365_away')::numeric, 0), 0.5) 
-         END)
-      )
-    ), 1) INTO v_elo
-  FROM (
-      SELECT m3.match_id, m3.home_team, m3.away_team, m3.full_time_result
-      FROM matches m3 
-      WHERE (m3.home_team = p_team OR m3.away_team = p_team) AND m3.match_date < p_date
-      ORDER BY m3.match_date DESC
-      LIMIT p_limit
-  ) m2
-  LEFT JOIN match_all_columns mac2 ON m2.match_id = mac2.match_id AND mac2.bookmaker = 'bet365';
-  
-  RETURN COALESCE(v_elo, 0);
-END;
-$$ LANGUAGE plpgsql STABLE;
-`).catch(e => console.error("Error creating get_team_elo function:", e.message));
 
 const app = express();
 const logger = pino({
@@ -83,7 +44,7 @@ const ODDS_KEY_MAP = {
   odds_2y_1: { closing: "second_half_home" },
   odds_2y_x: { closing: "second_half_draw" },
   odds_2y_2: { closing: "second_half_away" },
-  
+
   // Cifte Sans
   odds_dc_1x: { closing: "home_draw_odds" },
   odds_dc_12: { closing: "home_away_odds" },
@@ -200,47 +161,20 @@ function buildBaseFilters(query, values) {
   const dateTo = (query.dateTo || "").trim();
   const ftResult = (query.result || "").trim();
 
-  if (country) { values.push(`%${country}%`); filters.push(`m.country ILIKE $${values.length}`); }
-  if (league) { values.push(`%${league}%`); filters.push(`m.league ILIKE $${values.length}`); }
-  if (season) { values.push(`%${season}%`); filters.push(`m.season ILIKE $${values.length}`); }
+  if (country) { values.push(country); filters.push(`m.country = $${values.length}`); }
+  if (league) { values.push(league); filters.push(`m.league = $${values.length}`); }
+  if (season) { values.push(season); filters.push(`m.season = $${values.length}`); }
   if (search) {
+    values.push(search);
+    const exact = `$${values.length}`;
     values.push(`%${search}%`);
-    const t = `$${values.length}`;
-    filters.push(`(m.home_team ILIKE ${t} OR m.away_team ILIKE ${t})`);
+    const like = `$${values.length}`;
+    filters.push(`(m.match_id = ${exact} OR m.home_team ILIKE ${like} OR m.away_team ILIKE ${like})`);
   }
   if (dateFrom) { values.push(dateFrom); filters.push(`m.match_date >= $${values.length}::date`); }
   if (dateTo) { values.push(dateTo); filters.push(`m.match_date <= $${values.length}::date`); }
   if (ftResult) { values.push(ftResult); filters.push(`m.full_time_result = $${values.length}`); }
   if (query.upcomingOnly === 'true') { filters.push(`m.home_score IS NULL`); }
-
-  const CPR_NUM_KEYS = ["cpr_home", "cpr_draw", "cpr_away", "cpr_guven"];
-  for (const key of CPR_NUM_KEYS) {
-    const minVal = parseFloat(query[`${key}_min`]);
-    const maxVal = parseFloat(query[`${key}_max`]);
-    const exactVal = parseFloat(query[key]);
-    
-    if (!isNaN(minVal)) {
-      values.push(minVal);
-      filters.push(`m.${key} >= $${values.length}`);
-    }
-    if (!isNaN(maxVal)) {
-      values.push(maxVal);
-      filters.push(`m.${key} <= $${values.length}`);
-    }
-    if (!isNaN(exactVal) && isNaN(minVal) && isNaN(maxVal) && exactVal > 0) {
-      values.push(exactVal);
-      filters.push(`m.${key} = $${values.length}`);
-    }
-  }
-
-  const CPR_TXT_KEYS = ["cpr_tahmin", "cpr_cs", "cpr_skor"];
-  for (const key of CPR_TXT_KEYS) {
-    const val = (query[key] || "").trim();
-    if (val) {
-      values.push(val);
-      filters.push(`m.${key} = $${values.length}`);
-    }
-  }
 
   return filters;
 }
@@ -260,7 +194,7 @@ app.get("/api/health", async (req, res, next) => {
 
 app.get("/api/debug", async (req, res, next) => {
   try {
-    const query = req.query.q || "SELECT m.cpr_home, mac.bookmaker FROM matches m INNER JOIN match_all_columns mac ON m.match_id = mac.match_id WHERE cpr_home = 45.2 LIMIT 5";
+    const query = req.query.q || "SELECT m.match_id, mac.bookmaker FROM matches m INNER JOIN match_all_columns mac ON m.match_id = mac.match_id LIMIT 5";
     const result = await db.query(query);
     res.json(result.rows);
   } catch (err) {
@@ -268,40 +202,22 @@ app.get("/api/debug", async (req, res, next) => {
   }
 });
 
-app.get("/api/cpr-status", async (req, res, next) => {
-  try {
-    const total = await db.query("SELECT COUNT(*)::int AS c FROM matches WHERE cpr_home IS NOT NULL");
-    const all = await db.query("SELECT COUNT(*)::int AS c FROM matches");
-    res.json({
-      status: "Yapay zeka (CPR) hesaplaması çalışıyor.",
-      islenmisMacSayisi: total.rows[0].c,
-      toplamMacSayisi: all.rows[0].c,
-      tamamlanmaOrani: ((total.rows[0].c / all.rows[0].c) * 100).toFixed(2) + "%"
-    });
-  } catch (error) {
-    next(error);
-  }
-});
 
 app.get("/api/stats/overview", async (req, res, next) => {
   try {
     const bookmaker = (req.query.bookmaker || "bet365").trim();
     const values = [];
     const filters = buildBaseFilters(req.query, values);
-    const { oddsFilters, needsJoin } = buildOddsFilters(req.query, bookmaker, values);
-
-    // Provide the bookmaker if needed or filter requires it
-    if (needsJoin || oddsFilters.length) {
-      values.push(bookmaker);
-      const bmIdx = values.length;
-      filters.push(`mac.bookmaker = $${bmIdx}`);
-      for (const f of oddsFilters) filters.push(f);
-    }
+    const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
+    values.push(bookmaker);
+    const bmIdx = values.length;
+    filters.push(`mac.bookmaker = $${bmIdx}`);
+    for (const f of oddsFilters) filters.push(f);
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     const sql = `
       SELECT
-        COUNT(DISTINCT m.match_id)::int AS total_matches,
+        COUNT(*)::int AS total_matches,
         COUNT(DISTINCT m.league)::int AS total_leagues,
         COUNT(DISTINCT m.country)::int AS total_countries,
         MIN(m.match_date) AS first_match_date,
@@ -318,107 +234,6 @@ app.get("/api/stats/overview", async (req, res, next) => {
   }
 });
 
-app.get("/api/analysis", async (req, res, next) => {
-  try {
-    const limit = Math.min(Math.max(toPositiveInt(req.query.limit, 50), 1), 1000);
-    const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
-    const bookmaker = (req.query.bookmaker || "bet365").trim();
-
-    const values = [];
-    const filters = buildBaseFilters(req.query, values);
-    const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
-
-    // Bookmaker validation filter on matches
-    values.push(bookmaker);
-    const bmIdx = values.length;
-    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx})`);
-
-    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
-
-    // For odds filter, we wrap it in a subselect
-    let oddsWhere = "";
-    if (oddsFilters.length > 0) {
-      oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
-    }
-
-    const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
-
-    const selectQuery = `
-      SELECT
-        m.match_id,
-        m.match_date,
-        m.match_time,
-        m.league,
-        m.country,
-        m.home_team,
-        m.away_team,
-        m.home_score,
-        m.away_score,
-        m.full_time_result,
-        m.half_time_result,
-        m.cpr_home,
-        m.cpr_draw,
-        m.cpr_away,
-        m.cpr_tahmin,
-        m.cpr_guven,
-        m.cpr_cs,
-        m.cpr_skor,
-        odds.odds_1,
-        odds.odds_x,
-        odds.odds_2
-      FROM matches m
-      LEFT JOIN LATERAL (
-        SELECT 
-          (raw_data->>'${bookmaker}_home')::numeric AS odds_1,
-          (raw_data->>'${bookmaker}_draw')::numeric AS odds_x,
-          (raw_data->>'${bookmaker}_away')::numeric AS odds_2
-        FROM match_all_columns 
-        WHERE match_id = m.match_id AND bookmaker = $${bmIdx}
-        LIMIT 1
-      ) odds ON true
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
-      ORDER BY m.match_date ${orderDir}, m.match_time ${orderDir}
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-
-    const countQuery = `
-      SELECT COUNT(DISTINCT m.match_id)::int AS total
-      FROM matches m
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
-    `;
-
-    const [rowsResult, countResult] = await Promise.all([
-      db.query(selectQuery, values),
-      db.query(countQuery, values)
-    ]);
-
-    // Format CPR back to expected object structure for frontend
-    const processedRows = rowsResult.rows.map(r => {
-      return {
-        ...r,
-        cpr: {
-          probHome: r.cpr_home !== null ? r.cpr_home / 100 : 0,
-          probDraw: r.cpr_draw !== null ? r.cpr_draw / 100 : 0,
-          probAway: r.cpr_away !== null ? r.cpr_away / 100 : 0,
-          prediction: r.cpr_tahmin || "-",
-          confidence: r.cpr_guven !== null ? r.cpr_guven / 100 : 0,
-          doubleChance: r.cpr_cs || "-",
-          predictedScore: r.cpr_skor || "-"
-        }
-      };
-    });
-
-    res.json({
-      data: processedRows,
-      total: countResult.rows[0].total,
-      limit,
-      offset,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
 app.get("/api/matches", async (req, res, next) => {
   try {
     const limit = Math.min(toPositiveInt(req.query.limit, config.dashboardPageSize), 200);
@@ -430,27 +245,10 @@ app.get("/api/matches", async (req, res, next) => {
     const filters = buildBaseFilters(req.query, values);
     const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
 
-    // Bookmaker validation filter
     values.push(bookmaker);
     const bmIdx = values.length;
-    filters.push(`EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx})`);
-
-    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
-
-    // Odds Where Clause
-    let oddsWhere = "";
-    if (oddsFilters.length > 0) {
-      oddsWhere = " AND " + oddsFilters.map(f => f.replace(/mac\./g, "")).join(" AND ");
-    }
-
-    const countSql = `
-      SELECT COUNT(DISTINCT m.match_id)::int AS total
-      FROM matches m
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
-    `;
-    
-    const countResult = await db.query(countSql, values);
-    const total = countResult.rows[0]?.total || 0;
+    const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
+    const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
 
     const dataValues = [...values, limit, offset];
     const dataSql = `
@@ -458,36 +256,32 @@ app.get("/api/matches", async (req, res, next) => {
         m.match_id, m.country, m.league, m.season, m.round_no,
         m.match_date, m.match_time, m.home_team, m.away_team,
         m.home_score, m.away_score, m.full_time_result, m.scraped_at,
-        m.cpr_home, m.cpr_draw, m.cpr_away, m.cpr_tahmin, m.cpr_guven, m.cpr_cs, m.cpr_skor,
-        odds.raw_data_odds
+        CASE
+          WHEN m.match_time IS NOT NULL THEN TO_CHAR(m.match_time, 'HH24:MI')
+          ELSE mac.raw_data->>'SAAT'
+        END AS match_time_display,
+        mac.raw_data->>'İY' AS iy,
+        (mac.raw_data->>'opening_${bookmaker}_home')::numeric AS opening_odds_1,
+        (mac.raw_data->>'opening_${bookmaker}_draw')::numeric AS opening_odds_x,
+        (mac.raw_data->>'opening_${bookmaker}_away')::numeric AS opening_odds_2,
+        (mac.raw_data->>'opening_${bookmaker}_2_5_over')::numeric AS opening_odds_ou25_over,
+        (mac.raw_data->>'opening_${bookmaker}_2_5_under')::numeric AS opening_odds_ou25_under,
+        (mac.raw_data->>'${bookmaker}_home')::numeric AS closing_odds_1,
+        (mac.raw_data->>'${bookmaker}_draw')::numeric AS closing_odds_x,
+        (mac.raw_data->>'${bookmaker}_away')::numeric AS closing_odds_2,
+        (mac.raw_data->>'${bookmaker}_2_5_over')::numeric AS closing_odds_ou25_over,
+        (mac.raw_data->>'${bookmaker}_2_5_under')::numeric AS closing_odds_ou25_under,
+        COUNT(*) OVER()::int AS total_count
       FROM matches m
-      LEFT JOIN LATERAL (
-        SELECT raw_data AS raw_data_odds FROM match_all_columns 
-        WHERE match_id = m.match_id AND bookmaker = $${bmIdx}
-        LIMIT 1
-      ) odds ON true
-      ${whereClause} ${oddsWhere ? `AND EXISTS (SELECT 1 FROM match_all_columns WHERE match_id = m.match_id AND bookmaker = $${bmIdx} ${oddsWhere})` : ""}
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${whereClause}
       ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.match_id
       LIMIT $${dataValues.length - 1} OFFSET $${dataValues.length}
     `;
 
     const dataResult = await db.query(dataSql, dataValues);
-    
-    // Process rows to map raw_data into structured odds_columns
-    const processedRows = dataResult.rows.map(r => {
-      let mappedColumns = {};
-      if (r.raw_data_odds) {
-        let rd = r.raw_data_odds;
-        if (typeof rd === "string") {
-          try { rd = JSON.parse(rd); } catch(e) { /* ignore */ }
-        }
-        mappedColumns = mapRawToColumns(rd, bookmaker);
-      }
-      
-      const newR = { ...r, odds_columns: mappedColumns };
-      delete newR.raw_data_odds; // Do not send raw_data over network to save bandwidth
-      return newR;
-    });
+    const total = dataResult.rows[0]?.total_count || 0;
+    const processedRows = dataResult.rows.map(({ total_count, ...row }) => row);
 
     res.json({ total, limit, offset, data: processedRows });
   } catch (err) {
@@ -499,7 +293,21 @@ app.get("/api/matches/:matchId", async (req, res, next) => {
   try {
     const result = await db.query(
       `
-      SELECT *
+      SELECT
+        match_id,
+        country,
+        league,
+        season,
+        round_no,
+        match_date,
+        match_time,
+        home_team,
+        away_team,
+        home_score,
+        away_score,
+        full_time_result,
+        source_url,
+        scraped_at
       FROM matches
       WHERE match_id = $1
       LIMIT 1
@@ -861,46 +669,6 @@ app.get("/api/ingest/status", requireIngestKey, async (req, res, next) => {
       match_all_columns: macResult.rows[0]?.c || 0,
       matches: matchResult.rows[0]?.c || 0,
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// ─── CPR Management APIs (for manual_cpr_check.py) ─────────────────────
-app.post("/api/cpr/reset", requireIngestKey, async (req, res, next) => {
-  try {
-    const { match_ids } = req.body;
-    if (!match_ids || !Array.isArray(match_ids) || match_ids.length === 0) {
-      return res.status(400).json({ message: "match_ids array gerekli." });
-    }
-    const result = await db.query(
-      `UPDATE matches SET cpr_home = NULL, cpr_draw = NULL, cpr_away = NULL,
-       cpr_tahmin = NULL, cpr_guven = NULL, cpr_cs = NULL, cpr_skor = NULL
-       WHERE match_id = ANY($1)`,
-      [match_ids]
-    );
-    res.json({ ok: true, reset: result.rowCount });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/cpr/recalc-all", requireIngestKey, async (req, res, next) => {
-  try {
-    let totalReset = 0;
-    // Process in batches to avoid statement timeout on large tables
-    while (true) {
-      const result = await db.query(
-        `UPDATE matches SET cpr_home = NULL, cpr_draw = NULL, cpr_away = NULL,
-         cpr_tahmin = NULL, cpr_guven = NULL, cpr_cs = NULL, cpr_skor = NULL
-         WHERE match_id IN (
-           SELECT match_id FROM matches WHERE cpr_home IS NOT NULL LIMIT 5000
-         )`
-      );
-      totalReset += result.rowCount || 0;
-      if (!result.rowCount || result.rowCount === 0) break;
-    }
-    res.json({ ok: true, reset: totalReset });
   } catch (error) {
     next(error);
   }
