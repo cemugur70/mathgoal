@@ -6,14 +6,20 @@
 
 const API = "";
 const state = {
-  limit: 200,
-  offset: 0,
-  total: 0,
+  limit: 100,
+  pageIndex: 0,
+  currentPageCount: 0,
+  hasMoreMatches: false,
+  nextMatchesCursor: null,
+  matchCursorStack: [null],
   selectedMatchId: null,
   allColumns: [],
   activeTab: "matchesTab",
   overviewCacheKey: "",
   overviewCacheData: null,
+  currentRows: [],
+  matchDetailCache: new Map(),
+  matchDetailRequestId: 0,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -57,6 +63,26 @@ async function fetchJSON(url) {
 function fmtOdds(v) {
   if (v == null || v === "" || v === "-") return "-";
   const n = parseFloat(v); return isNaN(n) ? String(v) : n.toFixed(2);
+}
+
+function resetMatchPagination() {
+  state.pageIndex = 0;
+  state.currentPageCount = 0;
+  state.hasMoreMatches = false;
+  state.nextMatchesCursor = null;
+  state.matchCursorStack = [null];
+  state.currentRows = [];
+}
+
+function getCurrentMatchCursor() {
+  return state.matchCursorStack[state.pageIndex] || null;
+}
+
+function clearSelectedMatch() {
+  state.selectedMatchId = null;
+  state.matchDetailRequestId += 1;
+  el.oddsPanel.classList.remove("active");
+  document.querySelectorAll("tbody tr").forEach((tr) => tr.classList.remove("selected"));
 }
 
 // ─── Tab Navigation ───
@@ -415,14 +441,23 @@ function getBaseFilters() {
 // ─── Match Table ───
 async function loadMatches() {
   const filters = getBaseFilters();
+  const cursor = getCurrentMatchCursor();
+  const paramsObject = { limit: state.limit, ...filters };
+  if (cursor && cursor.id) {
+    paramsObject.cursorDate = cursor.date;
+    paramsObject.cursorTime = cursor.time;
+    paramsObject.cursorId = cursor.id;
+  }
 
-  const params = new URLSearchParams({ limit: state.limit, offset: state.offset, ...filters });
+  const params = new URLSearchParams(paramsObject);
   const data = await fetchJSON(`${API}/api/matches?${params}`);
 
   const oddsType = el.fOddsType.value;
   const rows = data.data || [];
-
-  state.total = data.total || 0;
+  state.currentRows = rows;
+  state.currentPageCount = data.page_count || rows.length;
+  state.hasMoreMatches = Boolean(data.has_more);
+  state.nextMatchesCursor = data.next_cursor || null;
 
   renderTable(rows, oddsType);
   updatePagination();
@@ -518,16 +553,22 @@ function renderTable(rows, oddsType) {
 }
 
 function updatePagination() {
-  const from = state.total === 0 ? 0 : state.offset + 1;
-  const to = Math.min(state.offset + state.limit, state.total);
-  el.pageInfo.textContent = `${from}-${to} / ${state.total}`;
-  el.btnPrev.disabled = state.offset <= 0;
-  el.btnNext.disabled = state.offset + state.limit >= state.total;
+  if (!state.currentPageCount) {
+    el.pageInfo.textContent = "0 kayıt";
+  } else {
+    const from = state.pageIndex * state.limit + 1;
+    const to = state.pageIndex * state.limit + state.currentPageCount;
+    const moreSuffix = state.hasMoreMatches ? "+" : "";
+    el.pageInfo.textContent = `Sayfa ${state.pageIndex + 1} · ${from}-${to}${moreSuffix}`;
+  }
+  el.btnPrev.disabled = state.pageIndex === 0;
+  el.btnNext.disabled = !state.hasMoreMatches || !state.nextMatchesCursor;
 }
 
 // ─── Odds Detail Panel ───
 async function selectMatch(matchId) {
   state.selectedMatchId = matchId;
+  const requestId = ++state.matchDetailRequestId;
   document.querySelectorAll("tbody tr").forEach((tr) => {
     tr.classList.toggle("selected", tr.dataset.id === matchId);
   });
@@ -537,10 +578,22 @@ async function selectMatch(matchId) {
   setStatus("Oran detayları yükleniyor...", "loading");
 
   try {
-    const [match, oddsData] = await Promise.all([
-      fetchJSON(`${API}/api/matches/${matchId}`),
-      fetchJSON(`${API}/api/matches/${matchId}/odds?bookmaker=${bookmaker}`),
-    ]);
+    const cacheKey = `${matchId}::${bookmaker}`;
+    let detailData = state.matchDetailCache.get(cacheKey);
+    if (!detailData) {
+      const [match, oddsData] = await Promise.all([
+        fetchJSON(`${API}/api/matches/${matchId}`),
+        fetchJSON(`${API}/api/matches/${matchId}/odds?bookmaker=${bookmaker}`),
+      ]);
+      detailData = { match, oddsData };
+      state.matchDetailCache.set(cacheKey, detailData);
+    }
+
+    if (requestId !== state.matchDetailRequestId || state.selectedMatchId !== matchId) {
+      return;
+    }
+
+    const { match, oddsData } = detailData;
 
     const cols = filterByOddsType(oddsData.columns || {}, oddsType);
     const score = match.home_score != null ? `${match.home_score} - ${match.away_score}` : "vs";
@@ -747,9 +800,9 @@ async function refreshAll() {
 
 // ─── Events ───
 el.btnApply.addEventListener("click", () => {
-  state.offset = 0; state.selectedMatchId = null;
+  resetMatchPagination();
   state.order = "desc"; // Reset order when user manually clicks Filtrele
-  el.oddsPanel.classList.remove("active");
+  clearSelectedMatch();
   refreshAll();
 });
 el.btnClear.addEventListener("click", () => {
@@ -762,10 +815,14 @@ el.btnClear.addEventListener("click", () => {
   ADV_ODDS_FILTERS.forEach(f => {
     const elId = document.getElementById(f.id);
     if (elId) elId.value = "";
+    const minusId = document.getElementById(f.id + "_minus");
+    const plusId = document.getElementById(f.id + "_plus");
+    if (minusId) minusId.value = "";
+    if (plusId) plusId.value = "";
   });
-  state.offset = 0; state.selectedMatchId = null;
+  resetMatchPagination();
   state.order = "desc";
-  el.oddsPanel.classList.remove("active");
+  clearSelectedMatch();
   refreshAll();
 });
 
@@ -822,22 +879,54 @@ if (fixtureSelect) {
     if (el.fUpcomingOnly) el.fUpcomingOnly.checked = true;
 
     state.order = "asc"; // ASC order for fixtures
-    state.offset = 0; state.selectedMatchId = null;
-    el.oddsPanel.classList.remove("active");
+    resetMatchPagination();
+    clearSelectedMatch();
     refreshAll();
   });
 }
 
-el.btnPrev.addEventListener("click", () => { state.offset = Math.max(0, state.offset - state.limit); refreshAll(); });
-el.btnNext.addEventListener("click", () => { state.offset += state.limit; refreshAll(); });
-el.oddsClose.addEventListener("click", () => {
-  el.oddsPanel.classList.remove("active"); state.selectedMatchId = null;
-  document.querySelectorAll("tbody tr").forEach((tr) => tr.classList.remove("selected"));
+el.btnPrev.addEventListener("click", () => {
+  if (state.pageIndex === 0) return;
+  state.pageIndex -= 1;
+  clearSelectedMatch();
+  refreshAll();
 });
-el.fBookmaker.addEventListener("change", () => { refreshAll(); if (state.selectedMatchId && state.activeTab === 'matchesTab') selectMatch(state.selectedMatchId); });
-el.fOddsType.addEventListener("change", () => { refreshAll(); if (state.selectedMatchId && state.activeTab === 'matchesTab') selectMatch(state.selectedMatchId); });
+el.btnNext.addEventListener("click", () => {
+  if (!state.nextMatchesCursor) return;
+  state.pageIndex += 1;
+  state.matchCursorStack[state.pageIndex] = state.nextMatchesCursor;
+  clearSelectedMatch();
+  refreshAll();
+});
+el.oddsClose.addEventListener("click", () => {
+  clearSelectedMatch();
+});
+el.fBookmaker.addEventListener("change", async () => {
+  const selectedMatchId = state.selectedMatchId;
+  resetMatchPagination();
+  clearSelectedMatch();
+  await refreshAll();
+  if (selectedMatchId && state.activeTab === "matchesTab") {
+    selectMatch(selectedMatchId);
+  }
+});
+el.fOddsType.addEventListener("change", () => {
+  if (state.activeTab === "matchesTab") {
+    renderTable(state.currentRows, el.fOddsType.value);
+    updatePagination();
+    if (state.selectedMatchId) {
+      selectMatch(state.selectedMatchId);
+    }
+  }
+});
 document.querySelectorAll(".filter-group input").forEach((input) => {
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { state.offset = 0; refreshAll(); } });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      resetMatchPagination();
+      clearSelectedMatch();
+      refreshAll();
+    }
+  });
 });
 window.selectMatch = selectMatch;
 
@@ -857,7 +946,8 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
       if (fts) fts.value = "";
       
       state.order = "desc";
-      state.offset = 0;
+      resetMatchPagination();
+      clearSelectedMatch();
       refreshAll();
     }
   });

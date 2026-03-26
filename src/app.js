@@ -30,6 +30,22 @@ function toPositiveInt(value, fallback) {
   return parsed;
 }
 
+function normalizeCursorDate(value, orderDir) {
+  const trimmed = String(value || "").trim();
+  if (trimmed) {
+    return trimmed;
+  }
+  return orderDir === "ASC" ? "9999-12-31" : "0001-01-01";
+}
+
+function normalizeCursorTime(value, orderDir) {
+  const trimmed = String(value || "").trim();
+  if (trimmed) {
+    return trimmed;
+  }
+  return orderDir === "ASC" ? "23:59:59.999999" : "00:00:00";
+}
+
 // ─── Shared: Odds range filter builder ─────────────────────────────
 const ODDS_KEY_MAP = {
   // MS 1X2
@@ -236,10 +252,19 @@ app.get("/api/stats/overview", async (req, res, next) => {
 
 app.get("/api/matches", async (req, res, next) => {
   try {
-    const limit = Math.min(toPositiveInt(req.query.limit, config.dashboardPageSize), 200);
-    const offset = Math.max(toPositiveInt(req.query.offset, 0), 0);
+    const limit = Math.min(toPositiveInt(req.query.limit, Math.min(config.dashboardPageSize, 100)), 100);
     const bookmaker = (req.query.bookmaker || "bet365").trim();
     const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
+    const cursorDate = (req.query.cursorDate || "").trim();
+    const cursorTime = (req.query.cursorTime || "").trim();
+    const cursorId = (req.query.cursorId || "").trim();
+    const sortDateExpr = orderDir === "ASC"
+      ? "COALESCE(m.match_date, DATE '9999-12-31')"
+      : "COALESCE(m.match_date, DATE '0001-01-01')";
+    const sortTimeExpr = orderDir === "ASC"
+      ? "COALESCE(m.match_time, TIME '23:59:59.999999')"
+      : "COALESCE(m.match_time, TIME '00:00:00')";
+    const cursorComparator = orderDir === "ASC" ? ">" : "<";
 
     const values = [];
     const filters = buildBaseFilters(req.query, values);
@@ -248,9 +273,22 @@ app.get("/api/matches", async (req, res, next) => {
     values.push(bookmaker);
     const bmIdx = values.length;
     const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
+
+    if (cursorId) {
+      values.push(normalizeCursorDate(cursorDate, orderDir));
+      const cursorDateIdx = values.length;
+      values.push(normalizeCursorTime(cursorTime, orderDir));
+      const cursorTimeIdx = values.length;
+      values.push(cursorId);
+      const cursorIdIdx = values.length;
+      allFilters.push(
+        `(${sortDateExpr}, ${sortTimeExpr}, m.match_id) ${cursorComparator} ($${cursorDateIdx}::date, $${cursorTimeIdx}::time, $${cursorIdIdx})`,
+      );
+    }
+
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
 
-    const dataValues = [...values, limit, offset];
+    const dataValues = [...values, limit + 1];
     const dataSql = `
       SELECT
         m.match_id, m.country, m.league, m.season, m.round_no,
@@ -271,19 +309,35 @@ app.get("/api/matches", async (req, res, next) => {
         (mac.raw_data->>'${bookmaker}_away')::numeric AS closing_odds_2,
         (mac.raw_data->>'${bookmaker}_2_5_over')::numeric AS closing_odds_ou25_over,
         (mac.raw_data->>'${bookmaker}_2_5_under')::numeric AS closing_odds_ou25_under,
-        COUNT(*) OVER()::int AS total_count
+        ${sortDateExpr} AS sort_match_date,
+        ${sortTimeExpr} AS sort_match_time
       FROM matches m
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${whereClause}
-      ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.match_id
-      LIMIT $${dataValues.length - 1} OFFSET $${dataValues.length}
+      ORDER BY ${sortDateExpr} ${orderDir}, ${sortTimeExpr} ${orderDir}, m.match_id ${orderDir}
+      LIMIT $${dataValues.length}
     `;
 
     const dataResult = await db.query(dataSql, dataValues);
-    const total = dataResult.rows[0]?.total_count || 0;
-    const processedRows = dataResult.rows.map(({ total_count, ...row }) => row);
+    const hasMore = dataResult.rows.length > limit;
+    const pageRows = hasMore ? dataResult.rows.slice(0, limit) : dataResult.rows;
+    const lastRow = pageRows[pageRows.length - 1];
+    const nextCursor = hasMore && lastRow
+      ? {
+        date: lastRow.sort_match_date,
+        time: lastRow.sort_match_time,
+        id: lastRow.match_id,
+      }
+      : null;
+    const processedRows = pageRows.map(({ sort_match_date, sort_match_time, ...row }) => row);
 
-    res.json({ total, limit, offset, data: processedRows });
+    res.json({
+      limit,
+      data: processedRows,
+      page_count: processedRows.length,
+      has_more: hasMore,
+      next_cursor: nextCursor,
+    });
   } catch (err) {
     next(err);
   }
