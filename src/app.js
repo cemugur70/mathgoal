@@ -7,6 +7,7 @@ const pinoHttp = require("pino-http");
 const config = require("./config");
 const db = require("./db");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
+const { MODEL_WEIGHTS, createPrediction, backtestSummary } = require("./match-model");
 
 const app = express();
 const logger = pino({
@@ -193,6 +194,273 @@ function buildBaseFilters(query, values) {
   if (query.upcomingOnly === 'true') { filters.push(`m.home_score IS NULL`); }
 
   return filters;
+}
+
+function priorMatchCondition(matchAlias, targetAlias) {
+  return `(
+    COALESCE(${matchAlias}.match_date, DATE '0001-01-01'),
+    COALESCE(${matchAlias}.match_time, TIME '00:00:00'),
+    ${matchAlias}.match_id
+  ) < (
+    COALESCE(${targetAlias}.match_date, DATE '0001-01-01'),
+    COALESCE(${targetAlias}.match_time, TIME '00:00:00'),
+    ${targetAlias}.match_id
+  )`;
+}
+
+function recencyWeightSql(rankExpr) {
+  return `CASE ${rankExpr}
+    WHEN 1 THEN 1.00
+    WHEN 2 THEN 0.85
+    WHEN 3 THEN 0.72
+    WHEN 4 THEN 0.61
+    WHEN 5 THEN 0.52
+    WHEN 6 THEN 0.44
+    ELSE 0.38
+  END`;
+}
+
+function buildPredictionFeatureQuery(rawQuery, bookmaker, limit, completedOnly = false) {
+  const values = [];
+  const query = { ...rawQuery };
+  if (completedOnly) {
+    delete query.upcomingOnly;
+  }
+
+  const filters = buildBaseFilters(query, values);
+  if (completedOnly) {
+    filters.push("m.home_score IS NOT NULL");
+    filters.push("m.away_score IS NOT NULL");
+  }
+
+  values.push(bookmaker);
+  const bmIdx = values.length;
+  const oddsKeyHome = `${bookmaker}_home`;
+  const oddsKeyDraw = `${bookmaker}_draw`;
+  const oddsKeyAway = `${bookmaker}_away`;
+  const allFilters = [
+    ...filters,
+    `mac.bookmaker = $${bmIdx}`,
+    `NULLIF(mac.raw_data->>'${oddsKeyHome}', '') IS NOT NULL`,
+    `NULLIF(mac.raw_data->>'${oddsKeyDraw}', '') IS NOT NULL`,
+    `NULLIF(mac.raw_data->>'${oddsKeyAway}', '') IS NOT NULL`,
+  ];
+  const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
+  const limitParam = values.length + 1;
+  const priorTarget = priorMatchCondition("m2", "tm");
+  const weightHome = recencyWeightSql("recent.rn");
+  const weightAway = recencyWeightSql("recent.rn");
+  const weightH2h = recencyWeightSql("recent.rn");
+
+  return {
+    values: [...values, limit],
+    sql: `
+      WITH target_matches AS (
+        SELECT
+          m.match_id,
+          m.country,
+          m.league,
+          m.season,
+          m.match_date,
+          m.match_time,
+          m.home_team,
+          m.away_team,
+          m.home_score,
+          m.away_score,
+          m.full_time_result,
+          (mac.raw_data->>'${oddsKeyHome}')::numeric AS odds_home,
+          (mac.raw_data->>'${oddsKeyDraw}')::numeric AS odds_draw,
+          (mac.raw_data->>'${oddsKeyAway}')::numeric AS odds_away
+        FROM matches m
+        INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+        ${whereClause}
+        ORDER BY m.match_date DESC NULLS LAST, m.match_time DESC NULLS LAST, m.match_id DESC
+        LIMIT $${limitParam}
+      )
+      SELECT
+        tm.*,
+        COALESCE(home_recent.ppg, 1.4) AS home_ppg,
+        COALESCE(home_recent.goals_for, 1.35) AS home_goals_for,
+        COALESCE(home_recent.goals_against, 1.1) AS home_goals_against,
+        COALESCE(home_recent.match_count, 0) AS home_form_matches,
+        COALESCE(away_recent.ppg, 1.2) AS away_ppg,
+        COALESCE(away_recent.goals_for, 1.1) AS away_goals_for,
+        COALESCE(away_recent.goals_against, 1.35) AS away_goals_against,
+        COALESCE(away_recent.match_count, 0) AS away_form_matches,
+        COALESCE(h2h.home_ppg, 1.5) AS h2h_home_ppg,
+        COALESCE(h2h.home_goal_diff, 0) AS h2h_home_goal_diff,
+        COALESCE(h2h.match_count, 0) AS h2h_matches,
+        COALESCE(league_recent.avg_home_goals, 1.35) AS league_home_goals,
+        COALESCE(league_recent.avg_away_goals, 1.1) AS league_away_goals,
+        COALESCE(league_recent.avg_total_goals, 2.45) AS league_total_goals,
+        COALESCE(league_recent.match_count, 0) AS league_match_count,
+        0::numeric AS availability_home,
+        0::numeric AS availability_away
+      FROM target_matches tm
+      LEFT JOIN LATERAL (
+        SELECT
+          SUM(weight * points)::numeric / NULLIF(SUM(weight), 0) AS ppg,
+          SUM(weight * goals_for)::numeric / NULLIF(SUM(weight), 0) AS goals_for,
+          SUM(weight * goals_against)::numeric / NULLIF(SUM(weight), 0) AS goals_against,
+          COUNT(*)::int AS match_count
+        FROM (
+          SELECT
+            ${weightHome} AS weight,
+            CASE
+              WHEN recent.home_team = tm.home_team AND recent.home_score > recent.away_score THEN 3
+              WHEN recent.away_team = tm.home_team AND recent.away_score > recent.home_score THEN 3
+              WHEN recent.home_score = recent.away_score THEN 1
+              ELSE 0
+            END AS points,
+            CASE
+              WHEN recent.home_team = tm.home_team THEN recent.home_score
+              ELSE recent.away_score
+            END AS goals_for,
+            CASE
+              WHEN recent.home_team = tm.home_team THEN recent.away_score
+              ELSE recent.home_score
+            END AS goals_against
+          FROM (
+            SELECT
+              m2.match_id,
+              m2.home_team,
+              m2.away_team,
+              m2.home_score,
+              m2.away_score,
+              ROW_NUMBER() OVER (
+                ORDER BY COALESCE(m2.match_date, DATE '0001-01-01') DESC,
+                         COALESCE(m2.match_time, TIME '00:00:00') DESC,
+                         m2.match_id DESC
+              ) AS rn
+            FROM matches m2
+            WHERE (m2.home_team = tm.home_team OR m2.away_team = tm.home_team)
+              AND m2.home_score IS NOT NULL
+              AND m2.away_score IS NOT NULL
+              AND ${priorTarget}
+            ORDER BY COALESCE(m2.match_date, DATE '0001-01-01') DESC,
+                     COALESCE(m2.match_time, TIME '00:00:00') DESC,
+                     m2.match_id DESC
+            LIMIT 6
+          ) recent
+        ) weighted
+      ) home_recent ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          SUM(weight * points)::numeric / NULLIF(SUM(weight), 0) AS ppg,
+          SUM(weight * goals_for)::numeric / NULLIF(SUM(weight), 0) AS goals_for,
+          SUM(weight * goals_against)::numeric / NULLIF(SUM(weight), 0) AS goals_against,
+          COUNT(*)::int AS match_count
+        FROM (
+          SELECT
+            ${weightAway} AS weight,
+            CASE
+              WHEN recent.home_team = tm.away_team AND recent.home_score > recent.away_score THEN 3
+              WHEN recent.away_team = tm.away_team AND recent.away_score > recent.home_score THEN 3
+              WHEN recent.home_score = recent.away_score THEN 1
+              ELSE 0
+            END AS points,
+            CASE
+              WHEN recent.home_team = tm.away_team THEN recent.home_score
+              ELSE recent.away_score
+            END AS goals_for,
+            CASE
+              WHEN recent.home_team = tm.away_team THEN recent.away_score
+              ELSE recent.home_score
+            END AS goals_against
+          FROM (
+            SELECT
+              m2.match_id,
+              m2.home_team,
+              m2.away_team,
+              m2.home_score,
+              m2.away_score,
+              ROW_NUMBER() OVER (
+                ORDER BY COALESCE(m2.match_date, DATE '0001-01-01') DESC,
+                         COALESCE(m2.match_time, TIME '00:00:00') DESC,
+                         m2.match_id DESC
+              ) AS rn
+            FROM matches m2
+            WHERE (m2.home_team = tm.away_team OR m2.away_team = tm.away_team)
+              AND m2.home_score IS NOT NULL
+              AND m2.away_score IS NOT NULL
+              AND ${priorTarget}
+            ORDER BY COALESCE(m2.match_date, DATE '0001-01-01') DESC,
+                     COALESCE(m2.match_time, TIME '00:00:00') DESC,
+                     m2.match_id DESC
+            LIMIT 6
+          ) recent
+        ) weighted
+      ) away_recent ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          SUM(weight * home_points)::numeric / NULLIF(SUM(weight), 0) AS home_ppg,
+          SUM(weight * home_goal_diff)::numeric / NULLIF(SUM(weight), 0) AS home_goal_diff,
+          COUNT(*)::int AS match_count
+        FROM (
+          SELECT
+            ${weightH2h} AS weight,
+            CASE
+              WHEN recent.home_team = tm.home_team AND recent.home_score > recent.away_score THEN 3
+              WHEN recent.away_team = tm.home_team AND recent.away_score > recent.home_score THEN 3
+              WHEN recent.home_score = recent.away_score THEN 1
+              ELSE 0
+            END AS home_points,
+            CASE
+              WHEN recent.home_team = tm.home_team THEN recent.home_score - recent.away_score
+              ELSE recent.away_score - recent.home_score
+            END AS home_goal_diff
+          FROM (
+            SELECT
+              m2.match_id,
+              m2.home_team,
+              m2.away_team,
+              m2.home_score,
+              m2.away_score,
+              ROW_NUMBER() OVER (
+                ORDER BY COALESCE(m2.match_date, DATE '0001-01-01') DESC,
+                         COALESCE(m2.match_time, TIME '00:00:00') DESC,
+                         m2.match_id DESC
+              ) AS rn
+            FROM matches m2
+            WHERE (
+              (m2.home_team = tm.home_team AND m2.away_team = tm.away_team)
+              OR (m2.home_team = tm.away_team AND m2.away_team = tm.home_team)
+            )
+              AND m2.home_score IS NOT NULL
+              AND m2.away_score IS NOT NULL
+              AND ${priorTarget}
+            ORDER BY COALESCE(m2.match_date, DATE '0001-01-01') DESC,
+                     COALESCE(m2.match_time, TIME '00:00:00') DESC,
+                     m2.match_id DESC
+            LIMIT 5
+          ) recent
+        ) weighted
+      ) h2h ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          AVG(recent.home_score)::numeric AS avg_home_goals,
+          AVG(recent.away_score)::numeric AS avg_away_goals,
+          AVG((recent.home_score + recent.away_score)::numeric) AS avg_total_goals,
+          COUNT(*)::int AS match_count
+        FROM (
+          SELECT
+            m2.home_score,
+            m2.away_score
+          FROM matches m2
+          WHERE m2.league = tm.league
+            AND COALESCE(m2.season, '') = COALESCE(tm.season, '')
+            AND m2.home_score IS NOT NULL
+            AND m2.away_score IS NOT NULL
+            AND ${priorTarget}
+          ORDER BY COALESCE(m2.match_date, DATE '0001-01-01') DESC,
+                   COALESCE(m2.match_time, TIME '00:00:00') DESC,
+                   m2.match_id DESC
+          LIMIT 400
+        ) recent
+      ) league_recent ON true
+      ORDER BY tm.match_date DESC NULLS LAST, tm.match_time DESC NULLS LAST, tm.match_id DESC
+    `,
+  };
 }
 
 app.get("/api/health", async (req, res, next) => {
@@ -599,6 +867,54 @@ app.get("/api/stats/markets", async (req, res, next) => {
 });
 
 // ─── Ingestion API (Python scraper -> DB via HTTPS) ────────────────────────
+app.get("/api/model/analysis", async (req, res, next) => {
+  try {
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const limit = Math.min(toPositiveInt(req.query.limit, 50), 100);
+    const { sql, values } = buildPredictionFeatureQuery(req.query, bookmaker, limit, false);
+    const result = await db.query(sql, values);
+    const predictions = result.rows.map(createPrediction);
+
+    res.json({
+      model: {
+        id: "poisson_form_market_blend_v1",
+        name: "Poisson + Form + Market Blend",
+        weights: MODEL_WEIGHTS,
+      },
+      bookmaker,
+      limit,
+      data: predictions,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/model/backtest", async (req, res, next) => {
+  try {
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const limit = Math.min(toPositiveInt(req.query.limit, 200), 400);
+    const { sql, values } = buildPredictionFeatureQuery(req.query, bookmaker, limit, true);
+    const result = await db.query(sql, values);
+    const predictions = result.rows.map(createPrediction);
+    const summary = backtestSummary(predictions);
+
+    res.json({
+      model: {
+        id: "poisson_form_market_blend_v1",
+        name: "Poisson + Form + Market Blend",
+        weights: MODEL_WEIGHTS,
+      },
+      bookmaker,
+      limit,
+      summary,
+      data: predictions,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 function requireIngestKey(req, res, next) {
   if (!config.ingestApiKey) {
     return res.status(503).json({ message: "INGEST_API_KEY yapilandirilmamis." });

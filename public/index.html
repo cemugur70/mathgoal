@@ -338,6 +338,37 @@
         grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
         gap: 16px;
       }
+      .model-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .model-kpi {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+      }
+      .model-kpi .label {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 6px;
+      }
+      .model-kpi .value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--accent);
+      }
+      .model-section-title {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0;
+      }
       .stat-card {
         background: var(--panel);
         border: 1px solid var(--border);
@@ -475,6 +506,7 @@
       <div class="main-tabs">
         <button class="main-tab-btn active" data-tab="matchesTab" id="tabMatchesBtn">⚽ Maçlar</button>
         <button class="main-tab-btn" data-tab="statsTab" id="tabStatsBtn">📊 İstatistikler</button>
+        <button class="main-tab-btn" data-tab="modelTab" id="tabModelBtn">🧠 Tahmin</button>
       </div>
 
       <!-- Filters (shared) -->
@@ -624,6 +656,71 @@
         <div class="stats-summary" id="statsGrid">
           <div style="padding:40px; text-align:center; color:var(--text-muted);">Filtreleri uygulayıp "Filtrele" butonuna tıklayın.</div>
         </div>
+      </div>
+
+      <div class="tab-content" id="modelTab">
+        <div class="model-summary-grid" id="modelSummaryGrid">
+          <div class="model-kpi"><span class="label">Model</span><span class="value">Hazırlanıyor</span></div>
+          <div class="model-kpi"><span class="label">Örneklem</span><span class="value">-</span></div>
+          <div class="model-kpi"><span class="label">Doğruluk</span><span class="value">-</span></div>
+          <div class="model-kpi"><span class="label">ROI</span><span class="value">-</span></div>
+        </div>
+
+        <section class="table-container" style="margin-bottom:16px;">
+          <div style="padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+            <h3 class="model-section-title">Tahmin Analizi</h3>
+            <span style="color:var(--text-dim); font-size:0.8rem;">Maç satırına tıklayarak oran detayını açabilirsiniz</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Lig</th>
+                  <th>Ev</th>
+                  <th>Dep</th>
+                  <th>Market 1/X/2</th>
+                  <th>Model 1/X/2</th>
+                  <th>Tahmin</th>
+                  <th>Güven</th>
+                  <th>Edge</th>
+                  <th>Skor</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody id="modelAnalysisBody">
+                <tr class="empty-row"><td colspan="11" style="text-align:center; padding:40px; color:var(--text-muted);">Model sekmesini açınca tahminler yüklenecek.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-container">
+          <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
+            <h3 class="model-section-title">Backtest</h3>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Maç</th>
+                  <th>Tahmin</th>
+                  <th>Güven</th>
+                  <th>Odds</th>
+                  <th>Gerçek</th>
+                  <th>Hit</th>
+                  <th>EV</th>
+                  <th>Form</th>
+                  <th>H2H</th>
+                </tr>
+              </thead>
+              <tbody id="modelBacktestBody">
+                <tr class="empty-row"><td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">Backtest verisi bekleniyor.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
     </main>

@@ -40,6 +40,8 @@ const el = {
   advToggle: $("advToggle"), advFilters: $("advFilters"), advFiltersGrid: $("advFiltersGrid"),
   statsGrid: $("statsGrid"), statsTotalMatches: $("statsTotalMatches"),
   statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
+  modelSummaryGrid: $("modelSummaryGrid"), modelAnalysisBody: $("modelAnalysisBody"),
+  modelBacktestBody: $("modelBacktestBody"),
   fUpcomingOnly: $("fUpcomingOnly"),
 };
 
@@ -63,6 +65,23 @@ async function fetchJSON(url) {
 function fmtOdds(v) {
   if (v == null || v === "" || v === "-") return "-";
   const n = parseFloat(v); return isNaN(n) ? String(v) : n.toFixed(2);
+}
+function fmtPct(v) {
+  if (v == null || v === "") return "-";
+  const n = parseFloat(v);
+  return Number.isNaN(n) ? "-" : `%${n.toFixed(1)}`;
+}
+function outcomeLabel(code) {
+  if (code === "MS 1") return "1";
+  if (code === "MS 0") return "X";
+  if (code === "MS 2") return "2";
+  return "-";
+}
+function outcomeColor(code) {
+  if (code === "MS 1") return "var(--green)";
+  if (code === "MS 0") return "var(--yellow)";
+  if (code === "MS 2") return "var(--red)";
+  return "var(--text-dim)";
 }
 
 function resetMatchPagination() {
@@ -95,6 +114,7 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
     if (tab) tab.classList.add("active");
     state.activeTab = btn.dataset.tab;
     if (state.activeTab === "statsTab") loadMarketStats();
+    if (state.activeTab === "modelTab") loadModelTab();
   });
 });
 
@@ -776,6 +796,120 @@ async function loadMarketStats() {
   }
 }
 
+function renderModelSummary(model, summary) {
+  if (!el.modelSummaryGrid) return;
+  el.modelSummaryGrid.innerHTML = `
+    <div class="model-kpi">
+      <span class="label">Model</span>
+      <span class="value" style="font-size:1rem;">${esc(model?.name || "-")}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Örneklem</span>
+      <span class="value">${(summary?.sample_size ?? 0).toLocaleString("tr-TR")}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Doğruluk</span>
+      <span class="value">${fmtPct(summary?.accuracy)}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Yüksek Güven</span>
+      <span class="value">${fmtPct(summary?.high_conf_accuracy)}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Ortalama Güven</span>
+      <span class="value">${fmtPct(summary?.avg_confidence)}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">ROI</span>
+      <span class="value">${fmtPct(summary?.roi_pct)}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Brier</span>
+      <span class="value">${summary?.brier_score ?? "-"}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Log Loss</span>
+      <span class="value">${summary?.log_loss ?? "-"}</span>
+    </div>
+  `;
+}
+
+function renderModelAnalysis(rows) {
+  if (!el.modelAnalysisBody) return;
+  if (!rows.length) {
+    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="11">Tahmin verisi bulunamadı.</td></tr>`;
+    return;
+  }
+
+  el.modelAnalysisBody.innerHTML = rows.map((row) => {
+    const statusText = row.hit == null ? "Bekliyor" : row.hit ? "Doğru" : "Yanlış";
+    const statusColor = row.hit == null ? "var(--text-dim)" : row.hit ? "var(--green)" : "var(--red)";
+    return `
+      <tr data-id="${row.match_id}" onclick="selectMatch('${row.match_id}')">
+        <td class="text-dim">${fmtDate(row.match_date)}</td>
+        <td class="text-dim">${esc(row.league || "")}</td>
+        <td class="team-name">${esc(row.home_team)}</td>
+        <td class="team-name">${esc(row.away_team)}</td>
+        <td class="text-dim">${fmtPct(row.market_home)} / ${fmtPct(row.market_draw)} / ${fmtPct(row.market_away)}</td>
+        <td class="text-dim">${fmtPct(row.model_home)} / ${fmtPct(row.model_draw)} / ${fmtPct(row.model_away)}</td>
+        <td style="font-weight:800; color:${outcomeColor(row.predicted_outcome)};">${outcomeLabel(row.predicted_outcome)}</td>
+        <td style="font-weight:700;">${fmtPct(row.confidence)}</td>
+        <td style="color:${row.edge >= 0 ? "var(--green)" : "var(--red)"};">${fmtPct(row.edge)}</td>
+        <td class="text-dim">${esc(row.predicted_score)}</td>
+        <td style="color:${statusColor}; font-weight:700;">${statusText}</td>
+      </tr>`;
+  }).join("");
+}
+
+function renderBacktest(rows) {
+  if (!el.modelBacktestBody) return;
+  if (!rows.length) {
+    el.modelBacktestBody.innerHTML = `<tr class="empty-row"><td colspan="10">Backtest verisi bulunamadı.</td></tr>`;
+    return;
+  }
+
+  el.modelBacktestBody.innerHTML = rows.map((row) => {
+    const odds = row.predicted_outcome === "MS 1" ? row.odds_home : row.predicted_outcome === "MS 0" ? row.odds_draw : row.odds_away;
+    const form = `${(row.feature_snapshot?.home_ppg ?? 0).toFixed(2)} / ${(row.feature_snapshot?.away_ppg ?? 0).toFixed(2)}`;
+    const h2h = row.h2h_matches ? `${(row.feature_snapshot?.h2h_home_ppg ?? 0).toFixed(2)} (${row.h2h_matches})` : "-";
+    return `
+      <tr data-id="${row.match_id}" onclick="selectMatch('${row.match_id}')">
+        <td class="text-dim">${fmtDate(row.match_date)}</td>
+        <td><span class="team-name">${esc(row.home_team)}</span> - <span class="team-name">${esc(row.away_team)}</span></td>
+        <td style="font-weight:800; color:${outcomeColor(row.predicted_outcome)};">${outcomeLabel(row.predicted_outcome)}</td>
+        <td>${fmtPct(row.confidence)}</td>
+        <td>${fmtOdds(odds)}</td>
+        <td>${outcomeLabel(row.actual_outcome)}</td>
+        <td style="color:${row.hit ? "var(--green)" : "var(--red)"}; font-weight:700;">${row.hit ? "✓" : "✕"}</td>
+        <td style="color:${row.expected_value >= 0 ? "var(--green)" : "var(--red)"};">${fmtPct(row.expected_value)}</td>
+        <td class="text-dim">${form}</td>
+        <td class="text-dim">${h2h}</td>
+      </tr>`;
+  }).join("");
+}
+
+async function loadModelTab() {
+  const filters = getBaseFilters();
+  const analysisParams = new URLSearchParams({ ...filters, limit: 50 });
+  const backtestParams = new URLSearchParams({ ...filters, limit: 200 });
+
+  if (el.modelAnalysisBody) {
+    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="11"><span class="spinner"></span> Tahmin modeli çalışıyor...</td></tr>`;
+  }
+  if (el.modelBacktestBody) {
+    el.modelBacktestBody.innerHTML = `<tr class="empty-row"><td colspan="10"><span class="spinner"></span> Backtest hesaplanıyor...</td></tr>`;
+  }
+
+  const [analysis, backtest] = await Promise.all([
+    fetchJSON(`${API}/api/model/analysis?${analysisParams}`),
+    fetchJSON(`${API}/api/model/backtest?${backtestParams}`),
+  ]);
+
+  renderModelSummary(analysis.model, backtest.summary);
+  renderModelAnalysis(analysis.data || []);
+  renderBacktest((backtest.data || []).filter((row) => row.actual_outcome));
+}
+
 // ─── Refresh ───
 async function refreshAll() {
   setStatus("Veriler yükleniyor...", "loading");
@@ -788,6 +922,8 @@ async function refreshAll() {
       await loadMatches();
     } else if (state.activeTab === "statsTab") {
       await loadMarketStats();
+    } else if (state.activeTab === "modelTab") {
+      await loadModelTab();
     }
     setStatus("Hazır", "ok");
   } catch (err) {
