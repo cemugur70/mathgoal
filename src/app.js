@@ -223,11 +223,14 @@ function recencyWeightSql(rankExpr) {
 function buildPredictionFeatureQuery(rawQuery, bookmaker, limit, completedOnly = false) {
   const values = [];
   const query = { ...rawQuery };
+  const sortValue = String(query.sort || "").trim().toLowerCase();
+  const orderDir = sortValue === "asc" || (!sortValue && query.upcomingOnly === "true" && !completedOnly) ? "ASC" : "DESC";
   if (completedOnly) {
     delete query.upcomingOnly;
   }
 
   const filters = buildBaseFilters(query, values);
+  const { oddsFilters } = buildOddsFilters(query, bookmaker, values);
   if (completedOnly) {
     filters.push("m.home_score IS NOT NULL");
     filters.push("m.away_score IS NOT NULL");
@@ -240,6 +243,7 @@ function buildPredictionFeatureQuery(rawQuery, bookmaker, limit, completedOnly =
   const oddsKeyAway = `${bookmaker}_away`;
   const allFilters = [
     ...filters,
+    ...oddsFilters,
     `mac.bookmaker = $${bmIdx}`,
     `NULLIF(mac.raw_data->>'${oddsKeyHome}', '') IS NOT NULL`,
     `NULLIF(mac.raw_data->>'${oddsKeyDraw}', '') IS NOT NULL`,
@@ -274,7 +278,7 @@ function buildPredictionFeatureQuery(rawQuery, bookmaker, limit, completedOnly =
         FROM matches m
         INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
         ${whereClause}
-        ORDER BY m.match_date DESC NULLS LAST, m.match_time DESC NULLS LAST, m.match_id DESC
+        ORDER BY m.match_date ${orderDir} NULLS LAST, m.match_time ${orderDir} NULLS LAST, m.match_id ${orderDir}
         LIMIT $${limitParam}
       )
       SELECT
@@ -458,7 +462,7 @@ function buildPredictionFeatureQuery(rawQuery, bookmaker, limit, completedOnly =
           LIMIT 400
         ) recent
       ) league_recent ON true
-      ORDER BY tm.match_date DESC NULLS LAST, tm.match_time DESC NULLS LAST, tm.match_id DESC
+      ORDER BY tm.match_date ${orderDir} NULLS LAST, tm.match_time ${orderDir} NULLS LAST, tm.match_id ${orderDir}
     `,
   };
 }

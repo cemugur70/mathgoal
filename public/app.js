@@ -51,6 +51,11 @@ function setStatus(msg, type = "loading") {
   el.statusText.innerHTML = type === "loading" ? `<span class="spinner"></span>${msg}` : msg;
 }
 function fmtDate(v) { return v ? new Date(v).toLocaleDateString("tr-TR") : "-"; }
+function getLocalDateStr(dateObj) {
+  const offset = dateObj.getTimezoneOffset();
+  const localD = new Date(dateObj.getTime() - (offset * 60 * 1000));
+  return localD.toISOString().split("T")[0];
+}
 function esc(v) {
   return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -70,6 +75,16 @@ function fmtPct(v) {
   if (v == null || v === "") return "-";
   const n = parseFloat(v);
   return Number.isNaN(n) ? "-" : `%${n.toFixed(1)}`;
+}
+function fmtPctValue(v) {
+  if (v == null || v === "") return "-";
+  const n = parseFloat(v);
+  return Number.isNaN(n) ? "-" : `${n.toFixed(1)}%`;
+}
+function fmtNum(v, digits = 2) {
+  if (v == null || v === "") return "-";
+  const n = parseFloat(v);
+  return Number.isNaN(n) ? "-" : n.toFixed(digits);
 }
 function outcomeLabel(code) {
   if (code === "MS 1") return "1";
@@ -796,40 +811,87 @@ async function loadMarketStats() {
   }
 }
 
-function renderModelSummary(model, summary) {
+function buildModelFixtureFilters() {
+  const filters = getBaseFilters();
+  delete filters.result;
+  delete filters.upcomingOnly;
+  filters.upcomingOnly = true;
+  filters.sort = "asc";
+
+  if (!filters.dateFrom && !filters.dateTo) {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 6);
+    filters.dateFrom = getLocalDateStr(today);
+    filters.dateTo = getLocalDateStr(nextWeek);
+  }
+
+  return filters;
+}
+
+function buildModelBacktestFilters() {
+  const filters = getBaseFilters();
+  delete filters.upcomingOnly;
+  delete filters.result;
+  delete filters.dateFrom;
+  delete filters.dateTo;
+  filters.sort = "desc";
+  return filters;
+}
+
+function renderModelSummary(model, summary, rows) {
   if (!el.modelSummaryGrid) return;
+  const fixtures = rows || [];
+  const highConfidence = fixtures.filter((row) => parseFloat(row.confidence) >= 55);
+  const topPick = fixtures.reduce((best, row) => {
+    if (!best || parseFloat(row.confidence) > parseFloat(best.confidence)) return row;
+    return best;
+  }, null);
+  const topValue = fixtures
+    .filter((row) => row.expected_value != null)
+    .reduce((best, row) => {
+      if (!best || parseFloat(row.expected_value) > parseFloat(best.expected_value)) return row;
+      return best;
+    }, null);
+  const avgGoals = fixtures.length
+    ? fixtures.reduce((sum, row) => sum + parseFloat(row.expected_total_goals || 0), 0) / fixtures.length
+    : 0;
+
   el.modelSummaryGrid.innerHTML = `
     <div class="model-kpi">
       <span class="label">Model</span>
       <span class="value" style="font-size:1rem;">${esc(model?.name || "-")}</span>
     </div>
     <div class="model-kpi">
-      <span class="label">Örneklem</span>
-      <span class="value">${(summary?.sample_size ?? 0).toLocaleString("tr-TR")}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Doğruluk</span>
-      <span class="value">${fmtPct(summary?.accuracy)}</span>
+      <span class="label">Fikstür</span>
+      <span class="value">${fixtures.length.toLocaleString("tr-TR")}</span>
     </div>
     <div class="model-kpi">
       <span class="label">Yüksek Güven</span>
-      <span class="value">${fmtPct(summary?.high_conf_accuracy)}</span>
+      <span class="value">${highConfidence.length.toLocaleString("tr-TR")}</span>
     </div>
     <div class="model-kpi">
-      <span class="label">Ortalama Güven</span>
-      <span class="value">${fmtPct(summary?.avg_confidence)}</span>
+      <span class="label">En Güçlü Pick</span>
+      <span class="value" style="font-size:0.96rem;">${topPick ? `${esc(topPick.home_team)} - ${esc(topPick.away_team)}` : "-"}</span>
+      <span class="model-inline-metric">${topPick ? `${outcomeLabel(topPick.predicted_outcome)} / ${fmtPctValue(topPick.confidence)}` : "Pick yok"}</span>
     </div>
     <div class="model-kpi">
-      <span class="label">ROI</span>
+      <span class="label">En İyi Value</span>
+      <span class="value" style="font-size:0.96rem;">${topValue ? `${esc(topValue.home_team)} - ${esc(topValue.away_team)}` : "-"}</span>
+      <span class="model-inline-metric">${topValue ? `EV ${fmtPctValue(topValue.expected_value)} / Edge ${fmtPctValue(topValue.edge)}` : "Value yok"}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Ort. Gol Beklentisi</span>
+      <span class="value">${fmtNum(avgGoals)}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Backtest Doğruluk</span>
+      <span class="value">${fmtPct(summary?.accuracy)}</span>
+    </div>
+    <div class="model-kpi">
+      <span class="label">Backtest ROI</span>
       <span class="value">${fmtPct(summary?.roi_pct)}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Brier</span>
-      <span class="value">${summary?.brier_score ?? "-"}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Log Loss</span>
-      <span class="value">${summary?.log_loss ?? "-"}</span>
+      <span class="model-inline-metric">Brier ${summary?.brier_score ?? "-"} / LogLoss ${summary?.log_loss ?? "-"}</span>
     </div>
   `;
 }
@@ -837,26 +899,42 @@ function renderModelSummary(model, summary) {
 function renderModelAnalysis(rows) {
   if (!el.modelAnalysisBody) return;
   if (!rows.length) {
-    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="11">Tahmin verisi bulunamadı.</td></tr>`;
+    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="10">Secilen kapsamda oynanmamis fikstur bulunamadi.</td></tr>`;
     return;
   }
 
   el.modelAnalysisBody.innerHTML = rows.map((row) => {
-    const statusText = row.hit == null ? "Bekliyor" : row.hit ? "Doğru" : "Yanlış";
-    const statusColor = row.hit == null ? "var(--text-dim)" : row.hit ? "var(--green)" : "var(--red)";
+    const matchLabel = `${esc(row.home_team)} - ${esc(row.away_team)}`;
+    const predictionColor = outcomeColor(row.predicted_outcome);
+    const valueColor = row.expected_value >= 0 ? "var(--green)" : "var(--red)";
     return `
       <tr data-id="${row.match_id}" onclick="selectMatch('${row.match_id}')">
         <td class="text-dim">${fmtDate(row.match_date)}</td>
         <td class="text-dim">${esc(row.league || "")}</td>
-        <td class="team-name">${esc(row.home_team)}</td>
-        <td class="team-name">${esc(row.away_team)}</td>
-        <td class="text-dim">${fmtPct(row.market_home)} / ${fmtPct(row.market_draw)} / ${fmtPct(row.market_away)}</td>
+        <td><span class="team-name">${matchLabel}</span><span class="model-inline-metric">${esc(row.country || "")}</span></td>
         <td class="text-dim">${fmtPct(row.model_home)} / ${fmtPct(row.model_draw)} / ${fmtPct(row.model_away)}</td>
-        <td style="font-weight:800; color:${outcomeColor(row.predicted_outcome)};">${outcomeLabel(row.predicted_outcome)}</td>
-        <td style="font-weight:700;">${fmtPct(row.confidence)}</td>
-        <td style="color:${row.edge >= 0 ? "var(--green)" : "var(--red)"};">${fmtPct(row.edge)}</td>
-        <td class="text-dim">${esc(row.predicted_score)}</td>
-        <td style="color:${statusColor}; font-weight:700;">${statusText}</td>
+        <td style="font-weight:800; color:${predictionColor};">
+          ${outcomeLabel(row.predicted_outcome)}
+          <span class="model-inline-metric">Safe ${esc(row.safe_pick)} ${fmtPctValue(row.safe_pick_confidence)}</span>
+          <span class="model-inline-metric" style="color:${valueColor};">EV ${fmtPctValue(row.expected_value)} / Edge ${fmtPctValue(row.edge)}</span>
+        </td>
+        <td style="font-weight:700;">
+          ${fmtPct(row.confidence)}
+          <span class="model-inline-metric">${esc(row.confidence_band || "-")}</span>
+        </td>
+        <td class="text-dim">
+          ${esc(row.predicted_score)}
+          <span class="model-inline-metric">xG ${fmtNum(row.expected_home_goals)} - ${fmtNum(row.expected_away_goals)}</span>
+        </td>
+        <td>
+          ${esc(row.goal_pick)}
+          <span class="model-inline-metric">${fmtPctValue(row.goal_pick_probability)}</span>
+        </td>
+        <td>
+          ${esc(row.btts_pick)}
+          <span class="model-inline-metric">${fmtPctValue(row.btts_pick_probability)}</span>
+        </td>
+        <td class="model-analysis-text">${esc(row.analysis_summary)}</td>
       </tr>`;
   }).join("");
 }
@@ -889,12 +967,13 @@ function renderBacktest(rows) {
 }
 
 async function loadModelTab() {
-  const filters = getBaseFilters();
-  const analysisParams = new URLSearchParams({ ...filters, limit: 50 });
-  const backtestParams = new URLSearchParams({ ...filters, limit: 200 });
+  const fixtureFilters = buildModelFixtureFilters();
+  const backtestFilters = buildModelBacktestFilters();
+  const analysisParams = new URLSearchParams({ ...fixtureFilters, limit: 80 });
+  const backtestParams = new URLSearchParams({ ...backtestFilters, limit: 200 });
 
   if (el.modelAnalysisBody) {
-    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="11"><span class="spinner"></span> Tahmin modeli çalışıyor...</td></tr>`;
+    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="10"><span class="spinner"></span> Fikstur tahminleri hazirlaniyor...</td></tr>`;
   }
   if (el.modelBacktestBody) {
     el.modelBacktestBody.innerHTML = `<tr class="empty-row"><td colspan="10"><span class="spinner"></span> Backtest hesaplanıyor...</td></tr>`;
@@ -905,7 +984,7 @@ async function loadModelTab() {
     fetchJSON(`${API}/api/model/backtest?${backtestParams}`),
   ]);
 
-  renderModelSummary(analysis.model, backtest.summary);
+  renderModelSummary(analysis.model, backtest.summary, analysis.data || []);
   renderModelAnalysis(analysis.data || []);
   renderBacktest((backtest.data || []).filter((row) => row.actual_outcome));
 }
@@ -964,12 +1043,6 @@ el.btnClear.addEventListener("click", () => {
 
 const fixtureSelect = document.getElementById("fixtureSelect");
 if (fixtureSelect) {
-  const getLocalDateStr = (dateObj) => {
-    const offset = dateObj.getTimezoneOffset();
-    const localD = new Date(dateObj.getTime() - (offset * 60 * 1000));
-    return localD.toISOString().split("T")[0];
-  };
-
   const populateFixtureDates = () => {
     fixtureSelect.innerHTML = `<option value="">📆 Fikstür Seç</option><option value="all">Tüm Liste (7 Gün)</option>`;
     const todayRaw = new Date();

@@ -65,14 +65,23 @@ function poissonOutcome(lambdaHome, lambdaAway, maxGoals = 6) {
   let home = 0;
   let draw = 0;
   let away = 0;
+  let over15 = 0;
+  let over25 = 0;
+  let over35 = 0;
+  let bttsYes = 0;
   let bestScore = { home: 0, away: 0, probability: 0 };
 
   for (let homeGoals = 0; homeGoals <= maxGoals; homeGoals += 1) {
     for (let awayGoals = 0; awayGoals <= maxGoals; awayGoals += 1) {
       const probability = homeDist[homeGoals] * awayDist[awayGoals];
+      const totalGoals = homeGoals + awayGoals;
       if (homeGoals > awayGoals) home += probability;
       else if (homeGoals === awayGoals) draw += probability;
       else away += probability;
+      if (totalGoals >= 2) over15 += probability;
+      if (totalGoals >= 3) over25 += probability;
+      if (totalGoals >= 4) over35 += probability;
+      if (homeGoals > 0 && awayGoals > 0) bttsYes += probability;
 
       if (probability > bestScore.probability) {
         bestScore = { home: homeGoals, away: awayGoals, probability };
@@ -83,6 +92,15 @@ function poissonOutcome(lambdaHome, lambdaAway, maxGoals = 6) {
   return {
     probabilities: normalizeThreeWay(home, draw, away),
     bestScore,
+    markets: {
+      over_1_5: over15,
+      over_2_5: over25,
+      under_2_5: 1 - over25,
+      over_3_5: over35,
+      under_3_5: 1 - over35,
+      btts_yes: bttsYes,
+      btts_no: 1 - bttsYes,
+    },
   };
 }
 
@@ -105,6 +123,60 @@ function actualResultCode(row) {
   if (homeScore > awayScore) return "MS 1";
   if (homeScore === awayScore) return "MS 0";
   return "MS 2";
+}
+
+function strongestOption(options) {
+  return Object.entries(options).reduce((best, entry) => {
+    if (!best || entry[1] > best[1]) {
+      return entry;
+    }
+    return best;
+  }, null);
+}
+
+function confidenceBand(confidence) {
+  if (confidence >= 0.6) return "High";
+  if (confidence >= 0.52) return "Medium";
+  return "Low";
+}
+
+function outcomeLabel(code) {
+  if (code === "MS 1") return "1";
+  if (code === "MS 0") return "X";
+  return "2";
+}
+
+function buildAnalysisSummary(row, context) {
+  const reasons = [];
+  const formGap = context.homePpg - context.awayPpg;
+
+  if (formGap >= 0.35) {
+    reasons.push(`${row.home_team} recent form edge ${formGap.toFixed(2)} PPG`);
+  } else if (formGap <= -0.35) {
+    reasons.push(`${row.away_team} recent form edge ${Math.abs(formGap).toFixed(2)} PPG`);
+  }
+
+  if (row.h2h_matches >= 2 && context.h2hGoalDiff >= 0.6) {
+    reasons.push(`${row.home_team} head-to-head profile stronger`);
+  } else if (row.h2h_matches >= 2 && context.h2hGoalDiff <= -0.6) {
+    reasons.push(`${row.away_team} head-to-head profile stronger`);
+  }
+
+  if (context.expectedTotalGoals >= 2.85) {
+    reasons.push(`high total-goal expectation ${context.expectedTotalGoals.toFixed(2)}`);
+  } else if (context.expectedTotalGoals <= 2.15) {
+    reasons.push(`low-scoring profile ${context.expectedTotalGoals.toFixed(2)}`);
+  }
+
+  if (context.edge >= 4) {
+    reasons.push(`model shows value on ${outcomeLabel(context.predictedOutcome)} by ${context.edge.toFixed(1)} pts`);
+  }
+
+  if (!reasons.length) {
+    reasons.push(`market and model are fairly balanced`);
+  }
+
+  return reasons.slice(0, 3).join("; ");
 }
 
 function createPrediction(row) {
@@ -180,6 +252,34 @@ function createPrediction(row) {
   const modelForPick = predictedOutcome === "MS 1" ? blended.home : predictedOutcome === "MS 0" ? blended.draw : blended.away;
   const selectedOdds = predictedOutcome === "MS 1" ? toNumber(row.odds_home) : predictedOutcome === "MS 0" ? toNumber(row.odds_draw) : toNumber(row.odds_away);
   const expectedValue = selectedOdds > 1 ? (modelForPick * selectedOdds) - 1 : null;
+  const expectedTotalGoals = lambdaHome + lambdaAway;
+  const safePickEntry = strongestOption({
+    "1X": blended.home + blended.draw,
+    "12": blended.home + blended.away,
+    "X2": blended.draw + blended.away,
+  });
+  const goalPickEntry = strongestOption({
+    "Over 2.5": poisson.markets.over_2_5,
+    "Under 2.5": poisson.markets.under_2_5,
+  });
+  const bttsPickEntry = strongestOption({
+    "BTTS Yes": poisson.markets.btts_yes,
+    "BTTS No": poisson.markets.btts_no,
+  });
+  const safePick = safePickEntry ? safePickEntry[0] : "-";
+  const safePickConfidence = safePickEntry ? safePickEntry[1] : 0;
+  const goalPick = goalPickEntry ? goalPickEntry[0] : "-";
+  const goalPickProbability = goalPickEntry ? goalPickEntry[1] : 0;
+  const bttsPick = bttsPickEntry ? bttsPickEntry[0] : "-";
+  const bttsPickProbability = bttsPickEntry ? bttsPickEntry[1] : 0;
+  const analysisSummary = buildAnalysisSummary(row, {
+    homePpg,
+    awayPpg,
+    h2hGoalDiff,
+    expectedTotalGoals,
+    edge: (modelForPick - marketForPick) * 100,
+    predictedOutcome,
+  });
 
   return {
     ...row,
@@ -196,6 +296,19 @@ function createPrediction(row) {
     confidence: Number((confidence * 100).toFixed(2)),
     edge: Number(((modelForPick - marketForPick) * 100).toFixed(2)),
     expected_value: expectedValue == null ? null : Number((expectedValue * 100).toFixed(2)),
+    confidence_band: confidenceBand(confidence),
+    expected_total_goals: Number(expectedTotalGoals.toFixed(2)),
+    over_2_5: Number((poisson.markets.over_2_5 * 100).toFixed(2)),
+    under_2_5: Number((poisson.markets.under_2_5 * 100).toFixed(2)),
+    btts_yes: Number((poisson.markets.btts_yes * 100).toFixed(2)),
+    btts_no: Number((poisson.markets.btts_no * 100).toFixed(2)),
+    safe_pick: safePick,
+    safe_pick_confidence: Number((safePickConfidence * 100).toFixed(2)),
+    goal_pick: goalPick,
+    goal_pick_probability: Number((goalPickProbability * 100).toFixed(2)),
+    btts_pick: bttsPick,
+    btts_pick_probability: Number((bttsPickProbability * 100).toFixed(2)),
+    analysis_summary: analysisSummary,
     actual_outcome: actualOutcome,
     hit: actualOutcome ? actualOutcome === predictedOutcome : null,
     feature_snapshot: {

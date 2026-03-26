@@ -369,6 +369,21 @@
         color: var(--text);
         margin: 0;
       }
+      .model-section-note {
+        color: var(--text-dim);
+        font-size: 0.8rem;
+      }
+      .model-inline-metric {
+        display: block;
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        margin-top: 4px;
+      }
+      .model-analysis-text {
+        min-width: 260px;
+        line-height: 1.45;
+        color: var(--text);
+      }
       .stat-card {
         background: var(--panel);
         border: 1px solid var(--border);
@@ -661,15 +676,15 @@
       <div class="tab-content" id="modelTab">
         <div class="model-summary-grid" id="modelSummaryGrid">
           <div class="model-kpi"><span class="label">Model</span><span class="value">Hazırlanıyor</span></div>
-          <div class="model-kpi"><span class="label">Örneklem</span><span class="value">-</span></div>
-          <div class="model-kpi"><span class="label">Doğruluk</span><span class="value">-</span></div>
-          <div class="model-kpi"><span class="label">ROI</span><span class="value">-</span></div>
+          <div class="model-kpi"><span class="label">Fikstür</span><span class="value">-</span></div>
+          <div class="model-kpi"><span class="label">En Güçlü</span><span class="value">-</span></div>
+          <div class="model-kpi"><span class="label">Backtest</span><span class="value">-</span></div>
         </div>
 
         <section class="table-container" style="margin-bottom:16px;">
           <div style="padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-            <h3 class="model-section-title">Tahmin Analizi</h3>
-            <span style="color:var(--text-dim); font-size:0.8rem;">Maç satırına tıklayarak oran detayını açabilirsiniz</span>
+            <h3 class="model-section-title">Fikstür Tahminleri</h3>
+            <span class="model-section-note">Tarih seçilmezse sonraki 7 gün analiz edilir. Maç satırına tıklayarak oran detayını açabilirsiniz.</span>
           </div>
           <div class="table-scroll">
             <table>
@@ -677,27 +692,27 @@
                 <tr>
                   <th>Tarih</th>
                   <th>Lig</th>
-                  <th>Ev</th>
-                  <th>Dep</th>
-                  <th>Market 1/X/2</th>
+                  <th>Maç</th>
                   <th>Model 1/X/2</th>
                   <th>Tahmin</th>
                   <th>Güven</th>
-                  <th>Edge</th>
-                  <th>Skor</th>
-                  <th>Durum</th>
+                  <th>Skor / xG</th>
+                  <th>2.5 Gol</th>
+                  <th>KG</th>
+                  <th>Analiz</th>
                 </tr>
               </thead>
               <tbody id="modelAnalysisBody">
-                <tr class="empty-row"><td colspan="11" style="text-align:center; padding:40px; color:var(--text-muted);">Model sekmesini açınca tahminler yüklenecek.</td></tr>
+                <tr class="empty-row"><td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">Model sekmesini açınca fikstür tahminleri yüklenecek.</td></tr>
               </tbody>
             </table>
           </div>
         </section>
 
         <section class="table-container">
-          <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
+          <div style="padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
             <h3 class="model-section-title">Backtest</h3>
+            <span class="model-section-note">Backtest aynı kapsam için tarih filtresi olmadan geçmiş maçlar üzerinden hesaplanır.</span>
           </div>
           <div class="table-scroll">
             <table>
