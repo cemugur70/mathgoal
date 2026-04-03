@@ -40,8 +40,6 @@ const el = {
   advToggle: $("advToggle"), advFilters: $("advFilters"), advFiltersGrid: $("advFiltersGrid"),
   statsGrid: $("statsGrid"), statsTotalMatches: $("statsTotalMatches"),
   statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
-  modelSummaryGrid: $("modelSummaryGrid"), modelAnalysisBody: $("modelAnalysisBody"),
-  modelBacktestBody: $("modelBacktestBody"),
   fUpcomingOnly: $("fUpcomingOnly"),
 };
 
@@ -129,7 +127,6 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
     if (tab) tab.classList.add("active");
     state.activeTab = btn.dataset.tab;
     if (state.activeTab === "statsTab") loadMarketStats();
-    if (state.activeTab === "modelTab") loadModelTab();
   });
 });
 
@@ -811,183 +808,7 @@ async function loadMarketStats() {
   }
 }
 
-function buildModelFixtureFilters() {
-  const filters = getBaseFilters();
-  delete filters.result;
-  delete filters.upcomingOnly;
-  filters.upcomingOnly = true;
-  filters.sort = "asc";
 
-  if (!filters.dateFrom && !filters.dateTo) {
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(nextWeek.getDate() + 6);
-    filters.dateFrom = getLocalDateStr(today);
-    filters.dateTo = getLocalDateStr(nextWeek);
-  }
-
-  return filters;
-}
-
-function buildModelBacktestFilters() {
-  const filters = getBaseFilters();
-  delete filters.upcomingOnly;
-  delete filters.result;
-  delete filters.dateFrom;
-  delete filters.dateTo;
-  filters.sort = "desc";
-  return filters;
-}
-
-function renderModelSummary(model, summary, rows) {
-  if (!el.modelSummaryGrid) return;
-  const fixtures = rows || [];
-  const highConfidence = fixtures.filter((row) => parseFloat(row.confidence) >= 55);
-  const topPick = fixtures.reduce((best, row) => {
-    if (!best || parseFloat(row.confidence) > parseFloat(best.confidence)) return row;
-    return best;
-  }, null);
-  const topValue = fixtures
-    .filter((row) => row.expected_value != null)
-    .reduce((best, row) => {
-      if (!best || parseFloat(row.expected_value) > parseFloat(best.expected_value)) return row;
-      return best;
-    }, null);
-  const avgGoals = fixtures.length
-    ? fixtures.reduce((sum, row) => sum + parseFloat(row.expected_total_goals || 0), 0) / fixtures.length
-    : 0;
-
-  el.modelSummaryGrid.innerHTML = `
-    <div class="model-kpi">
-      <span class="label">Model</span>
-      <span class="value" style="font-size:1rem;">${esc(model?.name || "-")}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Fikstür</span>
-      <span class="value">${fixtures.length.toLocaleString("tr-TR")}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Yüksek Güven</span>
-      <span class="value">${highConfidence.length.toLocaleString("tr-TR")}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">En Güçlü Pick</span>
-      <span class="value" style="font-size:0.96rem;">${topPick ? `${esc(topPick.home_team)} - ${esc(topPick.away_team)}` : "-"}</span>
-      <span class="model-inline-metric">${topPick ? `${outcomeLabel(topPick.predicted_outcome)} / ${fmtPctValue(topPick.confidence)}` : "Pick yok"}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">En İyi Value</span>
-      <span class="value" style="font-size:0.96rem;">${topValue ? `${esc(topValue.home_team)} - ${esc(topValue.away_team)}` : "-"}</span>
-      <span class="model-inline-metric">${topValue ? `EV ${fmtPctValue(topValue.expected_value)} / Edge ${fmtPctValue(topValue.edge)}` : "Value yok"}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Ort. Gol Beklentisi</span>
-      <span class="value">${fmtNum(avgGoals)}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Backtest Doğruluk</span>
-      <span class="value">${fmtPct(summary?.accuracy)}</span>
-    </div>
-    <div class="model-kpi">
-      <span class="label">Backtest ROI</span>
-      <span class="value">${fmtPct(summary?.roi_pct)}</span>
-      <span class="model-inline-metric">Brier ${summary?.brier_score ?? "-"} / LogLoss ${summary?.log_loss ?? "-"}</span>
-    </div>
-  `;
-}
-
-function renderModelAnalysis(rows) {
-  if (!el.modelAnalysisBody) return;
-  if (!rows.length) {
-    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="10">Secilen kapsamda oynanmamis fikstur bulunamadi.</td></tr>`;
-    return;
-  }
-
-  el.modelAnalysisBody.innerHTML = rows.map((row) => {
-    const matchLabel = `${esc(row.home_team)} - ${esc(row.away_team)}`;
-    const predictionColor = outcomeColor(row.predicted_outcome);
-    const valueColor = row.expected_value >= 0 ? "var(--green)" : "var(--red)";
-    return `
-      <tr data-id="${row.match_id}" onclick="selectMatch('${row.match_id}')">
-        <td class="text-dim">${fmtDate(row.match_date)}</td>
-        <td class="text-dim">${esc(row.league || "")}</td>
-        <td><span class="team-name">${matchLabel}</span><span class="model-inline-metric">${esc(row.country || "")}</span></td>
-        <td class="text-dim">${fmtPct(row.model_home)} / ${fmtPct(row.model_draw)} / ${fmtPct(row.model_away)}</td>
-        <td style="font-weight:800; color:${predictionColor};">
-          ${outcomeLabel(row.predicted_outcome)}
-          <span class="model-inline-metric">Safe ${esc(row.safe_pick)} ${fmtPctValue(row.safe_pick_confidence)}</span>
-          <span class="model-inline-metric" style="color:${valueColor};">EV ${fmtPctValue(row.expected_value)} / Edge ${fmtPctValue(row.edge)}</span>
-        </td>
-        <td style="font-weight:700;">
-          ${fmtPct(row.confidence)}
-          <span class="model-inline-metric">${esc(row.confidence_band || "-")}</span>
-        </td>
-        <td class="text-dim">
-          ${esc(row.predicted_score)}
-          <span class="model-inline-metric">xG ${fmtNum(row.expected_home_goals)} - ${fmtNum(row.expected_away_goals)}</span>
-        </td>
-        <td>
-          ${esc(row.goal_pick)}
-          <span class="model-inline-metric">${fmtPctValue(row.goal_pick_probability)}</span>
-        </td>
-        <td>
-          ${esc(row.btts_pick)}
-          <span class="model-inline-metric">${fmtPctValue(row.btts_pick_probability)}</span>
-        </td>
-        <td class="model-analysis-text">${esc(row.analysis_summary)}</td>
-      </tr>`;
-  }).join("");
-}
-
-function renderBacktest(rows) {
-  if (!el.modelBacktestBody) return;
-  if (!rows.length) {
-    el.modelBacktestBody.innerHTML = `<tr class="empty-row"><td colspan="10">Backtest verisi bulunamadı.</td></tr>`;
-    return;
-  }
-
-  el.modelBacktestBody.innerHTML = rows.map((row) => {
-    const odds = row.predicted_outcome === "MS 1" ? row.odds_home : row.predicted_outcome === "MS 0" ? row.odds_draw : row.odds_away;
-    const form = `${(row.feature_snapshot?.home_ppg ?? 0).toFixed(2)} / ${(row.feature_snapshot?.away_ppg ?? 0).toFixed(2)}`;
-    const h2h = row.h2h_matches ? `${(row.feature_snapshot?.h2h_home_ppg ?? 0).toFixed(2)} (${row.h2h_matches})` : "-";
-    return `
-      <tr data-id="${row.match_id}" onclick="selectMatch('${row.match_id}')">
-        <td class="text-dim">${fmtDate(row.match_date)}</td>
-        <td><span class="team-name">${esc(row.home_team)}</span> - <span class="team-name">${esc(row.away_team)}</span></td>
-        <td style="font-weight:800; color:${outcomeColor(row.predicted_outcome)};">${outcomeLabel(row.predicted_outcome)}</td>
-        <td>${fmtPct(row.confidence)}</td>
-        <td>${fmtOdds(odds)}</td>
-        <td>${outcomeLabel(row.actual_outcome)}</td>
-        <td style="color:${row.hit ? "var(--green)" : "var(--red)"}; font-weight:700;">${row.hit ? "✓" : "✕"}</td>
-        <td style="color:${row.expected_value >= 0 ? "var(--green)" : "var(--red)"};">${fmtPct(row.expected_value)}</td>
-        <td class="text-dim">${form}</td>
-        <td class="text-dim">${h2h}</td>
-      </tr>`;
-  }).join("");
-}
-
-async function loadModelTab() {
-  const fixtureFilters = buildModelFixtureFilters();
-  const backtestFilters = buildModelBacktestFilters();
-  const analysisParams = new URLSearchParams({ ...fixtureFilters, limit: 80 });
-  const backtestParams = new URLSearchParams({ ...backtestFilters, limit: 200 });
-
-  if (el.modelAnalysisBody) {
-    el.modelAnalysisBody.innerHTML = `<tr class="empty-row"><td colspan="10"><span class="spinner"></span> Fikstur tahminleri hazirlaniyor...</td></tr>`;
-  }
-  if (el.modelBacktestBody) {
-    el.modelBacktestBody.innerHTML = `<tr class="empty-row"><td colspan="10"><span class="spinner"></span> Backtest hesaplanıyor...</td></tr>`;
-  }
-
-  const [analysis, backtest] = await Promise.all([
-    fetchJSON(`${API}/api/model/analysis?${analysisParams}`),
-    fetchJSON(`${API}/api/model/backtest?${backtestParams}`),
-  ]);
-
-  renderModelSummary(analysis.model, backtest.summary, analysis.data || []);
-  renderModelAnalysis(analysis.data || []);
-  renderBacktest((backtest.data || []).filter((row) => row.actual_outcome));
-}
 
 // ─── Refresh ───
 async function refreshAll() {
@@ -1001,8 +822,6 @@ async function refreshAll() {
       await loadMatches();
     } else if (state.activeTab === "statsTab") {
       await loadMarketStats();
-    } else if (state.activeTab === "modelTab") {
-      await loadModelTab();
     }
     setStatus("Hazır", "ok");
   } catch (err) {

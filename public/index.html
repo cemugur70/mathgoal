@@ -521,7 +521,6 @@
       <div class="main-tabs">
         <button class="main-tab-btn active" data-tab="matchesTab" id="tabMatchesBtn">⚽ Maçlar</button>
         <button class="main-tab-btn" data-tab="statsTab" id="tabStatsBtn">📊 İstatistikler</button>
-        <button class="main-tab-btn" data-tab="modelTab" id="tabModelBtn">🧠 Tahmin</button>
       </div>
 
       <!-- Filters (shared) -->
@@ -673,70 +672,6 @@
         </div>
       </div>
 
-      <div class="tab-content" id="modelTab">
-        <div class="model-summary-grid" id="modelSummaryGrid">
-          <div class="model-kpi"><span class="label">Model</span><span class="value">Hazırlanıyor</span></div>
-          <div class="model-kpi"><span class="label">Fikstür</span><span class="value">-</span></div>
-          <div class="model-kpi"><span class="label">En Güçlü</span><span class="value">-</span></div>
-          <div class="model-kpi"><span class="label">Backtest</span><span class="value">-</span></div>
-        </div>
-
-        <section class="table-container" style="margin-bottom:16px;">
-          <div style="padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-            <h3 class="model-section-title">Fikstür Tahminleri</h3>
-            <span class="model-section-note">Tarih seçilmezse sonraki 7 gün analiz edilir. Maç satırına tıklayarak oran detayını açabilirsiniz.</span>
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tarih</th>
-                  <th>Lig</th>
-                  <th>Maç</th>
-                  <th>Model 1/X/2</th>
-                  <th>Tahmin</th>
-                  <th>Güven</th>
-                  <th>Skor / xG</th>
-                  <th>2.5 Gol</th>
-                  <th>KG</th>
-                  <th>Analiz</th>
-                </tr>
-              </thead>
-              <tbody id="modelAnalysisBody">
-                <tr class="empty-row"><td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">Model sekmesini açınca fikstür tahminleri yüklenecek.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="table-container">
-          <div style="padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-            <h3 class="model-section-title">Backtest</h3>
-            <span class="model-section-note">Backtest aynı kapsam için tarih filtresi olmadan geçmiş maçlar üzerinden hesaplanır.</span>
-          </div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tarih</th>
-                  <th>Maç</th>
-                  <th>Tahmin</th>
-                  <th>Güven</th>
-                  <th>Odds</th>
-                  <th>Gerçek</th>
-                  <th>Hit</th>
-                  <th>EV</th>
-                  <th>Form</th>
-                  <th>H2H</th>
-                </tr>
-              </thead>
-              <tbody id="modelBacktestBody">
-                <tr class="empty-row"><td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">Backtest verisi bekleniyor.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
 
     </main>
 
