@@ -60,15 +60,17 @@ async function run() {
     for (const r of res.rows) {
       if (!r.raw_data) continue;
       
-      // Calculate Closing
-      const closingMapped = mapRawToColumns(r.raw_data, r.bookmaker, false, true);
-      const predClosing = predictMatch(closingMapped);
-      if (predClosing.homeLambda) pushVal(r, 'closing', predClosing);
+      try {
+        const closingMapped = mapRawToColumns(r.raw_data, r.bookmaker, false, true);
+        const predClosing = predictMatch(closingMapped);
+        if (predClosing && predClosing.homeLambda) pushVal(r, 'closing', predClosing);
+      } catch (err) {}
 
-      // Calculate Opening
-      const openingMapped = mapRawToColumns(r.raw_data, r.bookmaker, true, false);
-      const predOpening = predictMatch(openingMapped);
-      if (predOpening.homeLambda) pushVal(r, 'opening', predOpening);
+      try {
+        const openingMapped = mapRawToColumns(r.raw_data, r.bookmaker, true, false);
+        const predOpening = predictMatch(openingMapped);
+        if (predOpening && predOpening.homeLambda) pushVal(r, 'opening', predOpening);
+      } catch (err) {}
     }
 
     if (values.length > 0) {
