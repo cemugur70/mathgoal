@@ -237,6 +237,38 @@
       .ms2 { background: var(--red-bg); color: var(--red); }
       .text-dim { color: var(--text-dim); font-size: 0.82rem; }
 
+      /* ─── Model Table Filters ─── */
+      .model-filter-row {
+        background: var(--bg-1);
+        position: sticky;
+        top: 35px;
+        z-index: 2;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+      }
+      .model-filter-row th {
+        padding: 4px;
+        background: var(--bg-2);
+        border-bottom: 2px solid var(--border-hl);
+      }
+      .model-filter-row input, .model-filter-row select {
+        width: 100%;
+        min-width: 40px;
+        padding: 4px 6px;
+        font-size: 0.75rem;
+        border-radius: 4px;
+        background: var(--bg-1);
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .model-filter-row input::placeholder {
+        color: var(--text-muted);
+        opacity: 0.6;
+      }
+      .model-filter-row input:focus, .model-filter-row select:focus {
+        border-color: var(--accent);
+        outline: none;
+      }
+
       /* ─── Odds Detail Panel ─── */
       .odds-panel {
         display: none;
@@ -681,22 +713,47 @@
             <table>
               <thead>
                 <tr>
-                  <th>Tarih</th>
-                  <th>Saat</th>
+                  <th width="70">Tarih</th>
+                  <th width="50">Saat</th>
                   <th>Lig</th>
                   <th>Maç</th>
-                  <th>1</th>
-                  <th>X</th>
-                  <th>2</th>
-                  <th>A/Ü 2.5</th>
-                  <th>KG V/Y</th>
-                  <th style="color:var(--accent);">Ev λ</th>
-                  <th style="color:var(--accent);">Dep. λ</th>
-                  <th style="color:var(--accent);">Top. λ</th>
-                  <th style="color:var(--green);">M. BTTS</th>
-                  <th style="color:var(--green);">M. 2.5+</th>
-                  <th>Favori</th>
-                  <th>Skor</th>
+                  <th width="40">1</th>
+                  <th width="40">X</th>
+                  <th width="40">2</th>
+                  <th width="50">A/Ü 2.5</th>
+                  <th width="50">KG V/Y</th>
+                  <th width="50" style="color:var(--accent);">Ev λ</th>
+                  <th width="50" style="color:var(--accent);">Dep. λ</th>
+                  <th width="50" style="color:var(--accent);">Top. λ</th>
+                  <th width="55" style="color:var(--green);">M. BTTS</th>
+                  <th width="55" style="color:var(--green);">M. 2.5+</th>
+                  <th width="60">Favori</th>
+                  <th width="90">Skor</th>
+                </tr>
+                <!-- Model Filter Row -->
+                <tr class="model-filter-row">
+                  <th><input type="text" id="mFilterDate" placeholder="Tarih..." /></th>
+                  <th></th>
+                  <th><input type="text" id="mFilterLeague" placeholder="Lig..." /></th>
+                  <th><input type="text" id="mFilterMatch" placeholder="Takım..." /></th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                  <th><input type="text" id="mFilterHL" placeholder="Örn: >1.5" /></th>
+                  <th><input type="text" id="mFilterAL" placeholder="Örn: <1.5" /></th>
+                  <th><input type="text" id="mFilterTL" placeholder="Örn: >2" /></th>
+                  <th><input type="text" id="mFilterMBTTS" placeholder=">50" /></th>
+                  <th><input type="text" id="mFilterMO25" placeholder=">50" /></th>
+                  <th>
+                    <select id="mFilterFav">
+                      <option value="">Tümü</option>
+                      <option value="EV">EV</option>
+                      <option value="DEP">DEP</option>
+                    </select>
+                  </th>
+                  <th><input type="text" id="mFilterScore" placeholder="Örn: 2-1" /></th>
                 </tr>
               </thead>
               <tbody id="modelBody"></tbody>

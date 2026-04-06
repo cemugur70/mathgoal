@@ -42,6 +42,11 @@ const el = {
   statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
   fUpcomingOnly: $("fUpcomingOnly"),
   modelBody: $("modelBody"),
+  mFilterDate: $("mFilterDate"), mFilterLeague: $("mFilterLeague"),
+  mFilterMatch: $("mFilterMatch"), mFilterHL: $("mFilterHL"),
+  mFilterAL: $("mFilterAL"), mFilterTL: $("mFilterTL"),
+  mFilterMBTTS: $("mFilterMBTTS"), mFilterMO25: $("mFilterMO25"),
+  mFilterFav: $("mFilterFav"), mFilterScore: $("mFilterScore")
 };
 
 // ─── Helpers ───
@@ -820,61 +825,122 @@ async function loadModelMatches() {
 
   try {
     const res = await fetchJSON(`${API}/api/matches/model?${params}`);
-    const rows = res.data || [];
-
-    if (!rows.length) {
-      el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--text-muted);">Bulunamadı. Filtreleri değiştirin.</td></tr>`;
-      return;
-    }
-
-    el.modelBody.innerHTML = rows.map((r) => {
-      const pred = r.prediction || {};
-      const o = r.odds || {};
-      
-      const homeOdd = o.homeOdd ? fmtOdds(o.homeOdd) : "-";
-      const drawOdd = o.drawOdd ? fmtOdds(o.drawOdd) : "-";
-      const awayOdd = o.awayOdd ? fmtOdds(o.awayOdd) : "-";
-      const ouOver = o.ftOver25 ? fmtOdds(o.ftOver25) : "-";
-      const bttsY = o.bttsYes ? fmtOdds(o.bttsYes) : "-";
-
-      const hL = pred.homeLambda ? fmtNum(pred.homeLambda, 2) : "-";
-      const aL = pred.awayLambda ? fmtNum(pred.awayLambda, 2) : "-";
-      const tL = pred.totalLambda ? fmtNum(pred.totalLambda, 2) : "-";
-      const mBTTS = pred.modelBTTS ? fmtPctValue(pred.modelBTTS * 100) : "-";
-      const mO25 = pred.modelOver25 ? fmtPctValue(pred.modelOver25 * 100) : "-";
-
-      let favClass = "";
-      if (pred.favoriteSide === "EV") favClass = "ms1";
-      if (pred.favoriteSide === "DEP") favClass = "ms2";
-      const favStr = pred.favoriteSide ? `<span class="pill ${favClass}">${pred.favoriteSide}</span>` : "-";
-      
-      const mScore = pred.roundedScore ? `<span class="score">${pred.roundedScore}</span>` : "-";
-      const realScore = r.home_score != null ? `${r.home_score}-${r.away_score}` : "-";
-
-      return `
-        <tr>
-          <td class="text-dim">${fmtDate(r.match_date)}</td>
-          <td class="text-dim">${esc(r.match_time_display || "-")}</td>
-          <td class="text-dim">${esc(r.league || "")}</td>
-          <td class="team-name">${esc(r.home_team)} <span class="text-dim">vs</span> ${esc(r.away_team)}</td>
-          <td class="odds-value">${homeOdd}</td>
-          <td class="odds-value">${drawOdd}</td>
-          <td class="odds-value">${awayOdd}</td>
-          <td class="odds-value">${ouOver}</td>
-          <td class="odds-value">${bttsY}</td>
-          <td style="color:var(--accent); font-weight:600;">${hL}</td>
-          <td style="color:var(--accent); font-weight:600;">${aL}</td>
-          <td style="color:var(--accent); font-weight:600;">${tL}</td>
-          <td style="color:var(--green); font-weight:600;">${mBTTS}</td>
-          <td style="color:var(--green); font-weight:600;">${mO25}</td>
-          <td>${favStr}</td>
-          <td>${mScore} ${realScore !== "-" ? `<span class="text-dim">(${realScore})</span>` : ""}</td>
-        </tr>
-      `;
-    }).join("");
+    state.modelMatchesRaw = res.data || [];
+    renderModelTable();
   } catch(err) {
     el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--red);">Hata: ${esc(err.message)}</td></tr>`;
   }
+}
+
+function checkFilterCondition(val, filterStr) {
+  if (!filterStr) return true;
+  if (val == null || val === "-") return false;
+  const t = filterStr.trim();
+  const numVal = parseFloat(val);
+  
+  if (t.startsWith(">=")) {
+    return !isNaN(numVal) && numVal >= parseFloat(t.substring(2));
+  } else if (t.startsWith("<=")) {
+    return !isNaN(numVal) && numVal <= parseFloat(t.substring(2));
+  } else if (t.startsWith(">")) {
+    return !isNaN(numVal) && numVal > parseFloat(t.substring(1));
+  } else if (t.startsWith("<")) {
+    return !isNaN(numVal) && numVal < parseFloat(t.substring(1));
+  } else if (t.startsWith("=")) {
+    return !isNaN(numVal) && numVal === parseFloat(t.substring(1));
+  }
+  return String(val).toLowerCase().includes(t.toLowerCase());
+}
+
+function renderModelTable() {
+  const rowsRaw = state.modelMatchesRaw || [];
+  
+  const fDate = el.mFilterDate.value.trim().toLowerCase();
+  const fLeague = el.mFilterLeague.value.trim().toLowerCase();
+  const fMatch = el.mFilterMatch.value.trim().toLowerCase();
+  const fScore = el.mFilterScore.value.trim().toLowerCase();
+  
+  const fHL = el.mFilterHL.value.trim();
+  const fAL = el.mFilterAL.value.trim();
+  const fTL = el.mFilterTL.value.trim();
+  const fMBTTS = el.mFilterMBTTS.value.trim();
+  const fMO25 = el.mFilterMO25.value.trim();
+  const fFav = el.mFilterFav.value;
+
+  const rows = rowsRaw.filter(r => {
+    if (fDate && !fmtDate(r.match_date).includes(fDate)) return false;
+    if (fLeague && !(r.league || "").toLowerCase().includes(fLeague)) return false;
+    if (fMatch) {
+       const mName = `${r.home_team} vs ${r.away_team}`.toLowerCase();
+       if (!mName.includes(fMatch)) return false;
+    }
+    if (fScore) {
+       const mScoreStr = r.prediction && r.prediction.roundedScore ? r.prediction.roundedScore.toLowerCase() : "";
+       if (!mScoreStr.includes(fScore)) return false;
+    }
+
+    const pred = r.prediction || {};
+    if (fHL && !checkFilterCondition(pred.homeLambda, fHL)) return false;
+    if (fAL && !checkFilterCondition(pred.awayLambda, fAL)) return false;
+    if (fTL && !checkFilterCondition(pred.totalLambda, fTL)) return false;
+    if (fMBTTS && !checkFilterCondition(pred.modelBTTS ? pred.modelBTTS * 100 : null, fMBTTS)) return false;
+    if (fMO25 && !checkFilterCondition(pred.modelOver25 ? pred.modelOver25 * 100 : null, fMO25)) return false;
+    
+    if (fFav && pred.favoriteSide !== fFav) return false;
+
+    return true;
+  });
+
+  if (!rows.length) {
+    el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--text-muted);">Eşleşen kayıt bulunamadı.</td></tr>`;
+    return;
+  }
+
+  el.modelBody.innerHTML = rows.map((r) => {
+    const pred = r.prediction || {};
+    const o = r.odds || {};
+    
+    const homeOdd = o.homeOdd ? fmtOdds(o.homeOdd) : "-";
+    const drawOdd = o.drawOdd ? fmtOdds(o.drawOdd) : "-";
+    const awayOdd = o.awayOdd ? fmtOdds(o.awayOdd) : "-";
+    const ouOver = o.ftOver25 ? fmtOdds(o.ftOver25) : "-";
+    const bttsY = o.bttsYes ? fmtOdds(o.bttsYes) : "-";
+
+    const hL = pred.homeLambda ? fmtNum(pred.homeLambda, 2) : "-";
+    const aL = pred.awayLambda ? fmtNum(pred.awayLambda, 2) : "-";
+    const tL = pred.totalLambda ? fmtNum(pred.totalLambda, 2) : "-";
+    const mBTTS = pred.modelBTTS ? fmtPctValue(pred.modelBTTS * 100) : "-";
+    const mO25 = pred.modelOver25 ? fmtPctValue(pred.modelOver25 * 100) : "-";
+
+    let favClass = "";
+    if (pred.favoriteSide === "EV") favClass = "ms1";
+    if (pred.favoriteSide === "DEP") favClass = "ms2";
+    const favStr = pred.favoriteSide ? `<span class="pill ${favClass}">${pred.favoriteSide}</span>` : "-";
+    
+    const mScore = pred.roundedScore ? `<span class="score">${pred.roundedScore}</span>` : "-";
+    const realScore = r.home_score != null ? `${r.home_score}-${r.away_score}` : "-";
+
+    return `
+      <tr>
+        <td class="text-dim">${fmtDate(r.match_date)}</td>
+        <td class="text-dim">${esc(r.match_time_display || "-")}</td>
+        <td class="text-dim" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${esc(r.league || "")}</td>
+        <td class="team-name">${esc(r.home_team)} <span class="text-dim">vs</span> ${esc(r.away_team)}</td>
+        <td class="odds-value">${homeOdd}</td>
+        <td class="odds-value">${drawOdd}</td>
+        <td class="odds-value">${awayOdd}</td>
+        <td class="odds-value">${ouOver}</td>
+        <td class="odds-value">${bttsY}</td>
+        <td style="color:var(--accent); font-weight:600;">${hL}</td>
+        <td style="color:var(--accent); font-weight:600;">${aL}</td>
+        <td style="color:var(--accent); font-weight:600;">${tL}</td>
+        <td style="color:var(--green); font-weight:600;">${mBTTS}</td>
+        <td style="color:var(--green); font-weight:600;">${mO25}</td>
+        <td>${favStr}</td>
+        <td>${mScore} ${realScore !== "-" ? `<span class="text-dim">(${realScore})</span>` : ""}</td>
+      </tr>
+    `;
+  }).join("");
 }
 
 // ─── Refresh ───
@@ -1025,6 +1091,13 @@ document.querySelectorAll(".filter-group input").forEach((input) => {
     }
   });
 });
+
+document.querySelectorAll(".model-filter-row input, .model-filter-row select").forEach(input => {
+  input.addEventListener("input", () => {
+    if (state.activeTab === "modelTab") renderModelTable();
+  });
+});
+
 window.selectMatch = selectMatch;
 
 document.querySelectorAll(".main-tab-btn").forEach(btn => {
