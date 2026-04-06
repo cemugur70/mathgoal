@@ -4,6 +4,7 @@ const cors = require("cors");
 
 const pino = require("pino");
 const pinoHttp = require("pino-http");
+const { exec } = require("child_process");
 const config = require("./config");
 const db = require("./db");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
@@ -17,6 +18,19 @@ const logger = pino({
 
 app.use(express.json({ limit: "10mb" }));
 app.use(cors());
+
+let isBackfillRunning = false;
+app.get("/api/admin/start-backfill", (req, res) => {
+  if (isBackfillRunning) return res.send("İşlem zaten devam ediyor...");
+  isBackfillRunning = true;
+  exec("npm run backfill", (err, stdout, stderr) => {
+    isBackfillRunning = false;
+    if (err) console.error("Backfill Error:", err);
+    console.log("Backfill Finished");
+  });
+  res.send("✅ Geriye Dönük Hesaplama (Backfill) arka planda başlatıldı! Yaklaşık 15-20 dakika içinde tüm 1 Milyon maçın tahminleri veritabanına kaydedilecektir. Lütfen bu sekmeyi kapatın ve bekleyin.");
+});
+
 app.use(
   pinoHttp({
     logger,
