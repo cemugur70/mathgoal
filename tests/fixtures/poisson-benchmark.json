@@ -1,0 +1,77 @@
+﻿[
+  {
+    "id": "row-4",
+    "input": {
+      "homeTeam": "Gent",
+      "awayTeam": "KV Mechelen",
+      "ftOver25": 1.67,
+      "ftUnder25": 2.15,
+      "bttsYes": 1.57,
+      "bttsNo": 2.25,
+      "homeOdd": 1.95,
+      "drawOdd": 3.5,
+      "awayOdd": 3.6
+    },
+    "expected": {
+      "totalLambda": 2.93,
+      "favoriteShareAlpha": 0.533558035966748,
+      "homeLambda": 1.56332504538256,
+      "awayLambda": 1.36667495461742,
+      "modelBTTS": 0.589005235602094,
+      "modelOver25": 0.56094552370302,
+      "coverage05": 0.991748979731186,
+      "favoriteSide": "EV",
+      "roundedScore": "2-1"
+    }
+  },
+  {
+    "id": "row-5",
+    "input": {
+      "homeTeam": "Tirol",
+      "awayTeam": "Grazer AK",
+      "ftOver25": 2.3,
+      "ftUnder25": 1.6,
+      "bttsYes": 1.95,
+      "bttsNo": 1.8,
+      "homeOdd": 2.3,
+      "drawOdd": 3.1,
+      "awayOdd": 2.85
+    },
+    "expected": {
+      "totalLambda": 2.32,
+      "favoriteShareAlpha": 0.506022157281161,
+      "homeLambda": 1.17397140489229,
+      "awayLambda": 1.1460285951077,
+      "modelBTTS": 0.47124003029275,
+      "modelOver25": 0.409257822215061,
+      "coverage05": 0.997466473126884,
+      "favoriteSide": "EV",
+      "roundedScore": "1-1"
+    }
+  },
+  {
+    "id": "row-6",
+    "input": {
+      "homeTeam": "Newells Old Boys",
+      "awayTeam": "Tigre",
+      "ftOver25": 2.3,
+      "ftUnder25": 1.6,
+      "bttsYes": 2.25,
+      "bttsNo": 1.57,
+      "homeOdd": 1.67,
+      "drawOdd": 3.8,
+      "awayOdd": 5.0
+    },
+    "expected": {
+      "totalLambda": 2.32,
+      "favoriteShareAlpha": 0.687570019476431,
+      "homeLambda": 1.59516244518532,
+      "awayLambda": 0.724837554814679,
+      "modelBTTS": 0.410994764397906,
+      "modelOver25": 0.409257822215061,
+      "coverage05": 0.993936593691577,
+      "favoriteSide": "EV",
+      "roundedScore": "2-1"
+    }
+  }
+]

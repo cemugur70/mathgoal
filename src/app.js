@@ -8,6 +8,7 @@ const config = require("./config");
 const db = require("./db");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
 const predictRoutes = require("./routes/predict.routes");
+const backtestRoutes = require("./routes/backtest.routes");
 
 const app = express();
 const logger = pino({
@@ -731,6 +732,7 @@ app.get("/api/ingest/status", requireIngestKey, async (req, res, next) => {
 
 // ─── Poisson Prediction API ────────────────────────────────────────────────
 app.use("/api/predict", predictRoutes);
+app.use("/api/backtest", backtestRoutes);
 
 app.use(express.static(config.staticDir));
 
