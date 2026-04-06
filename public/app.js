@@ -126,13 +126,38 @@ function clearSelectedMatch() {
 // ─── Tab Navigation ───
 document.querySelectorAll(".main-tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
+    const previousTab = state.activeTab;
+    const nextTab = btn.dataset.tab;
+
     document.querySelectorAll(".main-tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
     btn.classList.add("active");
-    const tab = document.getElementById(btn.dataset.tab);
+    const tab = document.getElementById(nextTab);
     if (tab) tab.classList.add("active");
-    state.activeTab = btn.dataset.tab;
-    if (state.activeTab === "statsTab") loadMarketStats();
+    state.activeTab = nextTab;
+
+    if (nextTab === "statsTab") {
+      loadMarketStats();
+      return;
+    }
+
+    if (nextTab === "modelTab") {
+      loadModelMatches();
+      return;
+    }
+
+    if (nextTab === "matchesTab" && previousTab !== "matchesTab") {
+      if (el.fDateFrom) el.fDateFrom.value = "";
+      if (el.fDateTo) el.fDateTo.value = "";
+      if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
+      const fts = document.getElementById("fixtureSelect");
+      if (fts) fts.value = "";
+
+      state.order = "desc";
+      resetMatchPagination();
+      clearSelectedMatch();
+      refreshAll();
+    }
   });
 });
 
@@ -1132,32 +1157,6 @@ document.querySelectorAll(".model-filter-row select").forEach(opt => {
 });
 
 window.selectMatch = selectMatch;
-
-document.querySelectorAll(".main-tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    if (btn.dataset.tab === "statsTab" && state.activeTab !== "statsTab") {
-      state.activeTab = "statsTab";
-      loadMarketStats();
-    } else if (btn.dataset.tab === "modelTab" && state.activeTab !== "modelTab") {
-      state.activeTab = "modelTab";
-      loadModelMatches();
-    } else if (btn.dataset.tab === "matchesTab" && state.activeTab !== "matchesTab") {
-      state.activeTab = "matchesTab";
-      
-      // Auto-clear filters to show 'eski maclar' (past matches) and reset ordering
-      if (el.fDateFrom) el.fDateFrom.value = "";
-      if (el.fDateTo) el.fDateTo.value = "";
-      if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
-      const fts = document.getElementById("fixtureSelect");
-      if (fts) fts.value = "";
-      
-      state.order = "desc";
-      resetMatchPagination();
-      clearSelectedMatch();
-      refreshAll();
-    }
-  });
-});
 
 // ─── Init ───
 (async () => {
