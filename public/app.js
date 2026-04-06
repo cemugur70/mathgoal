@@ -860,8 +860,9 @@ async function loadModelMatches() {
 function checkFilterCondition(val, filterStr) {
   if (!filterStr) return true;
   if (val == null || val === "-") return false;
-  const t = filterStr.trim();
+  const t = filterStr.replace('%', '').trim();
   const numVal = parseFloat(val);
+
   
   if (t.startsWith(">=")) {
     return !isNaN(numVal) && numVal >= parseFloat(t.substring(2));

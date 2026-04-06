@@ -404,7 +404,7 @@ app.get("/api/matches/model", async (req, res, next) => {
     const fScore = req.query.fScore;
 
     let hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
-    let modelJoins = "";
+    let modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
 
     if (hasModelFilters) {
       modelJoins = `INNER JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
@@ -446,7 +446,8 @@ app.get("/api/matches/model", async (req, res, next) => {
           WHEN m.match_time IS NOT NULL THEN TO_CHAR(m.match_time, 'HH24:MI')
           ELSE mac.raw_data->>'SAAT'
         END AS match_time_display,
-        mac.raw_data
+        mac.raw_data,
+        mc.home_lambda, mc.away_lambda, mc.total_lambda, mc.model_btts, mc.model_over25, mc.favorite_side, mc.rounded_score
       FROM matches m
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${modelJoins}
@@ -470,17 +471,43 @@ app.get("/api/matches/model", async (req, res, next) => {
 
       let prediction = null;
       let ok = false;
-      if (
-        !isNaN(homeOdd) && !isNaN(drawOdd) && !isNaN(awayOdd) &&
-        !isNaN(ftOver25) && !isNaN(ftUnder25) && 
-        !isNaN(bttsYes) && !isNaN(bttsNo)
-      ) {
-        try {
-          prediction = predictMatch({
-            homeOdd, drawOdd, awayOdd, ftOver25, ftUnder25, bttsYes, bttsNo
-          });
-          ok = true;
-        } catch(e) {}
+
+      if (r.home_lambda != null) {
+        prediction = {
+          homeLambda: parseFloat(r.home_lambda),
+          awayLambda: parseFloat(r.away_lambda),
+          totalLambda: parseFloat(r.total_lambda),
+          modelBTTS: parseFloat(r.model_btts),
+          modelOver25: parseFloat(r.model_over25),
+          favoriteSide: r.favorite_side,
+          roundedScore: r.rounded_score
+        };
+        ok = true;
+      } else {
+        if (
+          !isNaN(homeOdd) && !isNaN(drawOdd) && !isNaN(awayOdd) &&
+          !isNaN(ftOver25) && !isNaN(ftUnder25) && 
+          !isNaN(bttsYes) && !isNaN(bttsNo)
+        ) {
+          try {
+            prediction = predictMatch({
+              homeOdd, drawOdd, awayOdd, ftOver25, ftUnder25, bttsYes, bttsNo
+            });
+            ok = true;
+
+            // BACKGROUND SAVE TO ENHANCE CACHE
+            db.query(`
+              INSERT INTO model_calculations 
+              (match_id, bookmaker, odds_type, home_lambda, away_lambda, total_lambda, model_btts, model_over25, favorite_side, rounded_score)
+              VALUES ($1, $2, 'closing', $3, $4, $5, $6, $7, $8, $9)
+              ON CONFLICT DO NOTHING
+            `, [
+              r.match_id, bookmaker, prediction.homeLambda, prediction.awayLambda, prediction.totalLambda,
+              prediction.modelBTTS, prediction.modelOver25, prediction.favoriteSide, prediction.roundedScore
+            ]).catch(()=>{});
+
+          } catch(e) {}
+        }
       }
 
       return {
