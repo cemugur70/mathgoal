@@ -973,7 +973,7 @@ if (fixtureSelect) {
        el.fDateTo.value = val;
     }
 
-    if (el.fUpcomingOnly) el.fUpcomingOnly.checked = true;
+    // Kaldırıldı: if (el.fUpcomingOnly) el.fUpcomingOnly.checked = true;
 
     state.order = "asc"; // ASC order for fixtures
     resetMatchPagination();
