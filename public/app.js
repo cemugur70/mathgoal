@@ -819,6 +819,31 @@ async function loadMarketStats() {
 // ─── Model / Poisson Tab ───
 async function loadModelMatches() {
   const filters = getBaseFilters();
+  
+  // Ekleme: Model filtremelerini API'ye gönder (tüm DB'de arama yapabilmesi için)
+  const fDate = el.mFilterDate.value.trim();
+  const fLeague = el.mFilterLeague.value.trim();
+  const fMatch = el.mFilterMatch.value.trim();
+  const fScore = el.mFilterScore.value.trim();
+  
+  const fHL = el.mFilterHL.value.trim();
+  const fAL = el.mFilterAL.value.trim();
+  const fTL = el.mFilterTL.value.trim();
+  const fMBTTS = el.mFilterMBTTS.value.trim();
+  const fMO25 = el.mFilterMO25.value.trim();
+  const fFav = el.mFilterFav.value;
+
+  if (fDate) filters.fDate = fDate;
+  if (fLeague) filters.fLeague = fLeague;
+  if (fMatch) filters.fMatch = fMatch;
+  if (fScore) filters.fScore = fScore;
+  if (fHL) filters.fHL = fHL;
+  if (fAL) filters.fAL = fAL;
+  if (fTL) filters.fTL = fTL;
+  if (fMBTTS) filters.fMBTTS = fMBTTS;
+  if (fMO25) filters.fMO25 = fMO25;
+  if (fFav) filters.fFav = fFav;
+
   const params = new URLSearchParams(filters);
 
   el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--text-muted);"><span class="spinner"></span> Hesaplanıyor...</td></tr>`;
@@ -826,7 +851,7 @@ async function loadModelMatches() {
   try {
     const res = await fetchJSON(`${API}/api/matches/model?${params}`);
     state.modelMatchesRaw = res.data || [];
-    renderModelTable();
+    renderModelTable(); // Still used for rendering, but frontend filtering can be mostly bypass since backend handled it
   } catch(err) {
     el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--red);">Hata: ${esc(err.message)}</td></tr>`;
   }
@@ -1092,9 +1117,16 @@ document.querySelectorAll(".filter-group input").forEach((input) => {
   });
 });
 
-document.querySelectorAll(".model-filter-row input, .model-filter-row select").forEach(input => {
-  input.addEventListener("input", () => {
-    if (state.activeTab === "modelTab") renderModelTable();
+document.querySelectorAll(".model-filter-row input").forEach(input => {
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && state.activeTab === "modelTab") {
+      loadModelMatches();
+    }
+  });
+});
+document.querySelectorAll(".model-filter-row select").forEach(opt => {
+  opt.addEventListener("change", () => {
+    if (state.activeTab === "modelTab") loadModelMatches();
   });
 });
 

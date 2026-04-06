@@ -362,6 +362,22 @@ app.get("/api/matches", async (req, res, next) => {
 // ─── Matches Model Endpoint ──────────────────────────────────────────────────
 const { predictMatch } = require("./services/poisson.service");
 
+function parseSqlCondition(col, filterStr, scale = 1) {
+  if (!filterStr) return null;
+  const t = filterStr.trim();
+  const numVal = parseFloat(t.replace(/[^0-9.-]/g, ''));
+  if (isNaN(numVal)) return null;
+
+  const v = numVal * scale;
+
+  if (t.startsWith(">=")) return `${col} >= ${v}`;
+  if (t.startsWith("<=")) return `${col} <= ${v}`;
+  if (t.startsWith(">")) return `${col} > ${v}`;
+  if (t.startsWith("<")) return `${col} < ${v}`;
+  if (t.startsWith("=")) return `${col} = ${v}`;
+  return null;
+}
+
 app.get("/api/matches/model", async (req, res, next) => {
   try {
     const limit = Math.min(toPositiveInt(req.query.limit, 100), 500); // Allow higher limit for model
@@ -378,6 +394,47 @@ app.get("/api/matches/model", async (req, res, next) => {
     const bmIdx = values.length;
     const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
 
+    // Model DB Filters
+    const fHL = req.query.fHL;
+    const fAL = req.query.fAL;
+    const fTL = req.query.fTL;
+    const fMBTTS = req.query.fMBTTS;
+    const fMO25 = req.query.fMO25;
+    const fFav = req.query.fFav;
+    const fScore = req.query.fScore;
+
+    let hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
+    let modelJoins = "";
+
+    if (hasModelFilters) {
+      modelJoins = `INNER JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
+      
+      const hlCond = parseSqlCondition('mc.home_lambda', fHL);
+      if (hlCond) allFilters.push(hlCond);
+      
+      const alCond = parseSqlCondition('mc.away_lambda', fAL);
+      if (alCond) allFilters.push(alCond);
+      
+      const tlCond = parseSqlCondition('mc.total_lambda', fTL);
+      if (tlCond) allFilters.push(tlCond);
+      
+      const bttsCond = parseSqlCondition('mc.model_btts', fMBTTS, 0.01);
+      if (bttsCond) allFilters.push(bttsCond);
+      
+      const moCond = parseSqlCondition('mc.model_over25', fMO25, 0.01);
+      if (moCond) allFilters.push(moCond);
+
+      if (fFav) {
+        values.push(fFav);
+        allFilters.push(`mc.favorite_side = $${values.length}`);
+      }
+
+      if (fScore) {
+        values.push(`%${fScore}%`);
+        allFilters.push(`mc.rounded_score LIKE $${values.length}`);
+      }
+    }
+
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
     
     const dataValues = [...values, limit];
@@ -392,6 +449,7 @@ app.get("/api/matches/model", async (req, res, next) => {
         mac.raw_data
       FROM matches m
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${modelJoins}
       ${whereClause}
       ORDER BY ${sortDateExpr} ${orderDir}, ${sortTimeExpr} ${orderDir}, m.match_id ${orderDir}
       LIMIT $${dataValues.length}
