@@ -41,6 +41,7 @@ const el = {
   statsGrid: $("statsGrid"), statsTotalMatches: $("statsTotalMatches"),
   statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
   fUpcomingOnly: $("fUpcomingOnly"),
+  modelBody: $("modelBody"),
 };
 
 // ─── Helpers ───
@@ -810,6 +811,72 @@ async function loadMarketStats() {
 
 
 
+// ─── Model / Poisson Tab ───
+async function loadModelMatches() {
+  const filters = getBaseFilters();
+  const params = new URLSearchParams(filters);
+
+  el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--text-muted);"><span class="spinner"></span> Hesaplanıyor...</td></tr>`;
+
+  try {
+    const res = await fetchJSON(`${API}/api/matches/model?${params}`);
+    const rows = res.data || [];
+
+    if (!rows.length) {
+      el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--text-muted);">Bulunamadı. Filtreleri değiştirin.</td></tr>`;
+      return;
+    }
+
+    el.modelBody.innerHTML = rows.map((r) => {
+      const pred = r.prediction || {};
+      const o = r.odds || {};
+      
+      const homeOdd = o.homeOdd ? fmtOdds(o.homeOdd) : "-";
+      const drawOdd = o.drawOdd ? fmtOdds(o.drawOdd) : "-";
+      const awayOdd = o.awayOdd ? fmtOdds(o.awayOdd) : "-";
+      const ouOver = o.ftOver25 ? fmtOdds(o.ftOver25) : "-";
+      const bttsY = o.bttsYes ? fmtOdds(o.bttsYes) : "-";
+
+      const hL = pred.homeLambda ? fmtNum(pred.homeLambda, 2) : "-";
+      const aL = pred.awayLambda ? fmtNum(pred.awayLambda, 2) : "-";
+      const tL = pred.totalLambda ? fmtNum(pred.totalLambda, 2) : "-";
+      const mBTTS = pred.modelBTTS ? fmtPctValue(pred.modelBTTS * 100) : "-";
+      const mO25 = pred.modelOver25 ? fmtPctValue(pred.modelOver25 * 100) : "-";
+
+      let favClass = "";
+      if (pred.favoriteSide === "EV") favClass = "ms1";
+      if (pred.favoriteSide === "DEP") favClass = "ms2";
+      const favStr = pred.favoriteSide ? `<span class="pill ${favClass}">${pred.favoriteSide}</span>` : "-";
+      
+      const mScore = pred.roundedScore ? `<span class="score">${pred.roundedScore}</span>` : "-";
+      const realScore = r.home_score != null ? `${r.home_score}-${r.away_score}` : "-";
+
+      return `
+        <tr>
+          <td class="text-dim">${fmtDate(r.match_date)}</td>
+          <td class="text-dim">${esc(r.match_time_display || "-")}</td>
+          <td class="text-dim">${esc(r.league || "")}</td>
+          <td class="team-name">${esc(r.home_team)} <span class="text-dim">vs</span> ${esc(r.away_team)}</td>
+          <td class="odds-value">${homeOdd}</td>
+          <td class="odds-value">${drawOdd}</td>
+          <td class="odds-value">${awayOdd}</td>
+          <td class="odds-value">${ouOver}</td>
+          <td class="odds-value">${bttsY}</td>
+          <td style="color:var(--accent); font-weight:600;">${hL}</td>
+          <td style="color:var(--accent); font-weight:600;">${aL}</td>
+          <td style="color:var(--accent); font-weight:600;">${tL}</td>
+          <td style="color:var(--green); font-weight:600;">${mBTTS}</td>
+          <td style="color:var(--green); font-weight:600;">${mO25}</td>
+          <td>${favStr}</td>
+          <td>${mScore} ${realScore !== "-" ? `<span class="text-dim">(${realScore})</span>` : ""}</td>
+        </tr>
+      `;
+    }).join("");
+  } catch(err) {
+    el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--red);">Hata: ${esc(err.message)}</td></tr>`;
+  }
+}
+
 // ─── Refresh ───
 async function refreshAll() {
   setStatus("Veriler yükleniyor...", "loading");
@@ -822,6 +889,8 @@ async function refreshAll() {
       await loadMatches();
     } else if (state.activeTab === "statsTab") {
       await loadMarketStats();
+    } else if (state.activeTab === "modelTab") {
+      await loadModelMatches();
     }
     setStatus("Hazır", "ok");
   } catch (err) {
@@ -963,6 +1032,9 @@ document.querySelectorAll(".main-tab-btn").forEach(btn => {
     if (btn.dataset.tab === "statsTab" && state.activeTab !== "statsTab") {
       state.activeTab = "statsTab";
       loadMarketStats();
+    } else if (btn.dataset.tab === "modelTab" && state.activeTab !== "modelTab") {
+      state.activeTab = "modelTab";
+      loadModelMatches();
     } else if (btn.dataset.tab === "matchesTab" && state.activeTab !== "matchesTab") {
       state.activeTab = "matchesTab";
       

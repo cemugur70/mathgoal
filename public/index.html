@@ -521,6 +521,7 @@
       <div class="main-tabs">
         <button class="main-tab-btn active" data-tab="matchesTab" id="tabMatchesBtn">⚽ Maçlar</button>
         <button class="main-tab-btn" data-tab="statsTab" id="tabStatsBtn">📊 İstatistikler</button>
+        <button class="main-tab-btn" data-tab="modelTab" id="tabModelBtn">🎯 Hesaplama</button>
       </div>
 
       <!-- Filters (shared) -->
@@ -672,6 +673,37 @@
         </div>
       </div>
 
+      <!-- ═══ TAB 3: Model / Hesaplama ═══ -->
+      <div class="tab-content" id="modelTab">
+        <!-- Match Table -->
+        <section class="table-container">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Saat</th>
+                  <th>Lig</th>
+                  <th>Maç</th>
+                  <th>1</th>
+                  <th>X</th>
+                  <th>2</th>
+                  <th>A/Ü 2.5</th>
+                  <th>KG V/Y</th>
+                  <th style="color:var(--accent);">Ev λ</th>
+                  <th style="color:var(--accent);">Dep. λ</th>
+                  <th style="color:var(--accent);">Top. λ</th>
+                  <th style="color:var(--green);">M. BTTS</th>
+                  <th style="color:var(--green);">M. 2.5+</th>
+                  <th>Favori</th>
+                  <th>Skor</th>
+                </tr>
+              </thead>
+              <tbody id="modelBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
 
     </main>
 

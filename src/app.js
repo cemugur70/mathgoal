@@ -345,6 +345,95 @@ app.get("/api/matches", async (req, res, next) => {
   }
 });
 
+// ─── Matches Model Endpoint ──────────────────────────────────────────────────
+const { predictMatch } = require("./services/poisson.service");
+
+app.get("/api/matches/model", async (req, res, next) => {
+  try {
+    const limit = Math.min(toPositiveInt(req.query.limit, 100), 500); // Allow higher limit for model
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
+    const sortDateExpr = orderDir === "ASC" ? "COALESCE(m.match_date, DATE '9999-12-31')" : "COALESCE(m.match_date, DATE '0001-01-01')";
+    const sortTimeExpr = orderDir === "ASC" ? "COALESCE(m.match_time, TIME '23:59:59.999999')" : "COALESCE(m.match_time, TIME '00:00:00')";
+
+    const values = [];
+    const filters = buildBaseFilters(req.query, values);
+    const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
+
+    values.push(bookmaker);
+    const bmIdx = values.length;
+    const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
+
+    const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
+    
+    const dataValues = [...values, limit];
+    const dataSql = `
+      SELECT
+        m.match_id, m.match_date, m.match_time, m.league,
+        m.home_team, m.away_team, m.home_score, m.away_score,
+        CASE
+          WHEN m.match_time IS NOT NULL THEN TO_CHAR(m.match_time, 'HH24:MI')
+          ELSE mac.raw_data->>'SAAT'
+        END AS match_time_display,
+        mac.raw_data
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${whereClause}
+      ORDER BY ${sortDateExpr} ${orderDir}, ${sortTimeExpr} ${orderDir}, m.match_id ${orderDir}
+      LIMIT $${dataValues.length}
+    `;
+
+    const { rows } = await db.query(dataSql, dataValues);
+
+    const mapped = rows.map((r) => {
+      const cols = mapRawToColumns(r.raw_data || {}, bookmaker);
+      
+      const homeOdd = parseFloat(cols["AÇ 1"] || cols["1"]);
+      const drawOdd = parseFloat(cols["AÇ X"] || cols["X"]);
+      const awayOdd = parseFloat(cols["AÇ 2"] || cols["2"]);
+      const ftOver25 = parseFloat(cols["AÇ 2 5 Üst"] || cols["2 5 Üst"]);
+      const ftUnder25 = parseFloat(cols["AÇ 2 5 Alt"] || cols["2 5 Alt"]);
+      const bttsYes = parseFloat(cols["AÇ btts true"] || cols["btts true"]);
+      const bttsNo = parseFloat(cols["AÇ btts false"] || cols["btts false"]);
+
+      let prediction = null;
+      let ok = false;
+      if (
+        !isNaN(homeOdd) && !isNaN(drawOdd) && !isNaN(awayOdd) &&
+        !isNaN(ftOver25) && !isNaN(ftUnder25) && 
+        !isNaN(bttsYes) && !isNaN(bttsNo)
+      ) {
+        try {
+          prediction = predictMatch({
+            homeOdd, drawOdd, awayOdd, ftOver25, ftUnder25, bttsYes, bttsNo
+          });
+          ok = true;
+        } catch(e) {}
+      }
+
+      return {
+        match_id: r.match_id,
+        match_date: r.match_date,
+        match_time_display: r.match_time_display,
+        league: r.league,
+        home_team: r.home_team,
+        away_team: r.away_team,
+        home_score: r.home_score,
+        away_score: r.away_score,
+        odds: {
+          homeOdd, drawOdd, awayOdd, ftOver25, ftUnder25, bttsYes, bttsNo
+        },
+        prediction,
+        ok,
+      };
+    });
+
+    res.json({ ok: true, data: mapped });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/matches/:matchId", async (req, res, next) => {
   try {
     const result = await db.query(
