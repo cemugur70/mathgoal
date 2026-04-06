@@ -411,9 +411,9 @@ app.get("/api/matches", async (req, res, next) => {
 });
 
 // ─── Matches Model Endpoint ──────────────────────────────────────────────────
-function parseSqlCondition(col, filterStr, values, scale = 1) {
+function parseNumericFilter(filterStr, scale = 1) {
   if (!filterStr) return null;
-  const t = filterStr.trim();
+  const t = String(filterStr).trim();
   const numVal = parseFloat(t.replace(/[^0-9.-]/g, ""));
   if (!Number.isFinite(numVal)) return null;
 
@@ -425,8 +425,56 @@ function parseSqlCondition(col, filterStr, values, scale = 1) {
   if (t.startsWith("=")) operator = "=";
   if (!operator) return null;
 
-  values.push(numVal * scale);
-  return `${col} ${operator} $${values.length}`;
+  return { operator, value: numVal * scale };
+}
+
+function parseSqlCondition(col, filterStr, values, scale = 1) {
+  const parsed = parseNumericFilter(filterStr, scale);
+  if (!parsed) return null;
+
+  values.push(parsed.value);
+  return `${col} ${parsed.operator} $${values.length}`;
+}
+
+function matchesNumericFilter(value, filterStr, scale = 1) {
+  const parsed = parseNumericFilter(filterStr, scale);
+  if (!parsed) return true;
+
+  const numericValue = Number.parseFloat(value);
+  if (!Number.isFinite(numericValue)) return false;
+
+  if (parsed.operator === ">=") return numericValue >= parsed.value;
+  if (parsed.operator === "<=") return numericValue <= parsed.value;
+  if (parsed.operator === ">") return numericValue > parsed.value;
+  if (parsed.operator === "<") return numericValue < parsed.value;
+  if (parsed.operator === "=") return numericValue === parsed.value;
+
+  return true;
+}
+
+function matchesModelPredictionFilters(row, query) {
+  const prediction = row?.prediction || null;
+  const favorite = String(query.fFav || "").trim();
+  const roundedScore = String(query.fScore || "").trim().toLowerCase();
+
+  if (!matchesNumericFilter(prediction?.homeLambda, query.fHL)) return false;
+  if (!matchesNumericFilter(prediction?.awayLambda, query.fAL)) return false;
+  if (!matchesNumericFilter(prediction?.totalLambda, query.fTL)) return false;
+  if (!matchesNumericFilter(prediction?.modelBTTS, query.fMBTTS, 0.01)) return false;
+  if (!matchesNumericFilter(prediction?.modelOver25, query.fMO25, 0.01)) return false;
+
+  if (favorite && prediction?.favoriteSide !== favorite) {
+    return false;
+  }
+
+  if (roundedScore) {
+    const candidateScore = String(prediction?.roundedScore || "").toLowerCase();
+    if (!candidateScore.includes(roundedScore)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 app.get("/api/matches/model", async (req, res, next) => {
@@ -457,39 +505,8 @@ app.get("/api/matches/model", async (req, res, next) => {
     const fLeague = (req.query.fLeague || "").trim();
     const fMatch = (req.query.fMatch || "").trim();
 
-    let hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
-    let modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
-
-    if (hasModelFilters) {
-      modelJoins = `INNER JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
-      allFilters.push("mc.source_scraped_at IS NOT NULL");
-      allFilters.push("mc.source_scraped_at >= mac.scraped_at");
-
-      const hlCond = parseSqlCondition('mc.home_lambda', fHL, values);
-      if (hlCond) allFilters.push(hlCond);
-      
-      const alCond = parseSqlCondition('mc.away_lambda', fAL, values);
-      if (alCond) allFilters.push(alCond);
-      
-      const tlCond = parseSqlCondition('mc.total_lambda', fTL, values);
-      if (tlCond) allFilters.push(tlCond);
-      
-      const bttsCond = parseSqlCondition('mc.model_btts', fMBTTS, values, 0.01);
-      if (bttsCond) allFilters.push(bttsCond);
-      
-      const moCond = parseSqlCondition('mc.model_over25', fMO25, values, 0.01);
-      if (moCond) allFilters.push(moCond);
-
-      if (fFav) {
-        values.push(fFav);
-        allFilters.push(`mc.favorite_side = $${values.length}`);
-      }
-
-      if (fScore) {
-        values.push(`%${fScore}%`);
-        allFilters.push(`mc.rounded_score LIKE $${values.length}`);
-      }
-    }
+    const hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
+    const modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
 
     if (fDate) {
       values.push(`%${fDate}%`);
@@ -510,8 +527,13 @@ app.get("/api/matches/model", async (req, res, next) => {
     }
 
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
-    
-    const dataValues = [...values, limit];
+    const batchSize = hasModelFilters
+      ? Math.min(Math.max(limit * 5, 250), 1000)
+      : limit;
+    const maxScanRows = hasModelFilters
+      ? Math.min(Math.max(limit * 20, 2000), 5000)
+      : limit;
+
     const dataSql = `
       SELECT
         m.match_id, m.match_date, m.match_time, m.league,
@@ -529,12 +551,22 @@ app.get("/api/matches/model", async (req, res, next) => {
       ${modelJoins}
       ${whereClause}
       ORDER BY ${sortDateExpr} ${orderDir}, ${sortTimeExpr} ${orderDir}, m.match_id ${orderDir}
-      LIMIT $${dataValues.length}
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
     `;
 
-    const { rows } = await db.query(dataSql, dataValues);
+    let offset = 0;
+    let scannedRows = 0;
+    const mapped = [];
 
-    const mapped = rows.map((r) => {
+    while (mapped.length < limit && scannedRows < maxScanRows) {
+      const batchValues = [...values, batchSize, offset];
+      const { rows } = await db.query(dataSql, batchValues);
+      if (!rows.length) {
+        break;
+      }
+
+      const batchMapped = rows.map((r) => {
       const predictionInput = buildPredictionInput(r.raw_data || {}, bookmaker, "closing");
       const cols = {
         "1": predictionInput.homeOdd,
@@ -599,9 +631,22 @@ app.get("/api/matches/model", async (req, res, next) => {
         prediction,
         ok,
       };
-    });
+      });
 
-    res.json({ ok: true, data: mapped });
+      const filteredBatch = hasModelFilters
+        ? batchMapped.filter((row) => matchesModelPredictionFilters(row, req.query))
+        : batchMapped;
+
+      mapped.push(...filteredBatch);
+      scannedRows += rows.length;
+      offset += rows.length;
+
+      if (rows.length < batchSize) {
+        break;
+      }
+    }
+
+    res.json({ ok: true, data: mapped.slice(0, limit) });
   } catch (error) {
     next(error);
   }

@@ -22,6 +22,8 @@ const state = {
   matchDetailRequestId: 0,
 };
 
+let modelFilterTimer = null;
+
 const $ = (id) => document.getElementById(id);
 const el = {
   statMatches: $("statMatches"), statLeagues: $("statLeagues"),
@@ -121,6 +123,15 @@ function clearSelectedMatch() {
   state.matchDetailRequestId += 1;
   el.oddsPanel.classList.remove("active");
   document.querySelectorAll("tbody tr").forEach((tr) => tr.classList.remove("selected"));
+}
+
+function scheduleModelMatchesReload() {
+  clearTimeout(modelFilterTimer);
+  modelFilterTimer = setTimeout(() => {
+    if (state.activeTab === "modelTab") {
+      loadModelMatches();
+    }
+  }, 250);
 }
 
 // ─── Tab Navigation ───
@@ -1144,15 +1155,24 @@ document.querySelectorAll(".filter-group input").forEach((input) => {
 });
 
 document.querySelectorAll(".model-filter-row input").forEach(input => {
+  input.addEventListener("input", () => {
+    if (state.activeTab === "modelTab") {
+      scheduleModelMatchesReload();
+    }
+  });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && state.activeTab === "modelTab") {
+      clearTimeout(modelFilterTimer);
       loadModelMatches();
     }
   });
 });
 document.querySelectorAll(".model-filter-row select").forEach(opt => {
   opt.addEventListener("change", () => {
-    if (state.activeTab === "modelTab") loadModelMatches();
+    if (state.activeTab === "modelTab") {
+      clearTimeout(modelFilterTimer);
+      loadModelMatches();
+    }
   });
 });
 
