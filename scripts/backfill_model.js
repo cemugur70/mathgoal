@@ -1,12 +1,7 @@
-const { Pool } = require('pg');
 require('dotenv').config();
 const { predictMatch } = require('../src/services/poisson.service');
 const { mapRawToColumns } = require('../src/columns-map');
-
-const db = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+const db = require('../src/db');
 
 async function createTable() {
   await db.query(`
