@@ -47,10 +47,13 @@ const SUFFIX_MAP = {
     // BTTS
     yes: "btts true", no: "btts false",
     btts_yes: "btts true", btts_no: "btts false",
+    btts_true: "btts true", btts_false: "btts false",
     first_half_yes: "İY btts true", first_half_no: "İY btts false",
     first_half_btts_yes: "İY btts true", first_half_btts_no: "İY btts false",
+    first_half_btts_true: "İY btts true", first_half_btts_false: "İY btts false",
     second_half_yes: "2Y btts true", second_half_no: "2Y btts false",
     second_half_btts_yes: "2Y btts true", second_half_btts_no: "2Y btts false",
+    second_half_btts_true: "2Y btts true", second_half_btts_false: "2Y btts false",
     // Double Chance
     home_draw_odds: "dc 1X", home_away_odds: "dc 12", away_draw_odds: "dc X2",
     home_draw: "dc 1X", home_away: "dc 12", away_draw: "dc X2",
