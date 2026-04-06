@@ -411,6 +411,50 @@ app.get("/api/matches", async (req, res, next) => {
 });
 
 // ─── Matches Model Endpoint ──────────────────────────────────────────────────
+const MODEL_INPUT_SUFFIXES = {
+  homeOdd: ["home"],
+  drawOdd: ["draw"],
+  awayOdd: ["away"],
+  ftOver25: ["2_5_over"],
+  ftUnder25: ["2_5_under"],
+  bttsYes: ["yes", "btts_yes", "btts_true"],
+  bttsNo: ["no", "btts_no", "btts_false"],
+};
+
+function getBookmakerKeyVariants(bookmaker) {
+  const normalized = String(bookmaker || "").trim().replace(/[^a-zA-Z0-9]/g, "");
+  const variants = [normalized, normalized.toLowerCase()].filter(Boolean);
+  return Array.from(new Set(variants));
+}
+
+function getModelCandidateKeys(bookmaker, suffix, oddsType = "closing") {
+  const phases = oddsType === "opening" ? ["opening", "closing"] : ["closing", "opening"];
+  const variants = getBookmakerKeyVariants(bookmaker);
+  const keys = [];
+
+  for (const phase of phases) {
+    for (const variant of variants) {
+      keys.push(phase === "opening" ? `opening_${variant}_${suffix}` : `${variant}_${suffix}`);
+    }
+  }
+
+  return keys;
+}
+
+function buildPredictionPresenceSql(alias, bookmaker, oddsType = "closing") {
+  const conditions = Object.values(MODEL_INPUT_SUFFIXES).map((suffixes) => {
+    const accessors = [];
+    for (const suffix of suffixes) {
+      for (const key of getModelCandidateKeys(bookmaker, suffix, oddsType)) {
+        accessors.push(`${alias}.raw_data->>'${key}'`);
+      }
+    }
+    return accessors.length ? `COALESCE(${accessors.join(", ")}) IS NOT NULL` : "FALSE";
+  });
+
+  return conditions.length ? conditions.join(" AND ") : "FALSE";
+}
+
 function parseNumericFilter(filterStr, scale = 1) {
   if (!filterStr) return null;
   const t = String(filterStr).trim();
@@ -507,6 +551,9 @@ app.get("/api/matches/model", async (req, res, next) => {
 
     const hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
     const modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
+    const predictionPresenceSql = buildPredictionPresenceSql("mac", bookmaker, "closing");
+
+    allFilters.push(predictionPresenceSql);
 
     if (fDate) {
       values.push(`%${fDate}%`);
@@ -531,7 +578,7 @@ app.get("/api/matches/model", async (req, res, next) => {
       ? Math.min(Math.max(limit * 5, 250), 1000)
       : limit;
     const maxScanRows = hasModelFilters
-      ? Math.min(Math.max(limit * 20, 2000), 5000)
+      ? Number.MAX_SAFE_INTEGER
       : limit;
 
     const dataSql = `
@@ -647,6 +694,49 @@ app.get("/api/matches/model", async (req, res, next) => {
     }
 
     res.json({ ok: true, data: mapped.slice(0, limit) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/model/coverage", async (req, res, next) => {
+  try {
+    const bookmaker = (req.query.bookmaker || "bet365").trim();
+    const values = [];
+    const filters = buildBaseFilters(req.query, values);
+    const { oddsFilters } = buildOddsFilters(req.query, bookmaker, values);
+
+    values.push(bookmaker);
+    const bmIdx = values.length;
+    const predictionPresenceSql = buildPredictionPresenceSql("mac", bookmaker, "closing");
+    const whereClause = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters].length
+      ? `WHERE ${[...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters].join(" AND ")}`
+      : "";
+
+    const sql = `
+      SELECT
+        COUNT(*)::int AS total_matches,
+        COUNT(*) FILTER (WHERE ${predictionPresenceSql})::int AS calculable_matches,
+        COUNT(*) FILTER (
+          WHERE ${predictionPresenceSql}
+            AND mc.source_scraped_at IS NOT NULL
+            AND mc.source_scraped_at >= mac.scraped_at
+        )::int AS backfilled_matches
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      LEFT JOIN model_calculations mc
+        ON mc.match_id = m.match_id
+        AND mc.bookmaker = $${bmIdx}
+        AND mc.odds_type = 'closing'
+      ${whereClause}
+    `;
+
+    const result = await db.query(sql, values);
+    res.json(result.rows[0] || {
+      total_matches: 0,
+      calculable_matches: 0,
+      backfilled_matches: 0,
+    });
   } catch (error) {
     next(error);
   }

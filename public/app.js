@@ -17,6 +17,8 @@ const state = {
   activeTab: "matchesTab",
   overviewCacheKey: "",
   overviewCacheData: null,
+  modelCoverageCacheKey: "",
+  modelCoverageCacheData: null,
   currentRows: [],
   matchDetailCache: new Map(),
   matchDetailRequestId: 0,
@@ -43,6 +45,7 @@ const el = {
   statsGrid: $("statsGrid"), statsTotalMatches: $("statsTotalMatches"),
   statsTotalBadge: $("statsTotalBadge"), statsBookmaker: $("statsBookmaker"),
   fUpcomingOnly: $("fUpcomingOnly"),
+  modelCoverage: $("modelCoverage"),
   modelBody: $("modelBody"),
   mFilterDate: $("mFilterDate"), mFilterLeague: $("mFilterLeague"),
   mFilterMatch: $("mFilterMatch"), mFilterHL: $("mFilterHL"),
@@ -453,6 +456,35 @@ async function loadOverview() {
   return data;
 }
 
+function applyModelCoverage(data) {
+  if (!el.modelCoverage) return;
+
+  const total = Number(data?.total_matches || 0);
+  const calculable = Number(data?.calculable_matches || 0);
+  const backfilled = Number(data?.backfilled_matches || 0);
+
+  el.modelCoverage.innerHTML = `
+    <strong>Model kapsami:</strong> ${calculable.toLocaleString("tr-TR")} / ${total.toLocaleString("tr-TR")} mac hesaplanabilir.
+    <span style="margin-left:10px;"><strong>Backfill:</strong> ${backfilled.toLocaleString("tr-TR")} / ${calculable.toLocaleString("tr-TR")}</span>
+  `;
+}
+
+async function loadModelCoverage() {
+  const params = new URLSearchParams(getBaseFilters());
+  const cacheKey = params.toString();
+
+  if (state.modelCoverageCacheKey === cacheKey && state.modelCoverageCacheData) {
+    applyModelCoverage(state.modelCoverageCacheData);
+    return state.modelCoverageCacheData;
+  }
+
+  const data = await fetchJSON(`${API}/api/model/coverage?${params}`);
+  state.modelCoverageCacheKey = cacheKey;
+  state.modelCoverageCacheData = data;
+  applyModelCoverage(data);
+  return data;
+}
+
 // ─── Build column categories ───
 const CATEGORIES = {
   "1X2": ["AÇ 1", "1", "AÇ X", "X", "AÇ 2", "2"],
@@ -855,6 +887,7 @@ async function loadMarketStats() {
 // ─── Model / Poisson Tab ───
 async function loadModelMatches() {
   const filters = getBaseFilters();
+  loadModelCoverage().catch(() => {});
   
   // Ekleme: Model filtremelerini API'ye gönder (tüm DB'de arama yapabilmesi için)
   const fDate = el.mFilterDate.value.trim();
