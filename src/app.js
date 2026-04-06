@@ -10,6 +10,12 @@ const db = require("./db");
 const { ALL_COLUMNS, mapRawToColumns } = require("./columns-map");
 const predictRoutes = require("./routes/predict.routes");
 const backtestRoutes = require("./routes/backtest.routes");
+const {
+  buildPredictionInput,
+  buildModelCalculationPayload,
+  syncModelCalculationCache,
+  isModelCalculationFresh,
+} = require("./services/model-calculation.service");
 
 const app = express();
 const logger = pino({
@@ -18,6 +24,27 @@ const logger = pino({
 
 app.use(express.json({ limit: "10mb" }));
 app.use(cors());
+
+app.get("/api/admin/start-backfill", requireIngestKey, (req, res) => {
+  res.status(405).json({ message: "POST kullanin." });
+});
+
+app.post("/api/admin/start-backfill", requireIngestKey, (req, res) => {
+  if (isBackfillRunning) {
+    return res.status(409).json({ message: "Islem zaten devam ediyor." });
+  }
+
+  isBackfillRunning = true;
+  exec("npm run backfill", (err) => {
+    isBackfillRunning = false;
+    if (err) {
+      console.error("Backfill Error:", err);
+    }
+    console.log("Backfill Finished");
+  });
+
+  res.json({ ok: true, message: "Backfill arka planda baslatildi." });
+});
 
 let isBackfillRunning = false;
 app.get("/api/admin/start-backfill", (req, res) => {
@@ -224,6 +251,30 @@ app.get("/api/health", async (req, res, next) => {
   }
 });
 
+app.get("/api/debug", requireIngestKey, async (req, res) => {
+  try {
+    const query =
+      req.query.q ||
+      "SELECT m.match_id, mac.bookmaker FROM matches m INNER JOIN match_all_columns mac ON m.match_id = mac.match_id LIMIT 5";
+    const result = await db.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/debug", requireIngestKey, async (req, res) => {
+  try {
+    const query =
+      req.body?.q ||
+      "SELECT m.match_id, mac.bookmaker FROM matches m INNER JOIN match_all_columns mac ON m.match_id = mac.match_id LIMIT 5";
+    const result = await db.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/debug", async (req, res, next) => {
   try {
     const query = req.query.q || "SELECT m.match_id, mac.bookmaker FROM matches m INNER JOIN match_all_columns mac ON m.match_id = mac.match_id LIMIT 5";
@@ -360,22 +411,22 @@ app.get("/api/matches", async (req, res, next) => {
 });
 
 // ─── Matches Model Endpoint ──────────────────────────────────────────────────
-const { predictMatch } = require("./services/poisson.service");
-
-function parseSqlCondition(col, filterStr, scale = 1) {
+function parseSqlCondition(col, filterStr, values, scale = 1) {
   if (!filterStr) return null;
   const t = filterStr.trim();
-  const numVal = parseFloat(t.replace(/[^0-9.-]/g, ''));
-  if (isNaN(numVal)) return null;
+  const numVal = parseFloat(t.replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(numVal)) return null;
 
-  const v = numVal * scale;
+  let operator = null;
+  if (t.startsWith(">=")) operator = ">=";
+  if (t.startsWith("<=")) operator = "<=";
+  if (t.startsWith(">")) operator = ">";
+  if (t.startsWith("<")) operator = "<";
+  if (t.startsWith("=")) operator = "=";
+  if (!operator) return null;
 
-  if (t.startsWith(">=")) return `${col} >= ${v}`;
-  if (t.startsWith("<=")) return `${col} <= ${v}`;
-  if (t.startsWith(">")) return `${col} > ${v}`;
-  if (t.startsWith("<")) return `${col} < ${v}`;
-  if (t.startsWith("=")) return `${col} = ${v}`;
-  return null;
+  values.push(numVal * scale);
+  return `${col} ${operator} $${values.length}`;
 }
 
 app.get("/api/matches/model", async (req, res, next) => {
@@ -402,26 +453,31 @@ app.get("/api/matches/model", async (req, res, next) => {
     const fMO25 = req.query.fMO25;
     const fFav = req.query.fFav;
     const fScore = req.query.fScore;
+    const fDate = (req.query.fDate || "").trim();
+    const fLeague = (req.query.fLeague || "").trim();
+    const fMatch = (req.query.fMatch || "").trim();
 
     let hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
     let modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
 
     if (hasModelFilters) {
       modelJoins = `INNER JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
-      
-      const hlCond = parseSqlCondition('mc.home_lambda', fHL);
+      allFilters.push("mc.source_scraped_at IS NOT NULL");
+      allFilters.push("mc.source_scraped_at >= mac.scraped_at");
+
+      const hlCond = parseSqlCondition('mc.home_lambda', fHL, values);
       if (hlCond) allFilters.push(hlCond);
       
-      const alCond = parseSqlCondition('mc.away_lambda', fAL);
+      const alCond = parseSqlCondition('mc.away_lambda', fAL, values);
       if (alCond) allFilters.push(alCond);
       
-      const tlCond = parseSqlCondition('mc.total_lambda', fTL);
+      const tlCond = parseSqlCondition('mc.total_lambda', fTL, values);
       if (tlCond) allFilters.push(tlCond);
       
-      const bttsCond = parseSqlCondition('mc.model_btts', fMBTTS, 0.01);
+      const bttsCond = parseSqlCondition('mc.model_btts', fMBTTS, values, 0.01);
       if (bttsCond) allFilters.push(bttsCond);
       
-      const moCond = parseSqlCondition('mc.model_over25', fMO25, 0.01);
+      const moCond = parseSqlCondition('mc.model_over25', fMO25, values, 0.01);
       if (moCond) allFilters.push(moCond);
 
       if (fFav) {
@@ -433,6 +489,24 @@ app.get("/api/matches/model", async (req, res, next) => {
         values.push(`%${fScore}%`);
         allFilters.push(`mc.rounded_score LIKE $${values.length}`);
       }
+    }
+
+    if (fDate) {
+      values.push(`%${fDate}%`);
+      allFilters.push(`TO_CHAR(m.match_date, 'DD.MM.YYYY') ILIKE $${values.length}`);
+    }
+    if (fLeague) {
+      values.push(`%${fLeague}%`);
+      allFilters.push(`m.league ILIKE $${values.length}`);
+    }
+    if (fMatch) {
+      values.push(`%${fMatch}%`);
+      const matchIdx = values.length;
+      allFilters.push(`(
+        m.home_team ILIKE $${matchIdx}
+        OR m.away_team ILIKE $${matchIdx}
+        OR CONCAT(m.home_team, ' vs ', m.away_team) ILIKE $${matchIdx}
+      )`);
     }
 
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
@@ -447,7 +521,9 @@ app.get("/api/matches/model", async (req, res, next) => {
           ELSE mac.raw_data->>'SAAT'
         END AS match_time_display,
         mac.raw_data,
-        mc.home_lambda, mc.away_lambda, mc.total_lambda, mc.model_btts, mc.model_over25, mc.favorite_side, mc.rounded_score
+        mac.scraped_at AS raw_scraped_at,
+        mc.home_lambda, mc.away_lambda, mc.total_lambda, mc.model_btts, mc.model_over25, mc.favorite_side, mc.rounded_score,
+        mc.source_scraped_at
       FROM matches m
       INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
       ${modelJoins}
@@ -459,7 +535,16 @@ app.get("/api/matches/model", async (req, res, next) => {
     const { rows } = await db.query(dataSql, dataValues);
 
     const mapped = rows.map((r) => {
-      const cols = mapRawToColumns(r.raw_data || {}, bookmaker);
+      const predictionInput = buildPredictionInput(r.raw_data || {}, bookmaker, "closing");
+      const cols = {
+        "1": predictionInput.homeOdd,
+        X: predictionInput.drawOdd,
+        "2": predictionInput.awayOdd,
+        [`2 5 ${"\u00dc"}st`]: predictionInput.ftOver25,
+        "2 5 Alt": predictionInput.ftUnder25,
+        "btts true": predictionInput.bttsYes,
+        "btts false": predictionInput.bttsNo,
+      };
       
       const homeOdd = parseFloat(cols["AÇ 1"] || cols["1"]);
       const drawOdd = parseFloat(cols["AÇ X"] || cols["X"]);
@@ -472,7 +557,7 @@ app.get("/api/matches/model", async (req, res, next) => {
       let prediction = null;
       let ok = false;
 
-      if (r.home_lambda != null) {
+      if (r.home_lambda != null && isModelCalculationFresh(r.source_scraped_at, r.raw_scraped_at)) {
         prediction = {
           homeLambda: parseFloat(r.home_lambda),
           awayLambda: parseFloat(r.away_lambda),
@@ -484,30 +569,19 @@ app.get("/api/matches/model", async (req, res, next) => {
         };
         ok = true;
       } else {
-        if (
-          !isNaN(homeOdd) && !isNaN(drawOdd) && !isNaN(awayOdd) &&
-          !isNaN(ftOver25) && !isNaN(ftUnder25) && 
-          !isNaN(bttsYes) && !isNaN(bttsNo)
-        ) {
-          try {
-            prediction = predictMatch({
-              homeOdd, drawOdd, awayOdd, ftOver25, ftUnder25, bttsYes, bttsNo
-            });
-            ok = true;
-
-            // BACKGROUND SAVE TO ENHANCE CACHE
-            db.query(`
-              INSERT INTO model_calculations 
-              (match_id, bookmaker, odds_type, home_lambda, away_lambda, total_lambda, model_btts, model_over25, favorite_side, rounded_score)
-              VALUES ($1, $2, 'closing', $3, $4, $5, $6, $7, $8, $9)
-              ON CONFLICT DO NOTHING
-            `, [
-              r.match_id, bookmaker, prediction.homeLambda, prediction.awayLambda, prediction.totalLambda,
-              prediction.modelBTTS, prediction.modelOver25, prediction.favoriteSide, prediction.roundedScore
-            ]).catch(()=>{});
-
-          } catch(e) {}
+        const payload = buildModelCalculationPayload(r.raw_data || {}, bookmaker, "closing");
+        if (payload) {
+          prediction = payload.prediction;
+          ok = true;
         }
+
+        syncModelCalculationCache(db, {
+          matchId: r.match_id,
+          bookmaker,
+          rawData: r.raw_data || {},
+          scrapedAt: r.raw_scraped_at,
+          oddsType: "closing",
+        }).catch(() => {});
       }
 
       return {
@@ -817,13 +891,21 @@ app.post("/api/ingest/batch", requireIngestKey, async (req, res, next) => {
       for (const row of rows) {
         const matchId = row.ide || row.match_id;
         if (!matchId) continue;
+        const scrapedAt = new Date();
         await client.query(
           `INSERT INTO match_all_columns (match_id, bookmaker, raw_data, scraped_at)
-           VALUES ($1, $2, $3, NOW())
+           VALUES ($1, $2, $3, $4)
            ON CONFLICT (match_id, bookmaker)
-           DO UPDATE SET raw_data = $3, scraped_at = NOW()`,
-          [matchId, bookmaker, JSON.stringify(row)],
+           DO UPDATE SET raw_data = $3, scraped_at = $4`,
+          [matchId, bookmaker, JSON.stringify(row), scrapedAt],
         );
+        await syncModelCalculationCache(client, {
+          matchId,
+          bookmaker,
+          rawData: row,
+          scrapedAt,
+          oddsType: "closing",
+        }).catch(() => null);
         upserted++;
       }
       await client.query("COMMIT");

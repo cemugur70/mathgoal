@@ -1,14 +1,14 @@
-require('dotenv').config();
-const { predictMatch } = require('../src/services/poisson.service');
-const { mapRawToColumns } = require('../src/columns-map');
-const db = require('../src/db');
+require("dotenv").config();
+
+const db = require("../src/db");
+const { buildModelCalculationPayload } = require("../src/services/model-calculation.service");
 
 async function createTable() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS model_calculations (
       match_id VARCHAR NOT NULL,
       bookmaker VARCHAR NOT NULL,
-      odds_type VARCHAR NOT NULL, /* 'opening' or 'closing' */
+      odds_type VARCHAR NOT NULL,
       home_lambda NUMERIC(6,3),
       away_lambda NUMERIC(6,3),
       total_lambda NUMERIC(6,3),
@@ -16,9 +16,16 @@ async function createTable() {
       model_over25 NUMERIC(4,3),
       favorite_side VARCHAR(5),
       rounded_score VARCHAR(10),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      source_scraped_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (match_id, bookmaker, odds_type)
     );
+
+    ALTER TABLE model_calculations
+      ADD COLUMN IF NOT EXISTS source_scraped_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
     CREATE INDEX IF NOT EXISTS idx_model_btts ON model_calculations(model_btts);
     CREATE INDEX IF NOT EXISTS idx_model_over25 ON model_calculations(model_over25);
@@ -30,9 +37,8 @@ async function createTable() {
 async function run() {
   await createTable();
 
-  // Find out total records
-  const countRes = await db.query(`SELECT COUNT(*) as count FROM match_all_columns`);
-  const total = parseInt(countRes.rows[0].count, 10);
+  const countRes = await db.query("SELECT COUNT(*)::int AS count FROM match_all_columns");
+  const total = countRes.rows[0]?.count || 0;
   console.log(`Total rows to process: ${total}`);
 
   let offset = 0;
@@ -41,49 +47,69 @@ async function run() {
 
   while (offset < total) {
     const res = await db.query(
-      `SELECT match_id, bookmaker, raw_data FROM match_all_columns ORDER BY match_id, bookmaker LIMIT $1 OFFSET $2`,
-      [LIMIT, offset]
+      `
+        SELECT match_id, bookmaker, raw_data, scraped_at
+        FROM match_all_columns
+        ORDER BY match_id, bookmaker
+        LIMIT $1 OFFSET $2
+      `,
+      [LIMIT, offset],
     );
 
     if (res.rows.length === 0) break;
 
     const values = [];
-    const pushVal = (r, oddsType, pred) => {
+    const pushVal = (row, oddsType, payload) => {
       values.push(
-        r.match_id, r.bookmaker, oddsType,
-        pred.homeLambda || null, pred.awayLambda || null, pred.totalLambda || null,
-        pred.modelBTTS || null, pred.modelOver25 || null,
-        pred.favoriteSide || null, pred.roundedScore || null
+        row.match_id,
+        row.bookmaker,
+        oddsType,
+        payload.prediction.homeLambda || null,
+        payload.prediction.awayLambda || null,
+        payload.prediction.totalLambda || null,
+        payload.prediction.modelBTTS || null,
+        payload.prediction.modelOver25 || null,
+        payload.prediction.favoriteSide || null,
+        payload.prediction.roundedScore || null,
+        row.scraped_at || null,
       );
     };
 
-    for (const r of res.rows) {
-      if (!r.raw_data) continue;
-      
-      try {
-        const closingMapped = mapRawToColumns(r.raw_data, r.bookmaker, false, true);
-        const predClosing = predictMatch(closingMapped);
-        if (predClosing && predClosing.homeLambda) pushVal(r, 'closing', predClosing);
-      } catch (err) {}
+    for (const row of res.rows) {
+      if (!row.raw_data) continue;
 
-      try {
-        const openingMapped = mapRawToColumns(r.raw_data, r.bookmaker, true, false);
-        const predOpening = predictMatch(openingMapped);
-        if (predOpening && predOpening.homeLambda) pushVal(r, 'opening', predOpening);
-      } catch (err) {}
+      const closingPayload = buildModelCalculationPayload(row.raw_data, row.bookmaker, "closing");
+      if (closingPayload) {
+        pushVal(row, "closing", closingPayload);
+      }
+
+      const openingPayload = buildModelCalculationPayload(row.raw_data, row.bookmaker, "opening");
+      if (openingPayload) {
+        pushVal(row, "opening", openingPayload);
+      }
     }
 
     if (values.length > 0) {
-      // Build batch insert query
       const chunks = [];
-      for (let i = 0; i < values.length / 10; i++) {
-        chunks.push(`($${i*10+1}, $${i*10+2}, $${i*10+3}, $${i*10+4}, $${i*10+5}, $${i*10+6}, $${i*10+7}, $${i*10+8}, $${i*10+9}, $${i*10+10})`);
+      for (let i = 0; i < values.length / 11; i++) {
+        chunks.push(`($${i * 11 + 1}, $${i * 11 + 2}, $${i * 11 + 3}, $${i * 11 + 4}, $${i * 11 + 5}, $${i * 11 + 6}, $${i * 11 + 7}, $${i * 11 + 8}, $${i * 11 + 9}, $${i * 11 + 10}, $${i * 11 + 11})`);
       }
-      
+
       const insertQuery = `
-        INSERT INTO model_calculations 
-        (match_id, bookmaker, odds_type, home_lambda, away_lambda, total_lambda, model_btts, model_over25, favorite_side, rounded_score)
-        VALUES ${chunks.join(',')}
+        INSERT INTO model_calculations (
+          match_id,
+          bookmaker,
+          odds_type,
+          home_lambda,
+          away_lambda,
+          total_lambda,
+          model_btts,
+          model_over25,
+          favorite_side,
+          rounded_score,
+          source_scraped_at
+        )
+        VALUES ${chunks.join(",")}
         ON CONFLICT (match_id, bookmaker, odds_type) DO UPDATE SET
           home_lambda = EXCLUDED.home_lambda,
           away_lambda = EXCLUDED.away_lambda,
@@ -91,12 +117,15 @@ async function run() {
           model_btts = EXCLUDED.model_btts,
           model_over25 = EXCLUDED.model_over25,
           favorite_side = EXCLUDED.favorite_side,
-          rounded_score = EXCLUDED.rounded_score
+          rounded_score = EXCLUDED.rounded_score,
+          source_scraped_at = EXCLUDED.source_scraped_at,
+          updated_at = NOW()
       `;
+
       try {
         await db.query(insertQuery, values);
-      } catch(err) {
-         console.error("Batch insert error:", err.message);
+      } catch (error) {
+        console.error("Batch insert error:", error.message);
       }
     }
 
@@ -106,10 +135,12 @@ async function run() {
   }
 
   console.log("Backfill complete!");
+  await db.closePool();
   process.exit(0);
 }
 
-run().catch(err => {
-  console.error("Script error:", err);
+run().catch(async (error) => {
+  console.error("Script error:", error);
+  await db.closePool().catch(() => {});
   process.exit(1);
 });
