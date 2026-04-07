@@ -552,8 +552,9 @@ app.get("/api/matches/model", async (req, res, next) => {
     const hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
     const modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
     const predictionPresenceSql = buildPredictionPresenceSql("mac", bookmaker, "closing");
-
-    allFilters.push(predictionPresenceSql);
+    if (hasModelFilters) {
+      allFilters.push(predictionPresenceSql);
+    }
 
     if (fDate) {
       values.push(`%${fDate}%`);
