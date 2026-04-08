@@ -85,6 +85,15 @@ function predictMatch(payload) {
   return {
     homeTeam: payload.homeTeam || null,
     awayTeam: payload.awayTeam || null,
+    inputOdds: {
+      ftOver25,
+      ftUnder25,
+      bttsYes,
+      bttsNo,
+      homeOdd,
+      drawOdd,
+      awayOdd,
+    },
     normalized: {
       over25: normalizedOU.a,
       bttsYes: normalizedBTTS.a,

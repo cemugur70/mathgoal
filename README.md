@@ -213,3 +213,107 @@ Beklenen: `total`, `limit`, `offset`, `data` alanlarini dondurur.
 - PostgreSQL tarafinda:
   - Buyuk veri setinde tarih bazli partition dusunulebilir
 
+## Poisson Model API
+
+Proje, Excel tabanlı Poisson futbol tahmin modelinin birebir kopyasını sunan bir API içerir. 
+İş mantığı `src/lib/poisson.js` ve `src/services/poisson.service.js` içinde yer alır.
+
+### POST /api/predict (Tekli Tahmin)
+
+Verilen futbol odds (oran) değerlerini alıp model tahminlerini döner.
+
+```powershell
+curl -X POST http://localhost:3000/api/predict `
+-H "Content-Type: application/json" `
+-d '{
+  "homeTeam": "Gent",
+  "awayTeam": "KV Mechelen",
+  "ftOver25": 1.67,
+  "ftUnder25": 2.15,
+  "bttsYes": 1.57,
+  "bttsNo": 2.25,
+  "homeOdd": 1.95,
+  "drawOdd": 3.50,
+  "awayOdd": 3.60
+}'
+```
+
+Örnek Çıktı:
+```json
+{
+  "ok": true,
+  "data": {
+    "homeTeam": "Gent",
+    "awayTeam": "KV Mechelen",
+    "inputOdds": {
+      "ftOver25": 1.67,
+      "ftUnder25": 2.15,
+      "bttsYes": 1.57,
+      "bttsNo": 2.25,
+      "homeOdd": 1.95,
+      "drawOdd": 3.5,
+      "awayOdd": 3.6
+    },
+    "normalized": { ... },
+    "totalLambda": 2.93,
+    "favoriteShareAlpha": 0.53355,
+    "favoriteSide": "EV",
+    "homeLambda": 1.5633,
+    "awayLambda": 1.3666,
+    "modelBTTS": 0.589,
+    "modelOver25": 0.5609,
+    "coverage05": 0.9917,
+    "roundedScore": "2-1",
+    "scoreMatrix": [ ... ]
+  }
+}
+```
+
+### POST /api/predict/bulk (Toplu Tahmin)
+
+Aynı anda birden çok maç (max 1000) için hesaplama yapar.
+
+```powershell
+curl -X POST http://localhost:3000/api/predict/bulk `
+-H "Content-Type: application/json" `
+-d '{
+  "matches": [
+    {
+      "homeTeam": "Tirol",
+      "awayTeam": "Grazer AK",
+      "ftOver25": 2.30,
+      "ftUnder25": 1.60,
+      "bttsYes": 1.95,
+      "bttsNo": 1.80,
+      "homeOdd": 2.30,
+      "drawOdd": 3.10,
+      "awayOdd": 2.85
+    }
+  ]
+}'
+```
+
+### POST /api/backtest (Geliştirici Backtest)
+
+Modelin beklenen benchmark verileri ile kendi sonucunu test etmesini sağlar. `tests/fixtures/poisson-benchmark.json` formatındaki array'leri okur. Tolerans varsayılan olarak `0.005`'tir.
+
+```powershell
+curl -X POST http://localhost:3000/api/backtest `
+-H "Content-Type: application/json" `
+-d '{
+  "tolerance": 0.005,
+  "benchmarkRows": [
+    {
+      "id": "test-1",
+      "input": { ... },
+      "expected": { "totalLambda": 2.93, "modelBTTS": 0.589 }
+    }
+  ]
+}'
+```
+
+**Testler:** API'ın bağımsız birim testlerini çalıştırmak için model math mantığında:
+```powershell
+npm test
+```
+Bu komut, Excel benchmark verileri ile milisaniyelik Node tabanlı tam doğrulama yapar.
