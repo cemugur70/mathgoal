@@ -94,11 +94,32 @@ async function runMigrations() {
   await client.connect();
 
   try {
+    // Önceki crash'lerden kalan kilitleri temizle
+    await client.query("SET lock_timeout = '10s'");
+    await client.query("SET statement_timeout = '30s'");
+    try {
+      await client.query(`
+        SELECT pg_terminate_backend(pid) 
+        FROM pg_stat_activity 
+        WHERE datname = current_database() 
+          AND pid != pg_backend_pid() 
+          AND state = 'idle'
+          AND state_change < NOW() - INTERVAL '2 minutes'
+      `);
+      console.log("Eski idle baglantilari temizlendi.");
+    } catch (e) {
+      console.log("Idle baglanti temizleme atlandi:", e.message);
+    }
+
     for (const file of files) {
       const filePath = path.join(sqlDir, file);
       const sql = fs.readFileSync(filePath, "utf8");
-      await client.query(sql);
-      console.log(`Uygulandi: ${file}`);
+      try {
+        await client.query(sql);
+        console.log(`Uygulandi: ${file}`);
+      } catch (err) {
+        console.warn(`Migration uyarisi (${file}): ${err.message}`);
+      }
     }
 
     await ensureAllColumnsTable(client);

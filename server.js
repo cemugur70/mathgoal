@@ -13,6 +13,9 @@ async function runStartupMigrations() {
     .filter(f => f.endsWith(".sql"))
     .sort((a, b) => a.localeCompare(b));
 
+  // Timeout ayarla — lock varsa takılmaması için
+  try { await db.query("SET statement_timeout = '15s'"); } catch (e) { /* ignore */ }
+
   for (const file of files) {
     try {
       const sql = fs.readFileSync(path.join(sqlDir, file), "utf8");
@@ -22,6 +25,9 @@ async function runStartupMigrations() {
       logger.warn({ err: err.message }, `Migration atlandı: ${file}`);
     }
   }
+
+  // Timeout'u geri al
+  try { await db.query("SET statement_timeout = '0'"); } catch (e) { /* ignore */ }
 }
 
 (async () => {
