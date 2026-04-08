@@ -94,22 +94,22 @@ async function runMigrations() {
   await client.connect();
 
   try {
-    // Önceki crash'lerden kalan kilitleri temizle
+    // Önceki crash'lerden kalan TÜM bağlantıları zorla sonlandır
     await client.query("SET lock_timeout = '10s'");
-    await client.query("SET statement_timeout = '30s'");
+    await client.query("SET statement_timeout = '60s'");
     try {
-      await client.query(`
+      const terminated = await client.query(`
         SELECT pg_terminate_backend(pid) 
         FROM pg_stat_activity 
         WHERE datname = current_database() 
-          AND pid != pg_backend_pid() 
-          AND state = 'idle'
-          AND state_change < NOW() - INTERVAL '2 minutes'
+          AND pid != pg_backend_pid()
       `);
-      console.log("Eski idle baglantilari temizlendi.");
+      console.log(`${terminated.rowCount} eski baglanti sonlandirildi.`);
     } catch (e) {
-      console.log("Idle baglanti temizleme atlandi:", e.message);
+      console.log("Baglanti temizleme atlandi:", e.message);
     }
+    // Lock'ların serbest kalması için kısa bekleme
+    await new Promise(r => setTimeout(r, 1000));
 
     for (const file of files) {
       const filePath = path.join(sqlDir, file);
