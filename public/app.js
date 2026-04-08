@@ -48,7 +48,7 @@ const el = {
   modelCoverage: $("modelCoverage"),
   modelBody: $("modelBody"),
   mFilterDate: $("mFilterDate"), mFilterLeague: $("mFilterLeague"),
-  mFilterMatch: $("mFilterMatch"), mFilterHL: $("mFilterHL"),
+  mFilterHome: $("mFilterHome"), mFilterAway: $("mFilterAway"), mFilterHL: $("mFilterHL"),
   mFilterAL: $("mFilterAL"), mFilterTL: $("mFilterTL"),
   mFilterMBTTS: $("mFilterMBTTS"), mFilterMO25: $("mFilterMO25"),
   mFilterFav: $("mFilterFav"), mFilterScore: $("mFilterScore")
@@ -59,6 +59,13 @@ function setStatus(msg, type = "loading") {
   el.statusText.className = `status-${type}`;
   el.statusText.innerHTML = type === "loading" ? `<span class="spinner"></span>${msg}` : msg;
 }
+window.setAbsFilter = function(inputId, val) {
+  const elem = document.getElementById(inputId);
+  if (elem) {
+    elem.value = val;
+    scheduleModelMatchesReload();
+  }
+};
 function fmtDate(v) { return v ? new Date(v).toLocaleDateString("tr-TR") : "-"; }
 function getLocalDateStr(dateObj) {
   const offset = dateObj.getTimezoneOffset();
@@ -892,7 +899,8 @@ async function loadModelMatches() {
   // Ekleme: Model filtremelerini API'ye gönder (tüm DB'de arama yapabilmesi için)
   const fDate = el.mFilterDate.value.trim();
   const fLeague = el.mFilterLeague.value.trim();
-  const fMatch = el.mFilterMatch.value.trim();
+  const fHome = el.mFilterHome.value.trim();
+  const fAway = el.mFilterAway.value.trim();
   const fScore = el.mFilterScore.value.trim();
   
   const fHL = el.mFilterHL.value.trim();
@@ -904,7 +912,8 @@ async function loadModelMatches() {
 
   if (fDate) filters.fDate = fDate;
   if (fLeague) filters.fLeague = fLeague;
-  if (fMatch) filters.fMatch = fMatch;
+  if (fHome) filters.fHome = fHome;
+  if (fAway) filters.fAway = fAway;
   if (fScore) filters.fScore = fScore;
   if (fHL) filters.fHL = fHL;
   if (fAL) filters.fAL = fAL;
@@ -963,7 +972,8 @@ function renderModelTable() {
   
   const fDate = el.mFilterDate.value.trim().toLowerCase();
   const fLeague = el.mFilterLeague.value.trim().toLowerCase();
-  const fMatch = el.mFilterMatch.value.trim().toLowerCase();
+  const fHome = el.mFilterHome.value.trim().toLowerCase();
+  const fAway = el.mFilterAway.value.trim().toLowerCase();
   const fScore = el.mFilterScore.value.trim().toLowerCase();
   
   const fHL = el.mFilterHL.value.trim();
@@ -976,10 +986,8 @@ function renderModelTable() {
   const rows = rowsRaw.filter(r => {
     if (fDate && !fmtDate(r.match_date).includes(fDate)) return false;
     if (fLeague && !(r.league || "").toLowerCase().includes(fLeague)) return false;
-    if (fMatch) {
-       const mName = `${r.home_team} vs ${r.away_team}`.toLowerCase();
-       if (!mName.includes(fMatch)) return false;
-    }
+    if (fHome && !(r.home_team || "").toLowerCase().includes(fHome)) return false;
+    if (fAway && !(r.away_team || "").toLowerCase().includes(fAway)) return false;
     if (fScore) {
        const mScoreStr = r.prediction && r.prediction.roundedScore ? r.prediction.roundedScore.toLowerCase() : "";
        if (!mScoreStr.includes(fScore)) return false;
@@ -1028,22 +1036,23 @@ function renderModelTable() {
 
     return `
       <tr>
-        <td class="text-dim">${fmtDate(r.match_date)}</td>
+        <td class="text-dim click-filter" onclick="window.setAbsFilter('mFilterDate', '${fmtDate(r.match_date)}')">${fmtDate(r.match_date)}</td>
         <td class="text-dim">${esc(r.match_time_display || "-")}</td>
-        <td class="text-dim" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${esc(r.league || "")}</td>
-        <td class="team-name">${esc(r.home_team)} <span class="text-dim">vs</span> ${esc(r.away_team)}</td>
-        <td class="odds-value">${homeOdd}</td>
-        <td class="odds-value">${drawOdd}</td>
-        <td class="odds-value">${awayOdd}</td>
-        <td class="odds-value">${ouOver}</td>
-        <td class="odds-value">${bttsY}</td>
-        <td style="color:var(--accent); font-weight:600;">${hL}</td>
-        <td style="color:var(--accent); font-weight:600;">${aL}</td>
-        <td style="color:var(--accent); font-weight:600;">${tL}</td>
-        <td style="color:var(--green); font-weight:600;">${mBTTS}</td>
-        <td style="color:var(--green); font-weight:600;">${mO25}</td>
-        <td>${favStr}</td>
-        <td>${mScore} ${realScore !== "-" ? `<span class="text-dim">(${realScore})</span>` : ""}</td>
+        <td class="text-dim click-filter" onclick="window.setAbsFilter('mFilterLeague', '${esc(r.league || "").replace(/'/g, "\\'")}')" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${esc(r.league || "")}</td>
+        <td class="team-name click-filter" onclick="window.setAbsFilter('mFilterHome', '${esc(r.home_team).replace(/'/g, "\\'")}')">${esc(r.home_team)}</td>
+        <td class="team-name click-filter" onclick="window.setAbsFilter('mFilterAway', '${esc(r.away_team).replace(/'/g, "\\'")}')">${esc(r.away_team)}</td>
+        <td class="odds-value click-filter">${homeOdd}</td>
+        <td class="odds-value click-filter">${drawOdd}</td>
+        <td class="odds-value click-filter">${awayOdd}</td>
+        <td class="odds-value click-filter">${ouOver}</td>
+        <td class="odds-value click-filter">${bttsY}</td>
+        <td style="color:var(--accent); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterHL', '=${hL !== "-" ? hL : ""}')">${hL}</td>
+        <td style="color:var(--accent); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterAL', '=${aL !== "-" ? aL : ""}')">${aL}</td>
+        <td style="color:var(--accent); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterTL', '=${tL !== "-" ? tL : ""}')">${tL}</td>
+        <td style="color:var(--green); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterMBTTS', '>=${pred.modelBTTS ? Math.round(pred.modelBTTS * 100) : ""}')">${mBTTS}</td>
+        <td style="color:var(--green); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterMO25', '>=${pred.modelOver25 ? Math.round(pred.modelOver25 * 100) : ""}')">${mO25}</td>
+        <td class="click-filter" onclick="window.setAbsFilter('mFilterFav', '${pred.favoriteSide || ""}')">${favStr}</td>
+        <td class="click-filter" onclick="window.setAbsFilter('mFilterScore', '${pred.roundedScore || ""}')">${mScore} ${realScore !== "-" ? `<span class="text-dim">(${realScore})</span>` : ""}</td>
       </tr>
     `;
   }).join("");

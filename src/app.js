@@ -576,7 +576,8 @@ app.get("/api/matches/model", async (req, res, next) => {
     const fScore = (req.query.fScore || "").trim();
     const fDate = (req.query.fDate || "").trim();
     const fLeague = (req.query.fLeague || "").trim();
-    const fMatch = (req.query.fMatch || "").trim();
+    const fHome = (req.query.fHome || "").trim();
+    const fAway = (req.query.fAway || "").trim();
 
     const hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
 
@@ -613,14 +614,13 @@ app.get("/api/matches/model", async (req, res, next) => {
       values.push(`%${fLeague}%`);
       allFilters.push(`m.league ILIKE $${values.length}`);
     }
-    if (fMatch) {
-      values.push(`%${fMatch}%`);
-      const matchIdx = values.length;
-      allFilters.push(`(
-        m.home_team ILIKE $${matchIdx}
-        OR m.away_team ILIKE $${matchIdx}
-        OR CONCAT(m.home_team, ' vs ', m.away_team) ILIKE $${matchIdx}
-      )`);
+    if (fHome) {
+      values.push(`%${fHome}%`);
+      allFilters.push(`m.home_team ILIKE $${values.length}`);
+    }
+    if (fAway) {
+      values.push(`%${fAway}%`);
+      allFilters.push(`m.away_team ILIKE $${values.length}`);
     }
 
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
