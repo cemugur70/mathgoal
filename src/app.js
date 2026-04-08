@@ -523,7 +523,7 @@ function matchesModelPredictionFilters(row, query) {
 
 app.get("/api/matches/model", async (req, res, next) => {
   try {
-    const limit = Math.min(toPositiveInt(req.query.limit, 100), 500); // Allow higher limit for model
+    const limit = Math.min(toPositiveInt(req.query.limit, 100), 500);
     const bookmaker = (req.query.bookmaker || "bet365").trim();
     const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
     const sortDateExpr = orderDir === "ASC" ? "COALESCE(m.match_date, DATE '9999-12-31')" : "COALESCE(m.match_date, DATE '0001-01-01')";
@@ -537,23 +537,43 @@ app.get("/api/matches/model", async (req, res, next) => {
     const bmIdx = values.length;
     const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
 
-    // Model DB Filters
+    // Model DB Filters — pushed directly into SQL WHERE
     const fHL = req.query.fHL;
     const fAL = req.query.fAL;
     const fTL = req.query.fTL;
     const fMBTTS = req.query.fMBTTS;
     const fMO25 = req.query.fMO25;
-    const fFav = req.query.fFav;
-    const fScore = req.query.fScore;
+    const fFav = (req.query.fFav || "").trim();
+    const fScore = (req.query.fScore || "").trim();
     const fDate = (req.query.fDate || "").trim();
     const fLeague = (req.query.fLeague || "").trim();
     const fMatch = (req.query.fMatch || "").trim();
 
     const hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
-    const modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
-    const predictionPresenceSql = buildPredictionPresenceSql("mac", bookmaker, "closing");
-    if (hasModelFilters) {
-      allFilters.push(predictionPresenceSql);
+
+    // When model filters exist, use INNER JOIN to require model_calculations row
+    const modelJoinType = hasModelFilters ? "INNER JOIN" : "LEFT JOIN";
+    const modelJoins = `${modelJoinType} model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
+
+    // Build SQL conditions for model filters on mc.* columns
+    const hlCond = parseSqlCondition("mc.home_lambda", fHL, values);
+    if (hlCond) allFilters.push(hlCond);
+    const alCond = parseSqlCondition("mc.away_lambda", fAL, values);
+    if (alCond) allFilters.push(alCond);
+    const tlCond = parseSqlCondition("mc.total_lambda", fTL, values);
+    if (tlCond) allFilters.push(tlCond);
+    // BTTS and O25 stored as 0..1 decimals, frontend sends >=50 meaning >=0.50
+    const bttsCond = parseSqlCondition("mc.model_btts", fMBTTS, values, 0.01);
+    if (bttsCond) allFilters.push(bttsCond);
+    const o25Cond = parseSqlCondition("mc.model_over25", fMO25, values, 0.01);
+    if (o25Cond) allFilters.push(o25Cond);
+    if (fFav) {
+      values.push(fFav);
+      allFilters.push(`mc.favorite_side = $${values.length}`);
+    }
+    if (fScore) {
+      values.push(`%${fScore}%`);
+      allFilters.push(`mc.rounded_score ILIKE $${values.length}`);
     }
 
     if (fDate) {
@@ -575,12 +595,9 @@ app.get("/api/matches/model", async (req, res, next) => {
     }
 
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
-    const batchSize = hasModelFilters
-      ? Math.min(Math.max(limit * 5, 250), 1000)
-      : limit;
-    const maxScanRows = hasModelFilters
-      ? Number.MAX_SAFE_INTEGER
-      : limit;
+
+    values.push(limit);
+    const limitIdx = values.length;
 
     const dataSql = `
       SELECT
@@ -599,22 +616,28 @@ app.get("/api/matches/model", async (req, res, next) => {
       ${modelJoins}
       ${whereClause}
       ORDER BY ${sortDateExpr} ${orderDir}, ${sortTimeExpr} ${orderDir}, m.match_id ${orderDir}
-      LIMIT $${values.length + 1}
-      OFFSET $${values.length + 2}
+      LIMIT $${limitIdx}
     `;
 
-    let offset = 0;
-    let scannedRows = 0;
-    const mapped = [];
+    // Run count query in parallel when filters are active
+    const countValues = values.slice(0, -1); // exclude LIMIT value
+    const countSql = hasModelFilters ? `
+      SELECT COUNT(*)::int AS total
+      FROM matches m
+      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
+      ${modelJoins}
+      ${whereClause}
+    ` : null;
 
-    while (mapped.length < limit && scannedRows < maxScanRows) {
-      const batchValues = [...values, batchSize, offset];
-      const { rows } = await db.query(dataSql, batchValues);
-      if (!rows.length) {
-        break;
-      }
+    const [dataResult, countResult] = await Promise.all([
+      db.query(dataSql, values),
+      countSql ? db.query(countSql, countValues) : Promise.resolve(null),
+    ]);
 
-      const batchMapped = rows.map((r) => {
+    const { rows } = dataResult;
+    const totalFiltered = countResult ? (countResult.rows[0]?.total || 0) : null;
+
+    const mapped = rows.map((r) => {
       const predictionInput = buildPredictionInput(r.raw_data || {}, bookmaker, "closing");
       const cols = {
         "1": predictionInput.homeOdd,
@@ -625,7 +648,7 @@ app.get("/api/matches/model", async (req, res, next) => {
         "btts true": predictionInput.bttsYes,
         "btts false": predictionInput.bttsNo,
       };
-      
+
       const homeOdd = parseFloat(cols["AÇ 1"] || cols["1"]);
       const drawOdd = parseFloat(cols["AÇ X"] || cols["X"]);
       const awayOdd = parseFloat(cols["AÇ 2"] || cols["2"]);
@@ -679,22 +702,9 @@ app.get("/api/matches/model", async (req, res, next) => {
         prediction,
         ok,
       };
-      });
+    });
 
-      const filteredBatch = hasModelFilters
-        ? batchMapped.filter((row) => matchesModelPredictionFilters(row, req.query))
-        : batchMapped;
-
-      mapped.push(...filteredBatch);
-      scannedRows += rows.length;
-      offset += rows.length;
-
-      if (rows.length < batchSize) {
-        break;
-      }
-    }
-
-    res.json({ ok: true, data: mapped.slice(0, limit) });
+    res.json({ ok: true, data: mapped, total_filtered: totalFiltered });
   } catch (error) {
     next(error);
   }

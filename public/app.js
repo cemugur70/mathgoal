@@ -920,7 +920,18 @@ async function loadModelMatches() {
   try {
     const res = await fetchJSON(`${API}/api/matches/model?${params}`);
     state.modelMatchesRaw = res.data || [];
-    renderModelTable(); // Still used for rendering, but frontend filtering can be mostly bypass since backend handled it
+    // Show total filtered count if available
+    if (res.total_filtered != null) {
+      const countEl = document.getElementById("modelFilteredCount");
+      if (countEl) {
+        countEl.innerHTML = `<strong>Toplam:</strong> ${res.total_filtered.toLocaleString("tr-TR")} eşleşme bulundu (${res.data.length} gösteriliyor)`;
+        countEl.style.display = "block";
+      }
+    } else {
+      const countEl = document.getElementById("modelFilteredCount");
+      if (countEl) countEl.style.display = "none";
+    }
+    renderModelTable();
   } catch(err) {
     el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--red);">Hata: ${esc(err.message)}</td></tr>`;
   }
