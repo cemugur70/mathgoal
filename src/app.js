@@ -480,6 +480,28 @@ function parseSqlCondition(col, filterStr, values, scale = 1) {
   return `${col} ${parsed.operator} $${values.length}`;
 }
 
+/**
+ * Model hesaplama filtreleri için: düz sayı girildiğinde = (tam eşleşme) olarak SQL'e çevir.
+ * Örn: "1.22" → mc.home_lambda = 1.22, ">=1.5" → mc.home_lambda >= 1.5
+ */
+function parseModelSqlCondition(col, filterStr, values, scale = 1) {
+  if (!filterStr) return null;
+  const t = String(filterStr).trim().replace(/%/g, "");
+  if (!t) return null;
+  const numVal = parseFloat(t.replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(numVal)) return null;
+
+  let operator = "=";
+  if (t.startsWith(">=")) operator = ">=";
+  else if (t.startsWith("<=")) operator = "<=";
+  else if (t.startsWith(">")) operator = ">";
+  else if (t.startsWith("<")) operator = "<";
+  else if (t.startsWith("=")) operator = "=";
+
+  values.push(numVal * scale);
+  return `${col} ${operator} $${values.length}`;
+}
+
 function matchesNumericFilter(value, filterStr, scale = 1) {
   const parsed = parseNumericFilter(filterStr, scale);
   if (!parsed) return true;
@@ -556,16 +578,16 @@ app.get("/api/matches/model", async (req, res, next) => {
     const modelJoins = `${modelJoinType} model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
 
     // Build SQL conditions for model filters on mc.* columns
-    const hlCond = parseSqlCondition("mc.home_lambda", fHL, values);
+    const hlCond = parseModelSqlCondition("mc.home_lambda", fHL, values);
     if (hlCond) allFilters.push(hlCond);
-    const alCond = parseSqlCondition("mc.away_lambda", fAL, values);
+    const alCond = parseModelSqlCondition("mc.away_lambda", fAL, values);
     if (alCond) allFilters.push(alCond);
-    const tlCond = parseSqlCondition("mc.total_lambda", fTL, values);
+    const tlCond = parseModelSqlCondition("mc.total_lambda", fTL, values);
     if (tlCond) allFilters.push(tlCond);
     // BTTS and O25 stored as 0..1 decimals, frontend sends >=50 meaning >=0.50
-    const bttsCond = parseSqlCondition("mc.model_btts", fMBTTS, values, 0.01);
+    const bttsCond = parseModelSqlCondition("mc.model_btts", fMBTTS, values, 0.01);
     if (bttsCond) allFilters.push(bttsCond);
-    const o25Cond = parseSqlCondition("mc.model_over25", fMO25, values, 0.01);
+    const o25Cond = parseModelSqlCondition("mc.model_over25", fMO25, values, 0.01);
     if (o25Cond) allFilters.push(o25Cond);
     if (fFav) {
       values.push(fFav);
