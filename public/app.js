@@ -48,8 +48,10 @@ const el = {
   modelCoverage: $("modelCoverage"),
   modelBody: $("modelBody"),
   mFilterDate: $("mFilterDate"), mFilterLeague: $("mFilterLeague"),
-  mFilterHome: $("mFilterHome"), mFilterAway: $("mFilterAway"), mFilterHL: $("mFilterHL"),
-  mFilterAL: $("mFilterAL"), mFilterTL: $("mFilterTL"),
+  mFilterHome: $("mFilterHome"), mFilterAway: $("mFilterAway"),
+  mFilter1: $("mFilter1"), mFilterX: $("mFilterX"), mFilter2: $("mFilter2"),
+  mFilterOU25: $("mFilterOU25"), mFilterBTTS: $("mFilterBTTS"),
+  mFilterHL: $("mFilterHL"), mFilterAL: $("mFilterAL"), mFilterTL: $("mFilterTL"),
   mFilterMBTTS: $("mFilterMBTTS"), mFilterMO25: $("mFilterMO25"),
   mFilterFav: $("mFilterFav"), mFilterScore: $("mFilterScore")
 };
@@ -902,7 +904,12 @@ async function loadModelMatches() {
   const fHome = el.mFilterHome.value.trim();
   const fAway = el.mFilterAway.value.trim();
   const fScore = el.mFilterScore.value.trim();
-  
+  const f1 = el.mFilter1.value.trim();
+  const fX = el.mFilterX.value.trim();
+  const f2 = el.mFilter2.value.trim();
+  const fOU25 = el.mFilterOU25.value.trim();
+  const fBTTS = el.mFilterBTTS.value.trim();
+
   const fHL = el.mFilterHL.value.trim();
   const fAL = el.mFilterAL.value.trim();
   const fTL = el.mFilterTL.value.trim();
@@ -975,7 +982,12 @@ function renderModelTable() {
   const fHome = el.mFilterHome.value.trim().toLowerCase();
   const fAway = el.mFilterAway.value.trim().toLowerCase();
   const fScore = el.mFilterScore.value.trim().toLowerCase();
-  
+  const f1 = el.mFilter1.value.trim();
+  const fX = el.mFilterX.value.trim();
+  const f2 = el.mFilter2.value.trim();
+  const fOU25 = el.mFilterOU25.value.trim();
+  const fBTTS = el.mFilterBTTS.value.trim();
+
   const fHL = el.mFilterHL.value.trim();
   const fAL = el.mFilterAL.value.trim();
   const fTL = el.mFilterTL.value.trim();
@@ -992,6 +1004,13 @@ function renderModelTable() {
        const mScoreStr = r.prediction && r.prediction.roundedScore ? r.prediction.roundedScore.toLowerCase() : "";
        if (!mScoreStr.includes(fScore)) return false;
     }
+
+    const o = r.odds || {};
+    if (f1 && !checkFilterCondition(o.homeOdd, f1)) return false;
+    if (fX && !checkFilterCondition(o.drawOdd, fX)) return false;
+    if (f2 && !checkFilterCondition(o.awayOdd, f2)) return false;
+    if (fOU25 && !checkFilterCondition(o.ftOver25, fOU25)) return false;
+    if (fBTTS && !checkFilterCondition(o.bttsYes, fBTTS)) return false;
 
     const pred = r.prediction || {};
     if (fHL && !checkFilterCondition(pred.homeLambda, fHL)) return false;
@@ -1041,11 +1060,11 @@ function renderModelTable() {
         <td class="text-dim click-filter" onclick="window.setAbsFilter('mFilterLeague', '${esc(r.league || "").replace(/'/g, "\\'")}')" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${esc(r.league || "")}</td>
         <td class="team-name click-filter" onclick="window.setAbsFilter('mFilterHome', '${esc(r.home_team).replace(/'/g, "\\'")}')">${esc(r.home_team)}</td>
         <td class="team-name click-filter" onclick="window.setAbsFilter('mFilterAway', '${esc(r.away_team).replace(/'/g, "\\'")}')">${esc(r.away_team)}</td>
-        <td class="odds-value click-filter">${homeOdd}</td>
-        <td class="odds-value click-filter">${drawOdd}</td>
-        <td class="odds-value click-filter">${awayOdd}</td>
-        <td class="odds-value click-filter">${ouOver}</td>
-        <td class="odds-value click-filter">${bttsY}</td>
+        <td class="odds-value click-filter" onclick="window.setAbsFilter('mFilter1', '=${homeOdd !== '-' ? homeOdd : ''}')">${homeOdd}</td>
+        <td class="odds-value click-filter" onclick="window.setAbsFilter('mFilterX', '=${drawOdd !== '-' ? drawOdd : ''}')">${drawOdd}</td>
+        <td class="odds-value click-filter" onclick="window.setAbsFilter('mFilter2', '=${awayOdd !== '-' ? awayOdd : ''}')">${awayOdd}</td>
+        <td class="odds-value click-filter" onclick="window.setAbsFilter('mFilterOU25', '<=${ouOver !== '-' ? ouOver : ''}')">${ouOver}</td>
+        <td class="odds-value click-filter" onclick="window.setAbsFilter('mFilterBTTS', '<=${bttsY !== '-' ? bttsY : ''}')">${bttsY}</td>
         <td style="color:var(--accent); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterHL', '=${hL !== "-" ? hL : ""}')">${hL}</td>
         <td style="color:var(--accent); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterAL', '=${aL !== "-" ? aL : ""}')">${aL}</td>
         <td style="color:var(--accent); font-weight:600;" class="click-filter" onclick="window.setAbsFilter('mFilterTL', '=${tL !== "-" ? tL : ""}')">${tL}</td>
