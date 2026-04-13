@@ -1118,9 +1118,13 @@ el.btnApply.addEventListener("click", () => {
   refreshAll();
 });
 el.btnClear.addEventListener("click", () => {
+  if (typeof modelFilterTimer !== "undefined" && modelFilterTimer) clearTimeout(modelFilterTimer);
   [el.fSearch, el.fDateFrom, el.fDateTo].forEach((i) => (i.value = ""));
   el.fCountry.value = ""; el.fLeague.value = ""; el.fSeason.value = "";
   el.fResult.value = "";
+  if (el.fUpcomingOnly) el.fUpcomingOnly.checked = false;
+  if (el.fOddsType) el.fOddsType.value = "all";
+  if (el.fBookmaker) el.fBookmaker.value = "bet365";
   const fSelect = document.getElementById("fixtureSelect");
   if (fSelect) fSelect.value = "";
   // Clear advanced filters
