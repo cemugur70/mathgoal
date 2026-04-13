@@ -929,6 +929,12 @@ async function loadModelMatches() {
   if (fMO25) filters.fMO25 = fMO25;
   if (fFav) filters.fFav = fFav;
 
+  if (f1) filters.f1 = f1;
+  if (fX) filters.fX = fX;
+  if (f2) filters.f2 = f2;
+  if (fOU25) filters.fOU25 = fOU25;
+  if (fBTTS) filters.fBTTS = fBTTS;
+
   const params = new URLSearchParams(filters);
 
   el.modelBody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:40px; color:var(--text-muted);"><span class="spinner"></span> Hesaplanıyor...</td></tr>`;
@@ -956,21 +962,24 @@ async function loadModelMatches() {
 function checkFilterCondition(val, filterStr) {
   if (!filterStr) return true;
   if (val == null || val === "-") return false;
-  const t = filterStr.replace('%', '').trim();
-  const numVal = parseFloat(val);
-
   
-  if (t.startsWith(">=")) {
-    return !isNaN(numVal) && numVal >= parseFloat(t.substring(2));
-  } else if (t.startsWith("<=")) {
-    return !isNaN(numVal) && numVal <= parseFloat(t.substring(2));
-  } else if (t.startsWith(">")) {
-    return !isNaN(numVal) && numVal > parseFloat(t.substring(1));
-  } else if (t.startsWith("<")) {
-    return !isNaN(numVal) && numVal < parseFloat(t.substring(1));
-  } else if (t.startsWith("=")) {
-    return !isNaN(numVal) && numVal === parseFloat(t.substring(1));
+  const t = String(filterStr).trim().replace(/%/g, "");
+  if (!t) return true;
+  
+  const filterNum = parseFloat(t.replace(/[^0-9.-]/g, ""));
+  const n = Number(val);
+  
+  if (Number.isNaN(filterNum) || Number.isNaN(n)) {
+    return String(val).toLowerCase().includes(t.toLowerCase());
   }
+
+  if (t.startsWith(">=")) return n >= filterNum;
+  if (t.startsWith("<=")) return n <= filterNum;
+  if (t.startsWith(">")) return n > filterNum;
+  if (t.startsWith("<")) return n < filterNum;
+  if (t.startsWith("=")) return Math.abs(n - filterNum) < 0.001;
+  
+  if (Math.abs(n - filterNum) < 0.001) return true;
   return String(val).toLowerCase().includes(t.toLowerCase());
 }
 
@@ -1123,6 +1132,14 @@ el.btnClear.addEventListener("click", () => {
     if (minusId) minusId.value = "";
     if (plusId) plusId.value = "";
   });
+  // Clear model tab filters
+  [
+    el.mFilterDate, el.mFilterLeague, el.mFilterHome, el.mFilterAway,
+    el.mFilterHL, el.mFilterAL, el.mFilterTL,
+    el.mFilterMBTTS, el.mFilterMO25, el.mFilterScore,
+    el.mFilter1, el.mFilterX, el.mFilter2, el.mFilterOU25, el.mFilterBTTS
+  ].forEach(i => { if (i) i.value = ""; });
+  if (el.mFilterFav) el.mFilterFav.value = "";
   resetMatchPagination();
   state.order = "desc";
   clearSelectedMatch();

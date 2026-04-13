@@ -55,14 +55,14 @@ app.post("/api/admin/start-backfill", requireIngestKey, (req, res) => {
 
 let isBackfillRunning = false;
 app.get("/api/admin/start-backfill", (req, res) => {
-  if (isBackfillRunning) return res.send("İşlem zaten devam ediyor...");
+  if (isBackfillRunning) return res.send("Ä°ÅŸlem zaten devam ediyor...");
   isBackfillRunning = true;
   exec("npm run backfill", (err, stdout, stderr) => {
     isBackfillRunning = false;
     if (err) console.error("Backfill Error:", err);
     console.log("Backfill Finished");
   });
-  res.send("✅ Geriye Dönük Hesaplama (Backfill) arka planda başlatıldı! Yaklaşık 15-20 dakika içinde tüm 1 Milyon maçın tahminleri veritabanına kaydedilecektir. Lütfen bu sekmeyi kapatın ve bekleyin.");
+  res.send("âœ… Geriye DÃ¶nÃ¼k Hesaplama (Backfill) arka planda baÅŸlatÄ±ldÄ±! YaklaÅŸÄ±k 15-20 dakika iÃ§inde tÃ¼m 1 Milyon maÃ§Ä±n tahminleri veritabanÄ±na kaydedilecektir. LÃ¼tfen bu sekmeyi kapatÄ±n ve bekleyin.");
 });
 
 app.use(
@@ -96,7 +96,7 @@ function normalizeCursorTime(value, orderDir) {
   return orderDir === "ASC" ? "23:59:59.999999" : "00:00:00";
 }
 
-// ─── Shared: Odds range filter builder ─────────────────────────────
+// â”€â”€â”€ Shared: Odds range filter builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ODDS_KEY_MAP = {
   // MS 1X2
   odds_1: { closing: "home" },
@@ -372,7 +372,7 @@ app.get("/api/matches", async (req, res, next) => {
           WHEN m.match_time IS NOT NULL THEN TO_CHAR(m.match_time, 'HH24:MI')
           ELSE mac.raw_data->>'SAAT'
         END AS match_time_display,
-        mac.raw_data->>'İY' AS iy,
+        mac.raw_data->>'Ä°Y' AS iy,
         (mac.raw_data->>'opening_${bookmaker}_home')::numeric AS opening_odds_1,
         (mac.raw_data->>'opening_${bookmaker}_draw')::numeric AS opening_odds_x,
         (mac.raw_data->>'opening_${bookmaker}_away')::numeric AS opening_odds_2,
@@ -417,7 +417,7 @@ app.get("/api/matches", async (req, res, next) => {
   }
 });
 
-// ─── Matches Model Endpoint ──────────────────────────────────────────────────
+// â”€â”€â”€ Matches Model Endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MODEL_INPUT_SUFFIXES = {
   homeOdd: ["home"],
   drawOdd: ["draw"],
@@ -488,8 +488,8 @@ function parseSqlCondition(col, filterStr, values, scale = 1) {
 }
 
 /**
- * Model hesaplama filtreleri için: düz sayı girildiğinde = (tam eşleşme) olarak SQL'e çevir.
- * Örn: "1.22" → mc.home_lambda = 1.22, ">=1.5" → mc.home_lambda >= 1.5
+ * Model hesaplama filtreleri iÃ§in: dÃ¼z sayÄ± girildiÄŸinde = (tam eÅŸleÅŸme) olarak SQL'e Ã§evir.
+ * Ã–rn: "1.22" â†’ mc.home_lambda = 1.22, ">=1.5" â†’ mc.home_lambda >= 1.5
  */
 function parseModelSqlCondition(col, filterStr, values, scale = 1) {
   if (!filterStr) return null;
@@ -555,7 +555,7 @@ app.get("/api/matches/model", async (req, res, next) => {
     const limit = Math.min(toPositiveInt(req.query.limit, 100), 500);
     const bookmaker = (req.query.bookmaker || "bet365").trim();
     const orderDir = req.query.order === 'asc' ? 'ASC' : 'DESC';
-    const sortDateExpr = orderDir === "ASC" ? "COALESCE(m.match_date, DATE '9999-12-31')" : "COALESCE(m.match_date, DATE '0001-01-01')";
+    const sortDateExpr = orderDir === "ASC" ? "COALESCE(m.match_date, DATE '9999-12-31')" : "COALESCE(m.match_date, DATE '0001-01-01')" ;
     const sortTimeExpr = orderDir === "ASC" ? "COALESCE(m.match_time, TIME '23:59:59.999999')" : "COALESCE(m.match_time, TIME '00:00:00')";
 
     const values = [];
@@ -566,7 +566,9 @@ app.get("/api/matches/model", async (req, res, next) => {
     const bmIdx = values.length;
     const allFilters = [...filters, `mac.bookmaker = $${bmIdx}`, ...oddsFilters];
 
-    // Model DB Filters — pushed directly into SQL WHERE
+    // Model filters — always LEFT JOIN so unbackfilled rows are still reachable.
+    // Model-specific filters applied in-memory after on-the-fly prediction so ALL
+    // 242k calculable matches are searchable, not just the backfilled ones.
     const fHL = req.query.fHL;
     const fAL = req.query.fAL;
     const fTL = req.query.fTL;
@@ -578,54 +580,28 @@ app.get("/api/matches/model", async (req, res, next) => {
     const fLeague = (req.query.fLeague || "").trim();
     const fHome = (req.query.fHome || "").trim();
     const fAway = (req.query.fAway || "").trim();
+    const f1 = (req.query.f1 || "").trim();
+    const fX = (req.query.fX || "").trim();
+    const f2 = (req.query.f2 || "").trim();
+    const fOU25 = (req.query.fOU25 || "").trim();
+    const fBTTS = (req.query.fBTTS || "").trim();
 
-    const hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore);
+    const hasModelFilters = !!(fHL || fAL || fTL || fMBTTS || fMO25 || fFav || fScore || f1 || fX || f2 || fOU25 || fBTTS);
 
-    // When model filters exist, use INNER JOIN to require model_calculations row
-    const modelJoinType = hasModelFilters ? "INNER JOIN" : "LEFT JOIN";
-    const modelJoins = `${modelJoinType} model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
+    // Always LEFT JOIN — never restrict to backfilled rows only
+    const modelJoins = `LEFT JOIN model_calculations mc ON m.match_id = mc.match_id AND mc.bookmaker = $${bmIdx} AND mc.odds_type = 'closing'`;
 
-    // Build SQL conditions for model filters on mc.* columns
-    const hlCond = parseModelSqlCondition("mc.home_lambda", fHL, values);
-    if (hlCond) allFilters.push(hlCond);
-    const alCond = parseModelSqlCondition("mc.away_lambda", fAL, values);
-    if (alCond) allFilters.push(alCond);
-    const tlCond = parseModelSqlCondition("mc.total_lambda", fTL, values);
-    if (tlCond) allFilters.push(tlCond);
-    // BTTS and O25 stored as 0..1 decimals, frontend sends >=50 meaning >=0.50
-    const bttsCond = parseModelSqlCondition("mc.model_btts", fMBTTS, values, 0.01);
-    if (bttsCond) allFilters.push(bttsCond);
-    const o25Cond = parseModelSqlCondition("mc.model_over25", fMO25, values, 0.01);
-    if (o25Cond) allFilters.push(o25Cond);
-    if (fFav) {
-      values.push(fFav);
-      allFilters.push(`mc.favorite_side = $${values.length}`);
-    }
-    if (fScore) {
-      values.push(`%${fScore}%`);
-      allFilters.push(`mc.rounded_score ILIKE $${values.length}`);
-    }
-
-    if (fDate) {
-      values.push(`%${fDate}%`);
-      allFilters.push(`TO_CHAR(m.match_date, 'DD.MM.YYYY') ILIKE $${values.length}`);
-    }
-    if (fLeague) {
-      values.push(`%${fLeague}%`);
-      allFilters.push(`m.league ILIKE $${values.length}`);
-    }
-    if (fHome) {
-      values.push(`%${fHome}%`);
-      allFilters.push(`m.home_team ILIKE $${values.length}`);
-    }
-    if (fAway) {
-      values.push(`%${fAway}%`);
-      allFilters.push(`m.away_team ILIKE $${values.length}`);
-    }
+    // SQL-pushable text/date filters
+    if (fDate) { values.push(`%${fDate}%`); allFilters.push(`TO_CHAR(m.match_date, 'DD.MM.YYYY') ILIKE $${values.length}`); }
+    if (fLeague) { values.push(`%${fLeague}%`); allFilters.push(`m.league ILIKE $${values.length}`); }
+    if (fHome) { values.push(`%${fHome}%`); allFilters.push(`m.home_team ILIKE $${values.length}`); }
+    if (fAway) { values.push(`%${fAway}%`); allFilters.push(`m.away_team ILIKE $${values.length}`); }
 
     const whereClause = allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : "";
 
-    values.push(limit);
+    // Fetch more rows when model filters active so in-memory filter can find enough matches
+    const fetchBatch = hasModelFilters ? Math.min(limit * 50, 10000) : limit;
+    values.push(fetchBatch);
     const limitIdx = values.length;
 
     const dataSql = `
@@ -648,92 +624,112 @@ app.get("/api/matches/model", async (req, res, next) => {
       LIMIT $${limitIdx}
     `;
 
-    // Run count query in parallel when filters are active
-    const countValues = values.slice(0, -1); // exclude LIMIT value
-    const countSql = hasModelFilters ? `
-      SELECT COUNT(*)::int AS total
-      FROM matches m
-      INNER JOIN match_all_columns mac ON m.match_id = mac.match_id
-      ${modelJoins}
-      ${whereClause}
-    ` : null;
-
-    const [dataResult, countResult] = await Promise.all([
-      db.query(dataSql, values),
-      countSql ? db.query(countSql, countValues) : Promise.resolve(null),
-    ]);
-
+    const dataResult = await db.query(dataSql, values);
     const { rows } = dataResult;
-    const totalFiltered = countResult ? (countResult.rows[0]?.total || 0) : null;
 
-    const mapped = rows.map((r) => {
-      const predictionInput = buildPredictionInput(r.raw_data || {}, bookmaker, "closing");
-      const cols = {
-        "1": predictionInput.homeOdd,
-        X: predictionInput.drawOdd,
-        "2": predictionInput.awayOdd,
-        [`2 5 ${"\u00dc"}st`]: predictionInput.ftOver25,
-        "2 5 Alt": predictionInput.ftUnder25,
-        "btts true": predictionInput.bttsYes,
-        "btts false": predictionInput.bttsNo,
-      };
-
-      const homeOdd = parseFloat(cols["AÇ 1"] || cols["1"]);
-      const drawOdd = parseFloat(cols["AÇ X"] || cols["X"]);
-      const awayOdd = parseFloat(cols["AÇ 2"] || cols["2"]);
-      const ftOver25 = parseFloat(cols["AÇ 2 5 Üst"] || cols["2 5 Üst"]);
-      const ftUnder25 = parseFloat(cols["AÇ 2 5 Alt"] || cols["2 5 Alt"]);
-      const bttsYes = parseFloat(cols["AÇ btts true"] || cols["btts true"]);
-      const bttsNo = parseFloat(cols["AÇ btts false"] || cols["btts false"]);
-
-      let prediction = null;
-      let ok = false;
-
+    // Resolve prediction for a row (cached or on-the-fly)
+    function getPrediction(r) {
       if (r.home_lambda != null && isModelCalculationFresh(r.source_scraped_at, r.raw_scraped_at)) {
-        prediction = {
+        return {
           homeLambda: parseFloat(r.home_lambda),
           awayLambda: parseFloat(r.away_lambda),
           totalLambda: parseFloat(r.total_lambda),
           modelBTTS: parseFloat(r.model_btts),
           modelOver25: parseFloat(r.model_over25),
           favoriteSide: r.favorite_side,
-          roundedScore: r.rounded_score
+          roundedScore: r.rounded_score,
         };
-        ok = true;
-      } else {
-        const payload = buildModelCalculationPayload(r.raw_data || {}, bookmaker, "closing");
-        if (payload) {
-          prediction = payload.prediction;
-          ok = true;
-        }
-
-        syncModelCalculationCache(db, {
-          matchId: r.match_id,
-          bookmaker,
-          rawData: r.raw_data || {},
-          scrapedAt: r.raw_scraped_at,
-          oddsType: "closing",
-        }).catch(() => {});
       }
+      const payload = buildModelCalculationPayload(r.raw_data || {}, bookmaker, "closing");
+      if (payload) {
+        syncModelCalculationCache(db, {
+          matchId: r.match_id, bookmaker,
+          rawData: r.raw_data || {}, scrapedAt: r.raw_scraped_at, oddsType: "closing",
+        }).catch(() => {});
+        return payload.prediction;
+      }
+      return null;
+    }
 
-      return {
-        match_id: r.match_id,
-        match_date: r.match_date,
-        match_time_display: r.match_time_display,
-        league: r.league,
-        home_team: r.home_team,
-        away_team: r.away_team,
-        home_score: r.home_score,
-        away_score: r.away_score,
-        odds: {
-          homeOdd, drawOdd, awayOdd, ftOver25, ftUnder25, bttsYes, bttsNo
-        },
-        prediction,
-        ok,
-      };
+    // In-memory model filter (supports >=, <=, >, <, = prefixes or plain number = exact)
+    function checkModelVal(val, filterStr) {
+      if (!filterStr) return true;
+      const t = String(filterStr).trim().replace(/%/g, "");
+      if (!t) return true;
+      const numVal = parseFloat(t.replace(/[^0-9.-]/g, ""));
+      if (!Number.isFinite(numVal)) return true;
+      if (val == null || !Number.isFinite(Number(val))) return false;
+      const n = Number(val);
+      if (t.startsWith(">=")) return n >= numVal;
+      if (t.startsWith("<=")) return n <= numVal;
+      if (t.startsWith(">")) return n > numVal;
+      if (t.startsWith("<")) return n < numVal;
+      if (t.startsWith("=")) return Math.abs(n - numVal) < 0.001;
+      return Math.abs(n - numVal) < 0.001; // bare number: exact match
+    }
+
+    function passesModelFilter(prediction, predictionInput) {
+      if (!hasModelFilters) return true;
+      if (f1 && !checkModelVal(predictionInput.homeOdd, f1)) return false;
+      if (fX && !checkModelVal(predictionInput.drawOdd, fX)) return false;
+      if (f2 && !checkModelVal(predictionInput.awayOdd, f2)) return false;
+      if (fOU25 && !checkModelVal(predictionInput.ftOver25, fOU25)) return false;
+      if (fBTTS && !checkModelVal(predictionInput.bttsYes, fBTTS)) return false;
+
+      if (!prediction) return false;
+      if (fHL && !checkModelVal(prediction.homeLambda, fHL)) return false;
+      if (fAL && !checkModelVal(prediction.awayLambda, fAL)) return false;
+      if (fTL && !checkModelVal(prediction.totalLambda, fTL)) return false;
+      // BTTS/O25 stored as 0..1, frontend sends >=50 meaning >=50%
+      if (fMBTTS && !checkModelVal(prediction.modelBTTS != null ? prediction.modelBTTS * 100 : null, fMBTTS)) return false;
+      if (fMO25 && !checkModelVal(prediction.modelOver25 != null ? prediction.modelOver25 * 100 : null, fMO25)) return false;
+      if (fFav && prediction.favoriteSide !== fFav) return false;
+      if (fScore && !String(prediction.roundedScore || "").toLowerCase().includes(fScore.toLowerCase())) return false;
+      return true;
+    }
+
+    const mapped = [];
+    let totalFiltered = 0;
+
+    for (const r of rows) {
+      const predictionInput = buildPredictionInput(r.raw_data || {}, bookmaker, "closing");
+      const prediction = getPrediction(r);
+      const ok = prediction != null;
+
+      if (!passesModelFilter(prediction, predictionInput)) continue;
+
+      totalFiltered++;
+      if (mapped.length < limit) {
+        mapped.push({
+          match_id: r.match_id,
+          match_date: r.match_date,
+          match_time_display: r.match_time_display,
+          league: r.league,
+          home_team: r.home_team,
+          away_team: r.away_team,
+          home_score: r.home_score,
+          away_score: r.away_score,
+          odds: {
+            homeOdd: parseFloat(predictionInput.homeOdd),
+            drawOdd: parseFloat(predictionInput.drawOdd),
+            awayOdd: parseFloat(predictionInput.awayOdd),
+            ftOver25: parseFloat(predictionInput.ftOver25),
+            ftUnder25: parseFloat(predictionInput.ftUnder25),
+            bttsYes: parseFloat(predictionInput.bttsYes),
+            bttsNo: parseFloat(predictionInput.bttsNo),
+          },
+          prediction,
+          ok,
+        });
+      }
+    }
+
+    res.json({
+      ok: true,
+      data: mapped,
+      total_filtered: hasModelFilters ? totalFiltered : null,
+      scanned: rows.length,
     });
-
-    res.json({ ok: true, data: mapped, total_filtered: totalFiltered });
   } catch (error) {
     next(error);
   }
@@ -907,12 +903,12 @@ app.get("/api/stats/markets", async (req, res, next) => {
       SELECT
         COUNT(*)::int AS total_matches,
 
-        -- Maç Sonucu (Full Time Result)
+        -- MaÃ§ Sonucu (Full Time Result)
         COUNT(*) FILTER (WHERE m.full_time_result = 'MS 1')::int AS ft_home_wins,
         COUNT(*) FILTER (WHERE m.full_time_result = 'MS 0')::int AS ft_draws,
         COUNT(*) FILTER (WHERE m.full_time_result = 'MS 2')::int AS ft_away_wins,
 
-        -- Skor tabanlı istatistikler
+        -- Skor tabanlÄ± istatistikler
         ROUND(AVG(m.home_score)::numeric, 2) AS avg_home_goals,
         ROUND(AVG(m.away_score)::numeric, 2) AS avg_away_goals,
         ROUND(AVG(COALESCE(m.home_score,0) + COALESCE(m.away_score,0))::numeric, 2) AS avg_total_goals,
@@ -921,19 +917,19 @@ app.get("/api/stats/markets", async (req, res, next) => {
         COUNT(*) FILTER (WHERE m.home_score > 0 AND m.away_score > 0)::int AS btts_yes,
         COUNT(*) FILTER (WHERE m.home_score = 0 OR m.away_score = 0)::int AS btts_no,
 
-        -- Alt/Üst 2.5
+        -- Alt/Ãœst 2.5
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 2)::int AS over_2_5,
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) <= 2)::int AS under_2_5,
 
-        -- Alt/Üst 1.5
+        -- Alt/Ãœst 1.5
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 1)::int AS over_1_5,
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) <= 1)::int AS under_1_5,
 
-        -- Alt/Üst 3.5
+        -- Alt/Ãœst 3.5
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 3)::int AS over_3_5,
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) <= 3)::int AS under_3_5,
 
-        -- Alt/Üst 0.5
+        -- Alt/Ãœst 0.5
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) > 0)::int AS over_0_5,
         COUNT(*) FILTER (WHERE COALESCE(m.home_score,0) + COALESCE(m.away_score,0) = 0)::int AS under_0_5,
 
@@ -949,16 +945,16 @@ app.get("/api/stats/markets", async (req, res, next) => {
         COUNT(*) FILTER (WHERE m.away_score >= 2)::int AS away_scored_2plus,
         COUNT(*) FILTER (WHERE m.away_score >= 3)::int AS away_scored_3plus,
 
-        -- Tek/Çift
+        -- Tek/Ã‡ift
         COUNT(*) FILTER (WHERE (COALESCE(m.home_score,0) + COALESCE(m.away_score,0)) % 2 = 1)::int AS total_odd,
         COUNT(*) FILTER (WHERE (COALESCE(m.home_score,0) + COALESCE(m.away_score,0)) % 2 = 0)::int AS total_even,
 
-        -- Çifte Şans
+        -- Ã‡ifte Åans
         COUNT(*) FILTER (WHERE m.full_time_result IN ('MS 1', 'MS 0'))::int AS dc_1x,
         COUNT(*) FILTER (WHERE m.full_time_result IN ('MS 0', 'MS 2'))::int AS dc_x2,
         COUNT(*) FILTER (WHERE m.full_time_result IN ('MS 1', 'MS 2'))::int AS dc_12,
 
-        -- İlk yarı gol
+        -- Ä°lk yarÄ± gol
         COUNT(*) FILTER (WHERE m.home_score IS NOT NULL)::int AS has_score
 
       FROM matches m
@@ -979,12 +975,12 @@ app.get("/api/stats/markets", async (req, res, next) => {
       total_matches: total,
       bookmaker,
       markets: {
-        "Maç Sonucu": {
-          "Ev Kazanır (1)": { count: row.ft_home_wins, pct: pct(row.ft_home_wins) },
+        "MaÃ§ Sonucu": {
+          "Ev KazanÄ±r (1)": { count: row.ft_home_wins, pct: pct(row.ft_home_wins) },
           "Beraberlik (X)": { count: row.ft_draws, pct: pct(row.ft_draws) },
-          "Dep. Kazanır (2)": { count: row.ft_away_wins, pct: pct(row.ft_away_wins) },
+          "Dep. KazanÄ±r (2)": { count: row.ft_away_wins, pct: pct(row.ft_away_wins) },
         },
-        "Çifte Şans": {
+        "Ã‡ifte Åans": {
           "1X (Ev veya Ber.)": { count: row.dc_1x, pct: pct(row.dc_1x) },
           "X2 (Ber. veya Dep.)": { count: row.dc_x2, pct: pct(row.dc_x2) },
           "12 (Ev veya Dep.)": { count: row.dc_12, pct: pct(row.dc_12) },
@@ -993,27 +989,27 @@ app.get("/api/stats/markets", async (req, res, next) => {
           "KG VAR": { count: row.btts_yes, pct: pct(row.btts_yes) },
           "KG YOK": { count: row.btts_no, pct: pct(row.btts_no) },
         },
-        "Alt/Üst 2.5": {
-          "2.5 Üst": { count: row.over_2_5, pct: pct(row.over_2_5) },
+        "Alt/Ãœst 2.5": {
+          "2.5 Ãœst": { count: row.over_2_5, pct: pct(row.over_2_5) },
           "2.5 Alt": { count: row.under_2_5, pct: pct(row.under_2_5) },
         },
-        "Alt/Üst 1.5": {
-          "1.5 Üst": { count: row.over_1_5, pct: pct(row.over_1_5) },
+        "Alt/Ãœst 1.5": {
+          "1.5 Ãœst": { count: row.over_1_5, pct: pct(row.over_1_5) },
           "1.5 Alt": { count: row.under_1_5, pct: pct(row.under_1_5) },
         },
-        "Alt/Üst 3.5": {
-          "3.5 Üst": { count: row.over_3_5, pct: pct(row.over_3_5) },
+        "Alt/Ãœst 3.5": {
+          "3.5 Ãœst": { count: row.over_3_5, pct: pct(row.over_3_5) },
           "3.5 Alt": { count: row.under_3_5, pct: pct(row.under_3_5) },
         },
-        "Alt/Üst 0.5": {
-          "0.5 Üst": { count: row.over_0_5, pct: pct(row.over_0_5) },
+        "Alt/Ãœst 0.5": {
+          "0.5 Ãœst": { count: row.over_0_5, pct: pct(row.over_0_5) },
           "0.5 Alt (Gol Yok)": { count: row.under_0_5, pct: pct(row.under_0_5) },
         },
-        "Tek/Çift": {
+        "Tek/Ã‡ift": {
           "Tek": { count: row.total_odd, pct: pct(row.total_odd) },
-          "Çift": { count: row.total_even, pct: pct(row.total_even) },
+          "Ã‡ift": { count: row.total_even, pct: pct(row.total_even) },
         },
-        "Gol Ortalamaları": {
+        "Gol OrtalamalarÄ±": {
           "Ev Sahibi Ort. Gol": { value: row.avg_home_goals },
           "Deplasman Ort. Gol": { value: row.avg_away_goals },
           "Toplam Ort. Gol": { value: row.avg_total_goals },
@@ -1037,7 +1033,7 @@ app.get("/api/stats/markets", async (req, res, next) => {
   }
 });
 
-// ─── Ingestion API (Python scraper -> DB via HTTPS) ────────────────────────
+// â”€â”€â”€ Ingestion API (Python scraper -> DB via HTTPS) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function requireIngestKey(req, res, next) {
   if (!config.ingestApiKey) {
     return res.status(503).json({ message: "INGEST_API_KEY yapilandirilmamis." });
@@ -1051,7 +1047,7 @@ function requireIngestKey(req, res, next) {
   next();
 }
 
-// POST /api/ingest/batch — match_all_columns tablosuna batch upsert
+// POST /api/ingest/batch â€” match_all_columns tablosuna batch upsert
 app.post("/api/ingest/batch", requireIngestKey, async (req, res, next) => {
   try {
     const { rows, bookmaker } = req.body;
@@ -1097,7 +1093,7 @@ app.post("/api/ingest/batch", requireIngestKey, async (req, res, next) => {
   }
 });
 
-// POST /api/ingest/sync-matches — match_all_columns -> matches senkronizasyonu
+// POST /api/ingest/sync-matches â€” match_all_columns -> matches senkronizasyonu
 app.post("/api/ingest/sync-matches", requireIngestKey, async (req, res, next) => {
   try {
     // source_url NOT NULL kisitini kaldir (varsa)
@@ -1112,16 +1108,16 @@ app.post("/api/ingest/sync-matches", requireIngestKey, async (req, res, next) =>
       )
       SELECT DISTINCT ON (match_id)
         match_id,
-        raw_data->>'ÜLKE',
-        raw_data->>'LİG',
+        raw_data->>'ÃœLKE',
+        raw_data->>'LÄ°G',
         raw_data->>'SEZON',
-        CASE WHEN raw_data->>'TARİH' ~ '^\\d'
-             THEN TO_DATE(raw_data->>'TARİH', 'DD.MM.YYYY')
+        CASE WHEN raw_data->>'TARÄ°H' ~ '^\\d'
+             THEN TO_DATE(raw_data->>'TARÄ°H', 'DD.MM.YYYY')
              ELSE NULL END,
         CASE WHEN raw_data->>'SAAT' ~ '^\\d{1,2}:\\d{2}'
              THEN (raw_data->>'SAAT')::time
              ELSE NULL END,
-        raw_data->>'EV SAHİBİ',
+        raw_data->>'EV SAHÄ°BÄ°',
         raw_data->>'DEPLASMAN',
         CASE WHEN raw_data->>'MS' ~ '^\\d'
              THEN SPLIT_PART(raw_data->>'MS', '-', 1)::int
@@ -1133,8 +1129,8 @@ app.post("/api/ingest/sync-matches", requireIngestKey, async (req, res, next) =>
         'https://www.flashscore.com/match/' || match_id || '/',
         scraped_at
       FROM match_all_columns
-      WHERE raw_data->>'EV SAHİBİ' IS NOT NULL
-        AND raw_data->>'EV SAHİBİ' != ''
+      WHERE raw_data->>'EV SAHÄ°BÄ°' IS NOT NULL
+        AND raw_data->>'EV SAHÄ°BÄ°' != ''
       ORDER BY match_id, scraped_at DESC
       ON CONFLICT (match_id) DO UPDATE SET
         country = EXCLUDED.country,
@@ -1161,7 +1157,7 @@ app.post("/api/ingest/sync-matches", requireIngestKey, async (req, res, next) =>
   }
 });
 
-// GET /api/ingest/status — DB durumunu kontrol et
+// GET /api/ingest/status â€” DB durumunu kontrol et
 app.get("/api/ingest/status", requireIngestKey, async (req, res, next) => {
   try {
     const macResult = await db.query("SELECT COUNT(*)::int AS c FROM match_all_columns");
@@ -1175,7 +1171,7 @@ app.get("/api/ingest/status", requireIngestKey, async (req, res, next) => {
   }
 });
 
-// ─── Poisson Prediction API ────────────────────────────────────────────────
+// â”€â”€â”€ Poisson Prediction API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.use("/api/predict", predictRoutes);
 app.use("/api/backtest", backtestRoutes);
 
