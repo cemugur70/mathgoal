@@ -1,0 +1,3 @@
+import {trainPlayerGraphModels} from './player-graph-training.mjs';
+import {trainGbdtModel} from './gbdt-training.mjs';
+self.onmessage=({data})=>{try{const linear=trainPlayerGraphModels(data.rows,data.options),gbdt=trainGbdtModel(data.rows,{...data.options,networkLayer:false}),marketNetwork=trainGbdtModel(data.rows,{...data.options,networkLayer:true}),season=trainGbdtModel(data.rows,{...data.options,networkLayer:true,seasonLayer:true}),pi=data.pi?trainGbdtModel(data.rows,{...data.options,piLayer:true}):null;self.postMessage({linear,gbdt,marketNetwork,season,pi});}catch(e){self.postMessage({error:e.message});}};

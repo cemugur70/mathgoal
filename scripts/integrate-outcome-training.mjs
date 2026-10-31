@@ -1,0 +1,18 @@
+import {readFile,writeFile} from 'node:fs/promises';
+const file=new URL('../dist/app.mjs',import.meta.url);let source=await readFile(file,'utf8');
+source="import {trainingHtml} from './training-ui.mjs?v=2026-10-26.12';\n"+source;
+const replace=(before,after)=>{if(!source.includes(before))throw Error('Missing app anchor: '+before);source=source.replace(before,after);};
+replace('function render(){heading();overview();','function render(){heading();overview();$(\'#view-overview\').insertAdjacentHTML(\'afterbegin\',trainingHtml(bundle,result,{esc,number,pct,date}));');
+replace('bundle=await r.json();if(id',"bundle=await r.json();bundle.trainingData=await loadTrainingData();if(id");
+replace('async function load(requestedId=',"let trainingDataPromise;\nfunction loadTrainingData(){return trainingDataPromise??=fetch('/data/training.json?v=2026-10-26.12',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null);}\nasync function load(requestedId=");
+replace('Model henüz bağımsız bir veri kümesinde kalibre edilmedi.','Eğitim ve ayrılan test maçlarının sonuçları yukarıdaki öğrenme kaydında gösterilir.');
+replace('0–8 gol ızgarası yeniden normalize edilir.','Sonuçlardan öğrenilen düzeltme ve seçilen gol dağılımı uygulanır; ayrılan test maçları öğrenme kaydında raporlanır.');
+replace('model 0–8 golü hesaplar.','model seçilen dağılıma göre 0–8 veya 0–12 golü hesaplar.');
+replace('Test temel takım modeline aittir; oyuncu ve H2H katmanlarını doğrulamaz.','Bu ek test önceki takım tabanına aittir. Eğitilen modelin ayrı test sonucu Genel bakıştaki öğrenme kaydındadır. Oyuncu/H2H katmanları ve kadro değişiklikleri bu testte doğrulanmaz.');
+await writeFile(file,source);
+const simulation=new URL('../dist/simulation-ui.mjs',import.meta.url);let sim=await readFile(simulation,'utf8');
+sim=sim.replace('root.innerHTML=`<div class="section-heading">','root.innerHTML=`<div class="notice sim-notice" id="sim-training"><b>Geçmiş sonuçlardan öğrenme: ${input.training?.accepted?\'etkin\':\'takım tabanı\'}.</b> ${input.training?.counts?.eligible??0} uygun geçmiş maç · ${input.training?.counts?.test??0} ayrı test maçı. Skor projeksiyonu ile aynı eğitilmiş gol tabanı ve ${input.goalShape?\'negatif binom\':\'Poisson\'} dağılımı kullanılır; seçtiğiniz kadro ve değişiklikler bu tabanı günceller.</div><div class="section-heading">');
+sim=sim.replace('Başlangıç gol yoğunlukları takım ağından gelir:', 'Başlangıç gol yoğunlukları skor projeksiyonuyla aynı takım ve eğitim tabanından gelir:');
+sim=sim.replace('Genel bakış, benzer maç skorlarını Poisson dağılımıyla karıştırır ve etkin oyuncu/H2H katmanlarını içerir. Bu simülasyon takım ağının Poisson yoğunluklarıyla başlar; seçilen kadro ve değişiklikleri ayrıca uygular. Benzer maç karışımını ve H2H düzeltmesini eklemez.', 'Eğitim etkinse genel bakış ve simülasyon aynı öğrenilmiş gol tabanını ve seçilen dağılımı kullanır. Negatif binom seçilmişse maç boyunca korunan bir rastgele gol yoğunluğu, yüksek skorlu sonuçların sıklığını da yansıtır. Genel bakış mevcut oyuncu/H2H katmanlarını uygular; simülasyon seçtiğiniz ilk 11 ve değişiklikleri uygular. Bu simülasyon H2H düzeltmesini ayrıca eklemez. Eğitim etkin değilse genel bakıştaki benzer skor karışımı simülasyonda kullanılmaz.');
+await writeFile(simulation,sim);
+const css=new URL('../dist/style.css',import.meta.url);await writeFile(css,(await readFile(css,'utf8'))+'\n.training-report{margin-bottom:22px}.training-report summary{cursor:pointer;color:var(--green);padding:12px 0}.training-report .callout{margin:16px 0}.training-json{max-height:360px;overflow:auto;font-size:11px;line-height:1.6}\n');

@@ -1,0 +1,20 @@
+import {readFile,writeFile,readdir} from 'node:fs/promises';
+const ui=new URL('../dist/training-ui.mjs',import.meta.url);let report=await readFile(ui,'utf8');
+report="import {graphPredictionHtml} from './player-graph-prediction-ui.mjs?v=2026-10-27.3';\n"+report;
+report=report.replace('${actualHtml}<details>','${graphPredictionHtml(t,{esc,number,pct})}${actualHtml}<details>');await writeFile(ui,report);
+const html=new URL('../dist/index.html',import.meta.url);let page=await readFile(html,'utf8');
+page=page.replace('<label class="player-global-toggle"><input type="checkbox" id="player-layer-toggle"', '<label class="prediction-model-field" for="prediction-model">Tahmin modeli<select id="prediction-model"><option value="auto">Otomatik · doğrulama seçsin</option><option value="graph">Oyuncu ağı · deneysel</option><option value="baseline">Öğrenilmiş takım modeli</option></select></label><label class="player-global-toggle"><input type="checkbox" id="player-layer-toggle"');
+await writeFile(html,page);
+const app=new URL('../dist/app.mjs',import.meta.url);let source=await readFile(app,'utf8');
+source=source.replace('h2hLayer:true,',"playerGraphMode:'auto',h2hLayer:true,");
+source=source.replace("$('#form-count').value=String(options.formCount);", "$('#form-count').value=String(options.formCount);$('#prediction-model').value=options.playerGraphMode??'auto';");
+source=source.replace("$('#h2h-layer-toggle').onchange=", "$('#prediction-model').onchange=e=>{options.playerGraphMode=e.target.value;const url=new URL(location.href);url.searchParams.set('model',e.target.value);history.replaceState(null,'',url);testRun=null;recalc();};\n$('#h2h-layer-toggle').onchange=");
+source=source.replace('bundle=await r.json();bundle.trainingData=await loadTrainingData();',"bundle=await r.json();bundle.trainingData=await loadTrainingData();const requestedModel=new URLSearchParams(location.search).get('model');if(['auto','graph','baseline'].includes(requestedModel))options.playerGraphMode=requestedModel;");
+source=source.replace("${result.training?.accepted?'Geçmiş sonuçlarla öğrenildi':", "${result.training?.playerGraph?.active?'Oyuncu ağıyla öğrenildi':result.training?.accepted?'Geçmiş sonuçlarla öğrenildi':");
+source=source.replace('model seçilen dağılıma göre 0–8 veya 0–12 golü hesaplar.', 'model seçilen dağılıma göre 0–${p?.scoreGridMaximum??8} golü hesaplar.');
+await writeFile(app,source);
+const simPath=new URL('../dist/simulation-ui.mjs',import.meta.url);let sim=await readFile(simPath,'utf8');
+sim=sim.replace('${input.training?.counts?.test??0} ayrı test maçı.', '${input.training?.counts?.test??0} ayrı test maçı. <b>Oyuncu ağı: ${input.training?.playerGraph?.active?input.training.playerGraph.status===\'experimental\'?\'deneysel olarak etkin\':\'etkin\':\'otomatik seçim / takım modeli\'}.</b>');
+await writeFile(simPath,sim);
+const css=new URL('../dist/style.css',import.meta.url);await writeFile(css,(await readFile(css,'utf8'))+'\n.prediction-model-field{display:grid;gap:6px;font-size:11px;color:var(--muted)}.graph-prediction{padding:18px;margin:18px 0;background:#15251b;border:1px solid #405738;border-radius:7px}.graph-prediction h3{font:600 14px Manrope,sans-serif;margin:0}.graph-prediction>p{font-size:12px;line-height:1.7}.graph-prediction.experimental{border-color:#8b6748;background:#292319}.graph-prediction.experimental .tag{color:#efbd95}.graph-prediction .card-title{flex-wrap:wrap;gap:10px}\n');
+for(const name of await readdir(new URL('../dist/',import.meta.url))){if(!/\.(mjs|html)$/.test(name))continue;const path=new URL('../dist/'+name,import.meta.url),text=await readFile(path,'utf8');await writeFile(path,text.replaceAll('2026-10-27.2','2026-10-27.3'));}

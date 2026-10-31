@@ -1,0 +1,20 @@
+import {readFile,writeFile,readdir} from 'node:fs/promises';
+const file=new URL('../dist/player-ui.mjs',import.meta.url);let source=await readFile(file,'utf8');
+source="import {mountPlayerExplorer,stopPlayerExplorer} from './player-explorer-ui.mjs?v=2026-10-27.1';\nexport {stopPlayerExplorer};\n"+source;
+source=source.replace('export function renderPlayers(root,ctx){','export function renderPlayers(root,ctx){\n stopPlayerExplorer();');
+source=source.replace('Oyuncudan maça, rakip oyunculara.','Oyuncuların bağlantı haritası.');
+source=source.replace('</p><div class="player-effect card">','</p><div id="player-explorer"></div><div class="player-effect card">');
+const start=source.indexOf('<article class="card spaced"><div class="card-title"><h2>Oyuncu → maç → rakip oyuncular</h2>');
+const end=source.indexOf('<article class="card spaced"><h2>Benzer bireysel profiller</h2>',start);
+if(start<0||end<0)throw Error('Legacy graph boundary missing');source=source.slice(0,start)+source.slice(end);
+const anchor="else root.querySelector('#player-detail').innerHTML='<p class=\"empty\">Bu takımda kayıtlı oyuncu yok.</p>';";
+if(!source.includes(anchor))throw Error('Player mount anchor missing');
+source=source.replace(anchor,anchor+"\n mountPlayerExplorer(root.querySelector('#player-explorer'),ctx,selected,(id,teamId,node)=>{selectNetworkPlayer(id,teamId,{name:node.name,teamName:node.teamName,position:node.position});renderPlayers(root,ctx);root.querySelector('#player-detail')?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});");
+await writeFile(file,source);
+const app=new URL('../dist/app.mjs',import.meta.url);let application=await readFile(app,'utf8');
+application=application.replace('{renderPlayers,selectNetworkPlayer}', '{renderPlayers,selectNetworkPlayer,stopPlayerExplorer}');
+application=application.replace("function go(view){if(view!=='simulation')stopSimulation();", "function go(view){if(view!=='players')stopPlayerExplorer();if(view!=='simulation')stopSimulation();");
+await writeFile(app,application);
+const html=new URL('../dist/index.html',import.meta.url);let page=await readFile(html,'utf8');
+page=page.replace('</head>','<link rel="stylesheet" href="/player-explorer.css?v=2026-10-27.1"></head>');await writeFile(html,page);
+for(const name of await readdir(new URL('../dist/',import.meta.url))){if(!/\.(mjs|html)$/.test(name))continue;const path=new URL('../dist/'+name,import.meta.url),text=await readFile(path,'utf8');await writeFile(path,text.replaceAll('2026-10-26.12','2026-10-27.1'));}

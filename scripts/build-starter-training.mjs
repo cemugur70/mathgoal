@@ -1,0 +1,22 @@
+import {readFile} from 'node:fs/promises';
+import {hashJsonRows,writeJsonRowsAtomic} from './json-source-stream.mjs';
+import {createStarterFeatureIndex,STARTER_FEATURE_NAMES} from '../dist/starter-features.mjs';
+import {createMarketHistoryIndex,MARKET_FEATURE_NAMES} from '../dist/market-model.mjs';
+const file=new URL(process.argv[2]??'../dist/data/training.json',import.meta.url);
+const data=JSON.parse(await readFile(file)),source=JSON.parse(await readFile(new URL('../data/player-graph-source.json',import.meta.url))),labels=JSON.parse(await readFile(new URL('../data/training-source.json',import.meta.url)));
+const index=createStarterFeatureIndex(source.matches),marketIndex=createMarketHistoryIndex([...labels.matches,...source.matches]),targets=new Map(labels.matches.map(m=>[String(m.id),m]));let n=0;
+for(const row of data.rows){const target=targets.get(String(row.id));if(!target)throw Error('Missing target '+row.id);
+ const f=index.features(target,{cutoff:row.date,formCount:row.formCount});
+ if(f.evidence.maxAvailableAt&&Date.parse(f.evidence.maxAvailableAt)>=Date.parse(row.date))throw Error('Future starter feature '+row.id);
+ row.homeStarterFeatures=f.home;row.awayStarterFeatures=f.away;row.starterFeatureMaxAvailableAt=f.evidence.maxAvailableAt;
+ row.starterCoverage=Object.fromEntries(['home','away'].map(s=>[s,{type:f.teams[s].type,count:f.teams[s].profiles.length,withHistory:f.teams[s].withHistory}]));
+ const markets=marketIndex.features(target,{cutoff:row.date});row.homeMarketFeatures=markets.home;row.awayMarketFeatures=markets.away;row.marketFeatureMaxAvailableAt=markets.evidence.maxAvailableAt;
+ row.homeTeam={id:target.home.id,name:target.home.name};row.awayTeam={id:target.away.id,name:target.away.name};row.marketHistoryCounts={home:markets.histories.home.length,away:markets.histories.away.length};
+ if(row.marketFeatureMaxAvailableAt&&Date.parse(row.marketFeatureMaxAvailableAt)>=Date.parse(row.date))throw Error('Future market feature '+row.id);
+ if(++n%500===0)console.log(n+'/'+data.rows.length+' ilk 11 özellik satırı');
+}
+data.schemaVersion=4;data.starterFeatureNames=[...STARTER_FEATURE_NAMES];data.starterPolicy='previous-official-xi-availability-position-v3';data.marketFeatureNames=[...MARKET_FEATURE_NAMES];data.marketPolicy='archive-60-observed-30-beta2-v1';
+data.starterSource={id:source.id,matchCount:source.matches.length};data.marketSource={labelsId:labels.sourceId,playerSourceId:source.id};
+data.id=hashJsonRows({source:data.graphSource,starterSource:data.starterSource,marketSource:data.marketSource,starterPolicy:data.starterPolicy,marketPolicy:data.marketPolicy},data.rows);data.createdAt=new Date().toISOString();
+await writeJsonRowsAtomic(file,data);
+console.log(JSON.stringify({id:data.id,rows:data.rows.length,starterFeatures:STARTER_FEATURE_NAMES.length}));

@@ -1,0 +1,27 @@
+import {readFile,writeFile} from 'node:fs/promises';import {APP_VERSION} from '../dist/release.mjs';
+const root=new URL('../',import.meta.url);
+let c=await readFile(new URL('scripts/collect.mjs',root),'utf8');c=c.replace('depth===0?15:10','depth===0?20:15').replace('f.slice(0,5)','f.slice(0,10)').replace("cutoff:date,depth:2,excluded:","cutoff:date,depth:2,formCount:10,excluded:").replace('Last 5 pre-match competitive fixtures per team; up to 10-15 fixtures','Last 10 pre-match competitive fixtures per team; up to 15-20 fixtures');await writeFile(new URL('scripts/collect.mjs',root),c);
+let p=await readFile(new URL('scripts/prepare.mjs',root),'utf8');p=p.replace('??bundle.target.date,5,bundle.target.id','??bundle.target.date,10,bundle.target.id').replace('son 5 maçın','son 10 maçın');await writeFile(new URL('scripts/prepare.mjs',root),p);
+let s=await readFile(new URL('dist/app.mjs',root),'utf8');
+s=s.replace("form:'Son 5 maç'","form:'Son 10 maç'").replace('similarityWeight:.25},testRun=null','similarityWeight:.25,formCount:10},testRun=null');
+s=s.replace('function recalc(){result=',"function recalc(){titles.form='Son '+options.formCount+' maç';$('#form-count').value=String(options.formCount);document.querySelectorAll('.nav[data-view=\"form\"]').forEach(b=>b.innerHTML='<span>≋</span> Son '+options.formCount+' maç');$('#form-coverage').textContent='';result=");
+s=s.replace('selectedTeam??=String(bundle.target.home.id);render();',"selectedTeam??=String(bundle.target.home.id);$('#form-coverage').textContent=result.homeForm.length+'/'+options.formCount+' ve '+result.awayForm.length+'/'+options.formCount+' resmi maç mevcut';render();");
+s=s.replaceAll('Son 5 maçın anlattıkları','Son ${options.formCount} maçın anlattıkları').replaceAll('Son 5 resmi maç','Son ${options.formCount} resmi maç');
+s=s.replace('Keşfedilen takımlarda 10–15 maç','Keşfedilen takımlarda 15–20 maç').replace('ESKİDEN YENİYE FORM · LİG + KUPALAR','YENİDEN ESKİYE · LİG + KUPALAR');
+s=s.replaceAll('son 5 rakibiyle','son ${options.formCount} rakibiyle').replaceAll('son 5 maçına','son ${options.formCount} maçına').replaceAll('son 5 maç profilini','son ${options.formCount} maç profilini').replaceAll('Her düğümde son 5 resmi maç','Her düğümde son ${options.formCount} resmi maç');
+s=s.replaceAll('önceki son 5 maçları','önceki son ${options.formCount} maçları').replaceAll('Son 5 maç profili','Son '+"${options.formCount}"+' maç profili');
+// The laboratory step array uses ordinary strings rather than templates.
+s=s.replace("['Son ${options.formCount} maç profili','Her takımın son 5 resmi maçından hücum ve savunma ortalamaları çıkarılır. Eksik ölçümler sıfır sayılmaz; payda, ölçüm bulunan maç sayısıdır.']","['Son '+options.formCount+' maç profili','Her takımın son '+options.formCount+' resmi maçından hücum ve savunma ortalamaları çıkarılır. Eksik ölçümler sıfır sayılmaz; payda, ölçüm bulunan maç sayısıdır.']");
+s=s.replace('önceki bilgiler kullanılır. En az 3 maçlık','önceki bilgiler kullanılır. En az 3 maçlık');
+s=s.replace("'mathgoal-son5-istatistik.csv'","'mathgoal-son'+options.formCount+'-istatistik.csv'");
+s=s.replace('bundle.analysisAt??bundle.target.date,5,bundle.target.id','bundle.analysisAt??bundle.target.date,options.formCount,bundle.target.id');
+s=s.replace('formatPercent:pct});','formatPercent:pct,formCount:options.formCount});');
+s=s.replace('(!mini||n.depth===1)?','((!mini&&(nodes.length<=70||n.depth<=1))||(mini&&n.depth===1))?');
+if(!s.includes("$('#form-count').onchange"))s=s.replace("$('#close-dialog').onclick=", "$('#form-count').onchange=e=>{options.formCount=Number(e.target.value)===5?5:10;try{localStorage.setItem('mathgoal-form-count',String(options.formCount));}catch{}testRun=null;recalc();};\ntry{options.formCount=localStorage.getItem('mathgoal-form-count')==='5'?5:10;}catch{}\n$('#close-dialog').onclick=");
+for(const name of ['model','match-input','result-view','release'])s=s.replace(new RegExp("from './"+name+"\\.mjs(?:\\?v=[^']*)?'"),"from './"+name+".mjs?v="+APP_VERSION+"'");s=s.replace(/new Worker\('\/worker\.mjs(?:\?v=[^']*)?'/,"new Worker('/worker.mjs?v="+APP_VERSION+"'");await writeFile(new URL('dist/app.mjs',root),s);
+let h=await readFile(new URL('dist/index.html',root),'utf8');h=h.replace('son beş maç','son 5 veya 10 maç').replace('Son 5 maç</button>','Son 10 maç</button>');
+if(!h.includes('id="form-count"'))h=h.replace('<div class="tabs" role="tablist"', '<div class="form-window-bar"><div><label for="form-count">Analiz dönemi</label><select id="form-count"><option value="10" selected>Son 10 maç</option><option value="5">Son 5 maç</option></select></div><span id="form-coverage" role="note"></span><small>İstatistikler, rakip ağı ve skor tahmini bu seçime göre hesaplanır.</small></div><div class="tabs" role="tablist"');
+h=h.replace(/src="\/app\.mjs(?:\?v=[^"]*)?"/,'src="/app.mjs?v='+APP_VERSION+'"').replace(/href="\/style\.css(?:\?v=[^"]*)?"/,'href="/style.css?v='+APP_VERSION+'"').replace(/MathGoal \/ v[\d.]+/,'MathGoal / v1.1.0');await writeFile(new URL('dist/index.html',root),h);
+let w=await readFile(new URL('dist/worker.mjs',root),'utf8');w=w.replace(/from '\.\/model\.mjs(?:\?v=[^']*)?'/,"from './model.mjs?v="+APP_VERSION+"'");await writeFile(new URL('dist/worker.mjs',root),w);
+let n=await readFile(new URL('scripts/server.mjs',root),'utf8');n=n.replace("version:'1.0.1'","version:'1.1.0'");await writeFile(new URL('scripts/server.mjs',root),n);
+console.log('Son 5/10 maç seçimi ve veri toplama kapsamı hazır.');

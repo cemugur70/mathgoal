@@ -1,0 +1,6 @@
+import {readFile,writeFile,rename} from 'node:fs/promises';import {normalizeMatchPlayers,normalizeTargetLineup} from '../dist/player-data.mjs';import {getPlayerProfile} from './player-profile.mjs';
+const root=new URL('../',import.meta.url),bundlePath=new URL('dist/data/bundle.json',root);const bundle=JSON.parse(await readFile(bundlePath,'utf8')),inventory=new Map();let count=0;
+for(const m of bundle.matches){const raw=JSON.parse(await readFile(new URL(`data/cache/matchDetails-${m.id}.json`,root),'utf8'));m.players=normalizeMatchPlayers(raw,inventory);count+=m.players.length;}
+const rawTarget=JSON.parse(await readFile(new URL(`data/cache/matchDetails-${bundle.target.id}.json`,root),'utf8'));bundle.targetLineup=normalizeTargetLineup(rawTarget,bundle);bundle.playerMetricInventory=[...inventory.values()];bundle.provenance.playerRecords=count;bundle.provenance.playerMetrics=inventory.size;
+await writeFile(new URL('dist/data/bundle.json.tmp',root),JSON.stringify(bundle));await rename(new URL('dist/data/bundle.json.tmp',root),bundlePath);
+const profile=await getPlayerProfile('687681');console.log(JSON.stringify({matches:bundle.matches.length,playerRecords:count,metrics:inventory.size,lineupType:bundle.targetLineup.type,example:profile.data.name}));

@@ -1,0 +1,1 @@
+import {readFile,writeFile} from 'node:fs/promises';const file=new URL('./collect.mjs',import.meta.url);let s=await readFile(file,'utf8');s=s.replace('of body.stats||[]','of body?.stats||[]').replace('of group.stats||[]','of group?.stats||[]').replace('if(!s.key||s.type','if(!s?.key||s.type');await writeFile(file,s);

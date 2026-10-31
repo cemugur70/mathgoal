@@ -1,0 +1,17 @@
+# Empirical simulation market table
+
+The 30 October 2026 release adds a separate “Simülasyon pazar yüzdeleri” table immediately above the single-match replay. Reference vocabulary was checked on the user-supplied Bilyoner match card: https://www.bilyoner.com/mac-karti/futbol/3255613/oranlar/1 . Only public market names were read; no odds were imported or betting actions taken.
+
+There are 68 market definitions: match result, double chance, goal/team-goal totals, BTTS, goal ranges, odd/even, first-scoring team, three-way European handicap, winning margin, result/total and result/BTTS combinations, first/second-half results and totals, half/full result, half-specific joint propositions, half comparisons, both-half propositions and score distributions. A final “other” bucket retains score tails. Double-chance selections overlap and are explicitly labeled. Handicap labels such as 0:1 mean an added starting score, not an Asian settlement.
+
+Each option includes its observed count, denominator and percentage, with search, group filters, percentage sorting and UTF-8 CSV export of the filtered table. A separate average-goals table gives home, away and total means for the match and both halves. Combined markets count co-occurrence in the same simulation rather than multiplying marginal probabilities.
+
+The engine records joint first-half/full-time scores and the first-scoring team for every repetition. Goal timestamps follow the existing uniform-within-phase assumption; half/first-goal frequencies are not a separately calibrated model. A separate seeded RNG generates additional timestamp draws, preserving the existing full-time histogram, means, player usage and original replay. The first iteration reuses its existing replay timestamps. Half scores use time ≤45; second-half scores are full time minus first half. Normal time is 90 minutes, excluding extra time and shootouts.
+
+Corner/card/shot/foul/offside events are not generated in these 10,000 matches, and goal-scorer assignment is recorded only for the sample replay. These markets appear as unsupported with reasons, not fabricated 0% values or probabilities borrowed from separate statistical models. Existing archive/Poisson market panels remain separate.
+
+205 tests passed, including hand-set joint outcomes, exact count/percentage consistency, exhaustive partitions, overlapping double chance, European handicap draws, score tails, half-score conservation, first-goal agreement with replay, CSV filtering/escaping and a pre-change SHA-256 fingerprint of 10,000 seeded full-time scores/replay/player usage. Browser QA verifies filtering half/full combinations, descending percentages and an actual CSV download of the nine filtered outcomes.
+
+UI release 2026-10-30.1 is deployed. Production modules match the verified local SHA-256 hashes and the service is healthy. Existing training data and model parameters are retained; the additional market report does not require retraining.
+
+Production Node 22 verification and the live browser both complete 10,000 Parma–Udinese scenarios with 68 markets / 258 options. Counts and means match (MS 1: 4,234; X: 2,583; MS 2: 3,183; mean goals 1.4323–1.2007). All partition counts and half/full goal conservation pass. No application console errors were captured. Screenshot: `screenshots/mathgoal-simulation-market-summary-live.png`. Production details: `data/simulation-market-summary-production.log`.

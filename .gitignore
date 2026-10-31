@@ -1,0 +1,7 @@
+data/
+dist/data/
+.openai/
+.claude/
+*.tar.gz
+node_modules/
+screenshots/

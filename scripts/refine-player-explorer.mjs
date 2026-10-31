@@ -1,0 +1,13 @@
+import {readFile,writeFile} from 'node:fs/promises';
+const file=new URL('../dist/player-ui.mjs',import.meta.url);let source=await readFile(file,'utf8');
+source=source.replace('export function renderPlayers(root,ctx){\n stopPlayerExplorer();',"export function renderPlayers(root,ctx){\n const personal=root.querySelector('#player-personal-profile');if(personal)state.personalOpen=personal.open;\n stopPlayerExplorer();");
+source=source.replace(' let selected=state.external'," const requested=new URLSearchParams(location.search).get('player');if(!state.playerId&&requested&&a.byId?.[requested]){state.playerId=requested;state.teamId=String(a.byId[requested].teamId);}\n let selected=state.external");
+source=source.replace('<div class="player-layout">','<details id="player-personal-profile" class="player-personal-profile" ${state.personalOpen?\'open\':\'\'}><summary>Ayrıntılı oyuncu profili, kadro ve sezon verisi</summary><div class="player-layout">');
+source=source.replace('<section id="player-detail" class="player-detail"></section></div>`;','<section id="player-detail" class="player-detail"></section></div></details>`;');
+source=source.replace("renderPlayers(root,ctx);root.querySelector('#player-detail')?.scrollIntoView", "renderPlayers(root,ctx);state.personalOpen=true;root.querySelector('#player-personal-profile').open=true;root.querySelector('#player-detail')?.scrollIntoView");
+await writeFile(file,source);
+const css=new URL('../dist/player-explorer.css',import.meta.url);await writeFile(css,(await readFile(css,'utf8'))+'\n.player-personal-profile{margin:22px 0}.player-personal-profile>summary{font-size:13px}.player-personal-profile>.player-layout{margin-top:20px}\n');
+const ui=new URL('../dist/player-explorer-ui.mjs',import.meta.url);let explorer=await readFile(ui,'utf8');
+explorer=explorer.replace('Puan ve yüzde', 'Puan ve yüzde');
+explorer=explorer.replace('Kişisel son maçlar farklı tarihlere', 'Puanlar ve yüzdeler 90 dakikaya çevrilmez; dakika sütunu toplam süreyi gösterir. Kişisel son maçlar farklı tarihlere');
+await writeFile(ui,explorer);

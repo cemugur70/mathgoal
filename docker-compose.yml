@@ -1,0 +1,38 @@
+services:
+  mathgoal:
+    build: ./app
+    image: mathgoal-network:1.0
+    container_name: mathgoal
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.5
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      TZ: Europe/Istanbul
+    volumes:
+      - /opt/mathgoal/app/data:/app/data
+      - /opt/mathgoal/app/dist/data:/app/dist/data
+    networks: [coolify]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: coolify
+      traefik.http.routers.mathgoal-http.entrypoints: http
+      traefik.http.routers.mathgoal-http.rule: Host(`mathgoal.io`) || Host(`www.mathgoal.io`)
+      traefik.http.routers.mathgoal-http.middlewares: mathgoal-https
+      traefik.http.routers.mathgoal.entrypoints: https
+      traefik.http.routers.mathgoal.rule: Host(`mathgoal.io`) || Host(`www.mathgoal.io`)
+      traefik.http.routers.mathgoal.tls: "true"
+      traefik.http.routers.mathgoal.tls.certresolver: letsencrypt
+      traefik.http.routers.mathgoal.middlewares: mathgoal-compress,mathgoal-wwwtoapex
+      traefik.http.services.mathgoal.loadbalancer.server.port: "3000"
+      traefik.http.middlewares.mathgoal-https.redirectscheme.scheme: https
+      traefik.http.middlewares.mathgoal-https.redirectscheme.permanent: "true"
+      traefik.http.middlewares.mathgoal-compress.compress: "true"
+      traefik.http.middlewares.mathgoal-wwwtoapex.redirectregex.regex: ^https://www\.mathgoal\.io/(.*)
+      traefik.http.middlewares.mathgoal-wwwtoapex.redirectregex.replacement: https://mathgoal.io/$${1}
+      traefik.http.middlewares.mathgoal-wwwtoapex.redirectregex.permanent: "true"
+networks:
+  coolify:
+    external: true

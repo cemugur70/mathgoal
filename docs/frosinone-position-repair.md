@@ -1,0 +1,15 @@
+# Frosinone simulation position repair
+
+Fixture 5749723 failed lineup validation because Giorgio Cittadini (1327513) had a null position in the preceding official starting XI, match 5749710. The archive contains a verified defender role (1) in earlier official fixture 5852779, dated 16 August 2026. That appearance's minutes are unknown, so it correctly supplies no played-minute exposure; it still supplies a recorded roster position.
+
+The shared starter feature builder now keeps a separate index of verified official roster positions, including bench records with unknown minutes. When a selected player's position is missing, it uses the most recent eligible known role, preferring records from the same team. Both kickoff and completion availability must precede the analysis cutoff, and the target fixture is excluded. The selected XI is retained. Position evidence contains fixture, date, availability and team, and the simulation displays the source date. Missing role evidence remains unknown; the error now identifies the unresolved player by name.
+
+Starter policy `previous-official-xi-availability-position-v3` is used for both historical training inputs and live reconstruction. Training selection requires the matching policy. Updating existing artifacts recomputes XI and downstream market-network features from retained upstream sources, validates feature lengths and time boundaries, detects concurrent source/publication changes, and publishes atomically.
+
+All 201 tests passed, including the new missing-position regression with unknown minutes, target/future exclusion, preserved minute exposure, simulation validation and an actionable unresolved-player error. The real archived Frosinone–Lecce XI passes validation with Cittadini in the original XI as a defender.
+
+During the production feature rebuild, the final whole-document hash/stringification in the starter builder reached the default V8 heap limit. That stage now hashes rows incrementally and writes bounded JSON chunks before atomic rename. The successful retry kept the same container memory limit and passed all time/shape validations. It published 5,208 rows with artifact ID `77d68fbf6390b064e8d7301f7f2e68aa8752c5907a2f22634f5a6bd7d26af78e`.
+
+UI release 2026-10-29.4 is deployed and healthy. Production module hashes match local files. The production real-fixture checker confirms the original Cittadini XI selection, defender role and source fixture 5852779, active 255-input Obsidian GBDT, and a completed 10,000-match simulation (seed 12345). Details: `data/frosinone-position-verification.log` on the production data volume.
+
+Live browser QA confirms Cittadini selected as “Defans” with the 16.08.2026 roster source note. The simulation completes 10,000 iterations without the position error or captured application console errors. The trained modal result is 2–1 at 8.9%; this is a probability output, not an asserted actual result. Screenshot: `screenshots/mathgoal-frosinone-position-fixed-live.png`. Local and deployed training artifacts have identical SHA-256 `0ef75a630e72a1e84bb26fdcc65ffe23feac74b417c5e46256a13c9a9d72dcba`.
