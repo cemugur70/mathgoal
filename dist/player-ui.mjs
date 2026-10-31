@@ -1,6 +1,6 @@
-import {mountPlayerExplorer,stopPlayerExplorer} from './player-explorer-ui.mjs?v=2026-10-31.1';
+import {mountPlayerExplorer,stopPlayerExplorer} from './player-explorer-ui.mjs?v=2026-10-31.2';
 export {stopPlayerExplorer};
-import {findComparablePlayers} from './player-model.mjs?v=2026-10-31.1';
+import {findComparablePlayers} from './player-model.mjs?v=2026-10-31.2';
 const state={playerId:null,teamId:null,targetId:null,search:'',external:null,request:0,opponentMatch:null,pending:false,identity:{}};
 const idOf=p=>String(p?.playerId??p?.id??'');
 const position=p=>({0:'Kaleci',1:'Defans',2:'Orta saha',3:'Forvet'})[p?.position]||'Mevki bilinmiyor';

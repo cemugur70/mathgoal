@@ -1,4 +1,4 @@
-import {graphPredictionHtml} from './player-graph-prediction-ui.mjs?v=2026-10-31.1';
+import {graphPredictionHtml} from './player-graph-prediction-ui.mjs?v=2026-10-31.2';
 import {gbdtHtml} from './gbdt-ui.mjs';
 export function trainingHtml(bundle,result,{esc,number,pct,date}){
  const t=result.training,p=result.prediction,actual=bundle.actual;

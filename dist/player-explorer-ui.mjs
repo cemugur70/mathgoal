@@ -1,5 +1,5 @@
-import {createPlayerExplorerIndex,explorerGraph,PLAYER_STAT_CATEGORIES,statCategory,metricLabel} from './player-explorer-data.mjs?v=2026-10-31.1';
-import {playerStatMeasure} from './player-stat-values.mjs?v=2026-10-31.1';
+import {createPlayerExplorerIndex,explorerGraph,PLAYER_STAT_CATEGORIES,statCategory,metricLabel} from './player-explorer-data.mjs?v=2026-10-31.2';
+import {playerStatMeasure} from './player-stat-values.mjs?v=2026-10-31.2';
 
 let active=null;
 const sessions=new Map();

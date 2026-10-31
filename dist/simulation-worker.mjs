@@ -1,4 +1,4 @@
-import {runSimulation} from './player-simulation.mjs?v=2026-10-31.1';
+import {runSimulation} from './player-simulation.mjs?v=2026-10-31.2';
 self.onmessage=({data})=>{
  const {jobId,input,settings}=data;
  try{self.postMessage({jobId,result:runSimulation(input,settings)});}
