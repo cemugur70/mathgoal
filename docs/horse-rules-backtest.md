@@ -1,6 +1,6 @@
 # Kural seti backtest'i (İngiliz ve Arap atları)
 
-Kaynak: liderform.com.tr herkese açık program sayfaları, 2024-01-01 – 2026-10-31; İstanbul, Ankara, İzmir, Bursa ve Adana'da 7123 İngiliz, 5664 Arap koşusu. Üretim: 2026-11-01T17:21:57.584Z.
+Kaynak: liderform.com.tr herkese açık program sayfaları, 2021-01-01 – 2026-10-31; İstanbul, Ankara, İzmir, Bursa ve Adana'da 14686 İngiliz, 11811 Arap koşusu. Üretim: 2026-11-01T22:38:46.052Z.
 
 ## Yorum varsayımları
 
@@ -21,70 +21,70 @@ Kurallar önce **keşif** döneminde (2026-01-01 öncesi) test edilir, sonra hi�
 - **q (BH)**: iki ırktaki tüm keşif testleri tek aile sayılarak Benjamini–Hochberg düzeltmesi. 140 testte birkaçının şansla anlamlı çıkması beklenir; q bunu düzeltir.
 - **doğrulandı**: keşifte q < 0,10 ve doğrulamada aynı yönde p < 0,05. **tersi doğrulandı**: iki dönemde de kuralın aleyhine anlamlı. **tekrar etmedi**: keşifte anlamlı ama doğrulamada değil. **kanıt yok**: ölçütten farkı anlamlı değil.
 - **favori seçimi**: kural tam olarak aynı sayıda favoriyi seçiyor, test edilecek ayrı üstünlük yok. Oran iddiası varsa (ör. "%70 favori") iki dönemin %95 aralığıyla karşılaştırılır: **iddia doğrulandı / çürütüldü**.
-- **ROI**: seçilen her ata 1 TL ganyan; resmi kapanış ganyanı ile (ödenen ganyan ikramiyesiyle 18288/18290 koşuda birebir aynı). Hipodrom kesintisi yüzünden rastgele oynamanın beklenen ROI'si negatiftir.
+- **ROI**: seçilen her ata 1 TL ganyan; resmi kapanış ganyanı ile (ödenen ganyan ikramiyesiyle 37133/37137 koşuda birebir aynı). Hipodrom kesintisi yüzünden rastgele oynamanın beklenen ROI'si negatiftir.
 
 ### İngiliz: doğrulama özeti
 
-Keşif < 2026-01-01: 5019 koşu · doğrulama ≥ 2026-01-01: 2104 koşu. iddia doğrulandı: 1 · tersi doğrulandı: 12 · tekrar etmedi: 4 · kanıt yok: 2 · favori seçimi: 16 · yetersiz örnek: 35.
+Keşif < 2026-01-01: 12582 koşu · doğrulama ≥ 2026-01-01: 2104 koşu. tersi doğrulandı: 13 · tekrar etmedi: 4 · kanıt yok: 1 · belirsiz: 1 · favori seçimi: 16 · yetersiz örnek: 35.
 
 | Kural | Karar | Keşif n | Keşif isabet / favori | Fark (puan) | p | q (BH) | Doğrulama n | Doğrulama isabet / favori | Fark (puan) | p | ROI kural / aynı sayıda favori (tüm dönem) |
 |---|---|---:|---|---:|---:|---:|---:|---|---:|---:|---|
-| HAN-14 kum: %75 1-2-3. atlara güvenin | **iddia doğrulandı** | 167 | 71.3% / 71.3% | 0.0 | – | – | 75 | 76.0% / 76.0% | 0.0 | – | -23.9% / -23.9% |
-| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | **tersi doğrulandı** | 244 | 54.1% / 89.3% | -35.2 | <0.001 | <0.001 | 133 | 51.9% / 85.7% | -33.8 | <0.001 | -39.4% / -30.2% |
-| Şartlı 5 çim: %40 hafif kg'lar kazanır | **tersi doğrulandı** | 135 | 25.9% / 74.1% | -48.1 | <0.001 | <0.001 | 43 | 39.5% / 83.7% | -44.2 | <0.001 | -45.7% / -28.3% |
-| HAN-15 (özet): 3. handikaplı at tek | **tersi doğrulandı** | 387 | 15.8% / 39.8% | -24.0 | <0.001 | <0.001 | 174 | 12.1% / 32.8% | -20.7 | <0.001 | -41.7% / -25.5% |
-| HAN-16 çim: %30 7,8,9 numaralar | **tersi doğrulandı** | 134 | 17.9% / 59.0% | -41.0 | <0.001 | <0.001 | 48 | 16.7% / 56.3% | -39.6 | <0.001 | -55.8% / -25.6% |
-| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | **tersi doğrulandı** | 222 | 49.5% / 73.9% | -24.3 | <0.001 | <0.001 | 108 | 41.7% / 64.8% | -23.1 | <0.001 | -39.3% / -29.1% |
-| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | **tersi doğrulandı** | 142 | 25.4% / 54.9% | -29.6 | <0.001 | <0.001 | 63 | 30.2% / 60.3% | -30.2 | <0.001 | -45.5% / -24.8% |
-| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | **tersi doğrulandı** | 149 | 36.2% / 70.5% | -34.2 | <0.001 | <0.001 | 63 | 41.3% / 69.8% | -28.6 | 0.001 | -5.6% / -25.7% |
-| HAN-16 kum: 1,2,3. handikaplar %80 | **tersi doğrulandı** | 179 | 44.7% / 69.3% | -24.6 | <0.001 | <0.001 | 85 | 38.8% / 71.8% | -32.9 | <0.001 | -38.6% / -28.2% |
-| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | **tersi doğrulandı** | 208 | 29.8% / 50.0% | -20.2 | <0.001 | <0.001 | 76 | 39.5% / 59.2% | -19.7 | 0.002 | -37.1% / -30.5% |
-| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | **tersi doğrulandı** | 92 | 27.2% / 51.1% | -23.9 | <0.001 | <0.001 | 31 | 22.6% / 48.4% | -25.8 | 0.023 | -33.1% / -26.7% |
-| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | **tersi doğrulandı** | 128 | 28.1% / 47.7% | -19.5 | 0.002 | 0.003 | 61 | 19.7% / 55.7% | -36.1 | <0.001 | -1.5% / -26.6% |
-| HAN-16 (özet): hafif kilo favori | **tersi doğrulandı** | 253 | 29.6% / 39.5% | -9.9 | 0.005 | 0.008 | 109 | 33.9% / 46.8% | -12.8 | 0.021 | -17.1% / -18.8% |
-| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | **tekrar etmedi** | 118 | 43.2% / 78.8% | -35.6 | <0.001 | <0.001 | 66 | 68.2% / 69.7% | -1.5 | 0.859 | -10.1% / -25.3% |
-| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | **tekrar etmedi** | 134 | 20.1% / 52.2% | -32.1 | <0.001 | <0.001 | 77 | 23.4% / 37.7% | -14.3 | 0.059 | -21.6% / -21.0% |
-| KV-6 kum: 1,2,3. handikaplar arasında geçer | **tekrar etmedi** | 115 | 72.2% / 82.6% | -10.4 | 0.021 | 0.029 | 52 | 67.3% / 73.1% | -5.8 | 0.407 | -30.0% / -29.4% |
-| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | **tekrar etmedi** | 121 | 56.2% / 64.5% | -8.3 | 0.074 | 0.094 | 96 | 64.6% / 70.8% | -6.3 | 0.080 | -30.2% / -31.8% |
-| KV-6 kum: puana göre 1,2,3. atlar kazanır | **kanıt yok** | 62 | 80.6% / 83.9% | -3.2 | 0.566 | 0.588 | 50 | 68.0% / 72.0% | -4.0 | 0.416 | -29.1% / -31.1% |
-| KV-8 çim: 1-2-4 startlı favori/plase atlar | **kanıt yok** | 68 | 41.2% / 42.6% | -1.5 | 0.828 | 0.828 | 32 | 40.6% / 62.5% | -21.9 | 0.025 | -21.9% / -25.8% |
-| Şartlı 1 çim: ilk 4 at arasında biter | **favori seçimi** | 119 | 81.5% / 81.5% | 0.0 | – | – | 47 | 66.0% / 66.0% | 0.0 | – | -28.8% / -28.8% |
-| Şartlı 1 kum: favori-plaseler arasında biter | **favori seçimi** | 74 | 64.9% / 64.9% | 0.0 | – | – | 31 | 87.1% / 87.1% | 0.0 | – | -33.5% / -33.5% |
-| Şartlı 3 kum: favori şanslı | **favori seçimi** | 190 | 41.6% / 41.6% | 0.0 | – | – | 83 | 47.0% / 47.0% | 0.0 | – | -28.1% / -28.1% |
-| Şartlı 4: favori gelir | **favori seçimi** | 541 | 42.9% / 42.9% | 0.0 | – | – | 234 | 40.6% / 40.6% | 0.0 | – | -28.3% / -28.3% |
-| Şartlı 5 çim: favori çok şanslı | **favori seçimi** | 135 | 35.6% / 35.6% | 0.0 | – | – | 43 | 55.8% / 55.8% | 0.0 | – | -28.1% / -28.1% |
-| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | **favori seçimi** | 394 | 86.5% / 86.5% | 0.0 | – | – | 154 | 88.3% / 88.3% | 0.0 | – | -29.9% / -29.9% |
-| KV-6 çim: 1-2. atların dışına çıkmaz | **favori seçimi** | 80 | 57.5% / 57.5% | 0.0 | – | – | 36 | 52.8% / 52.8% | 0.0 | – | -28.0% / -28.0% |
-| KV-6 kum: 1-2. atlar şanslı | **favori seçimi** | 115 | 61.7% / 61.7% | 0.0 | – | – | 52 | 61.5% / 61.5% | 0.0 | – | -33.3% / -33.3% |
-| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | **favori seçimi** | 80 | 85.0% / 85.0% | 0.0 | – | – | 32 | 81.3% / 81.3% | 0.0 | – | -24.4% / -24.4% |
-| HAN-14 (özet): 1-2. at kazanır | **favori seçimi** | 273 | 50.2% / 50.2% | 0.0 | – | – | 110 | 60.0% / 60.0% | 0.0 | – | -30.2% / -30.2% |
-| HAN-15 (özet): 1,2,3. at dışına çıkmaz | **favori seçimi** | 455 | 67.9% / 67.9% | 0.0 | – | – | 205 | 61.5% / 61.5% | 0.0 | – | -30.2% / -30.2% |
-| HAN-16 çim: favori-plaseler arasında biter | **favori seçimi** | 156 | 64.7% / 64.7% | 0.0 | – | – | 51 | 62.7% / 62.7% | 0.0 | – | -30.3% / -30.3% |
-| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | **favori seçimi** | 135 | 55.6% / 55.6% | 0.0 | – | – | 50 | 54.0% / 54.0% | 0.0 | – | -28.3% / -28.3% |
-| Maiden kum: genelde favori kazanır | **favori seçimi** | 370 | 38.9% / 38.9% | 0.0 | – | – | 179 | 43.0% / 43.0% | 0.0 | – | -28.2% / -28.2% |
-| Maiden (özet): ilk iki at arasında | **favori seçimi** | 842 | 57.1% / 57.1% | 0.0 | – | – | 371 | 57.4% / 57.4% | 0.0 | – | -31.6% / -31.6% |
-| Açık/Grup çim: favori-plase dışına çıkmaz | **favori seçimi** | 112 | 68.8% / 68.8% | 0.0 | – | – | 55 | 61.8% / 61.8% | 0.0 | – | -39.8% / -39.8% |
-| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | **yetersiz örnek** | 50 | 18.0% / 76.0% | -58.0 | <0.001 | <0.001 | 3 | 66.7% / 66.7% | 0.0 | 1.000 | -57.8% / -27.4% |
-| HAN-17 çim: hafif kg'lı atlar çok şanslı | **yetersiz örnek** | 46 | 21.7% / 73.9% | -52.2 | <0.001 | <0.001 | 17 | 23.5% / 88.2% | -64.7 | <0.001 | -68.3% / -3.2% |
-| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | **yetersiz örnek** | 75 | 12.0% / 53.3% | -41.3 | <0.001 | <0.001 | 22 | 22.7% / 36.4% | -13.6 | 0.409 | -42.8% / -29.6% |
-| KV-8 kum: favorinin şansı az (favori gelmez) | **yetersiz örnek** | 82 | 47.6% / 16.5% | +31.1 | <0.001 | <0.001 | 29 | 65.5% / 16.8% | +48.8 | <0.001 | -21.1% / -21.1% |
-| HAN-17 kum: plase atlar şanslı %70 | **yetersiz örnek** | 64 | 29.7% / 54.7% | -25.0 | 0.002 | 0.003 | 22 | 40.9% / 50.0% | -9.1 | 0.533 | -36.1% / -29.4% |
-| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | **yetersiz örnek** | 51 | 72.5% / 84.3% | -11.8 | 0.103 | 0.124 | 3 | 33.3% / 66.7% | -33.3 | 0.617 | -26.6% / -27.3% |
-| Şartlı 2: 1-2. handikap dışına çıkmaz | **yetersiz örnek** | 51 | 52.9% / 62.7% | -9.8 | 0.250 | 0.281 | 3 | 0.0% / 33.3% | -33.3 | 0.317 | -22.1% / -25.8% |
-| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | **yetersiz örnek** | 138 | 44.9% / 37.0% | +8.0 | 0.301 | 0.331 | 28 | 57.1% / 32.1% | +25.0 | 0.154 | -4.1% / -8.8% |
-| HAN-14 çim: en üstteki 2 handikabın şansı %20 | **yetersiz örnek** | 82 | 40.2% / 45.1% | -4.9 | 0.466 | 0.494 | 24 | 12.5% / 33.3% | -20.8 | 0.045 | -23.7% / -41.0% |
-| HAN-17 kum: puana göre 1-4. atlar | **yetersiz örnek** | 34 | 85.3% / 88.2% | -2.9 | 0.709 | 0.722 | 22 | 81.8% / 90.9% | -9.1 | 0.317 | -17.6% / -15.7% |
-| Şartlı 2: favori varsa kazanır | **yetersiz örnek** | 51 | 43.1% / 43.1% | 0.0 | – | – | 3 | 33.3% / 33.3% | 0.0 | – | -21.7% / -21.7% |
+| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | **tersi doğrulandı** | 591 | 53.8% / 88.3% | -34.5 | <0.001 | <0.001 | 133 | 51.9% / 85.7% | -33.8 | <0.001 | -40.1% / -30.5% |
+| Şartlı 5 çim: %40 hafif kg'lar kazanır | **tersi doğrulandı** | 345 | 28.4% / 75.7% | -47.2 | <0.001 | <0.001 | 43 | 39.5% / 83.7% | -44.2 | <0.001 | -51.6% / -32.1% |
+| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | **tersi doğrulandı** | 410 | 36.3% / 71.7% | -35.4 | <0.001 | <0.001 | 63 | 41.3% / 69.8% | -28.6 | 0.001 | -24.8% / -30.2% |
+| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | **tersi doğrulandı** | 537 | 46.0% / 70.4% | -24.4 | <0.001 | <0.001 | 108 | 41.7% / 64.8% | -23.1 | <0.001 | -34.1% / -30.9% |
+| HAN-15 (özet): 3. handikaplı at tek | **tersi doğrulandı** | 1010 | 15.2% / 38.8% | -23.6 | <0.001 | <0.001 | 174 | 12.1% / 32.8% | -20.7 | <0.001 | -37.7% / -23.8% |
+| HAN-16 çim: %30 7,8,9 numaralar | **tersi doğrulandı** | 358 | 22.1% / 53.6% | -31.6 | <0.001 | <0.001 | 48 | 16.7% / 56.3% | -39.6 | <0.001 | -42.5% / -34.7% |
+| HAN-16 kum: 1,2,3. handikaplar %80 | **tersi doğrulandı** | 446 | 43.3% / 70.0% | -26.7 | <0.001 | <0.001 | 85 | 38.8% / 71.8% | -32.9 | <0.001 | -37.9% / -28.7% |
+| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | **tersi doğrulandı** | 495 | 30.7% / 51.3% | -20.6 | <0.001 | <0.001 | 76 | 39.5% / 59.2% | -19.7 | 0.002 | -36.0% / -31.1% |
+| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | **tersi doğrulandı** | 367 | 31.9% / 55.0% | -23.2 | <0.001 | <0.001 | 63 | 30.2% / 60.3% | -30.2 | <0.001 | -32.5% / -24.6% |
+| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | **tersi doğrulandı** | 348 | 29.3% / 54.0% | -24.7 | <0.001 | <0.001 | 61 | 19.7% / 55.7% | -36.1 | <0.001 | -7.4% / -23.9% |
+| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | **tersi doğrulandı** | 225 | 26.2% / 49.3% | -23.1 | <0.001 | <0.001 | 31 | 22.6% / 48.4% | -25.8 | 0.023 | -34.3% / -25.8% |
+| HAN-16 (özet): hafif kilo favori | **tersi doğrulandı** | 607 | 26.7% / 37.7% | -11.0 | <0.001 | <0.001 | 109 | 33.9% / 46.8% | -12.8 | 0.021 | -22.1% / -24.3% |
+| KV-8 çim: 1-2-4 startlı favori/plase atlar | **tersi doğrulandı** | 195 | 39.5% / 49.7% | -10.3 | 0.017 | 0.023 | 32 | 40.6% / 62.5% | -21.9 | 0.025 | -29.3% / -29.0% |
+| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | **tekrar etmedi** | 325 | 45.2% / 81.2% | -36.0 | <0.001 | <0.001 | 66 | 68.2% / 69.7% | -1.5 | 0.859 | -23.8% / -25.0% |
+| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | **tekrar etmedi** | 336 | 20.8% / 47.6% | -26.8 | <0.001 | <0.001 | 77 | 23.4% / 37.7% | -14.3 | 0.059 | -23.7% / -21.1% |
+| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | **tekrar etmedi** | 312 | 62.8% / 71.2% | -8.3 | <0.001 | 0.001 | 96 | 64.6% / 70.8% | -6.3 | 0.080 | -33.1% / -31.6% |
+| KV-6 kum: 1,2,3. handikaplar arasında geçer | **tekrar etmedi** | 278 | 74.8% / 82.7% | -7.9 | 0.006 | 0.008 | 52 | 67.3% / 73.1% | -5.8 | 0.407 | -29.4% / -30.0% |
+| KV-6 kum: puana göre 1,2,3. atlar kazanır | **kanıt yok** | 155 | 78.7% / 81.3% | -2.6 | 0.433 | 0.449 | 50 | 68.0% / 72.0% | -4.0 | 0.416 | -28.2% / -31.4% |
+| HAN-14 kum: %75 1-2-3. atlara güvenin | **belirsiz** | 424 | 67.9% / 67.9% | 0.0 | – | – | 75 | 76.0% / 76.0% | 0.0 | – | -27.3% / -27.3% |
+| Şartlı 1 çim: ilk 4 at arasında biter | **favori seçimi** | 294 | 83.0% / 83.0% | 0.0 | – | – | 47 | 66.0% / 66.0% | 0.0 | – | -34.1% / -34.1% |
+| Şartlı 1 kum: favori-plaseler arasında biter | **favori seçimi** | 184 | 70.1% / 70.1% | 0.0 | – | – | 31 | 87.1% / 87.1% | 0.0 | – | -30.1% / -30.1% |
+| Şartlı 3 kum: favori şanslı | **favori seçimi** | 486 | 42.8% / 42.8% | 0.0 | – | – | 83 | 47.0% / 47.0% | 0.0 | – | -27.6% / -27.6% |
+| Şartlı 4: favori gelir | **favori seçimi** | 1337 | 42.0% / 42.0% | 0.0 | – | – | 234 | 40.6% / 40.6% | 0.0 | – | -28.6% / -28.6% |
+| Şartlı 5 çim: favori çok şanslı | **favori seçimi** | 345 | 38.0% / 38.0% | 0.0 | – | – | 43 | 55.8% / 55.8% | 0.0 | – | -31.3% / -31.3% |
+| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | **favori seçimi** | 989 | 88.1% / 88.1% | 0.0 | – | – | 154 | 88.3% / 88.3% | 0.0 | – | -32.9% / -32.9% |
+| KV-6 çim: 1-2. atların dışına çıkmaz | **favori seçimi** | 204 | 55.9% / 55.9% | 0.0 | – | – | 36 | 52.8% / 52.8% | 0.0 | – | -33.9% / -33.9% |
+| KV-6 kum: 1-2. atlar şanslı | **favori seçimi** | 278 | 64.0% / 64.0% | 0.0 | – | – | 52 | 61.5% / 61.5% | 0.0 | – | -31.6% / -31.6% |
+| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | **favori seçimi** | 171 | 82.5% / 82.5% | 0.0 | – | – | 32 | 81.3% / 81.3% | 0.0 | – | -29.3% / -29.3% |
+| HAN-14 (özet): 1-2. at kazanır | **favori seçimi** | 706 | 49.6% / 49.6% | 0.0 | – | – | 110 | 60.0% / 60.0% | 0.0 | – | -32.4% / -32.4% |
+| HAN-15 (özet): 1,2,3. at dışına çıkmaz | **favori seçimi** | 1158 | 67.4% / 67.4% | 0.0 | – | – | 205 | 61.5% / 61.5% | 0.0 | – | -31.0% / -31.0% |
+| HAN-16 çim: favori-plaseler arasında biter | **favori seçimi** | 404 | 62.4% / 62.4% | 0.0 | – | – | 51 | 62.7% / 62.7% | 0.0 | – | -35.3% / -35.3% |
+| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | **favori seçimi** | 352 | 51.4% / 51.4% | 0.0 | – | – | 50 | 54.0% / 54.0% | 0.0 | – | -31.1% / -31.1% |
+| Maiden kum: genelde favori kazanır | **favori seçimi** | 896 | 39.1% / 39.1% | 0.0 | – | – | 179 | 43.0% / 43.0% | 0.0 | – | -29.7% / -29.7% |
+| Maiden (özet): ilk iki at arasında | **favori seçimi** | 2119 | 59.2% / 59.2% | 0.0 | – | – | 371 | 57.4% / 57.4% | 0.0 | – | -32.4% / -32.4% |
+| Açık/Grup çim: favori-plase dışına çıkmaz | **favori seçimi** | 320 | 70.3% / 70.3% | 0.0 | – | – | 55 | 61.8% / 61.8% | 0.0 | – | -40.2% / -40.2% |
+| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | **yetersiz örnek** | 143 | 27.3% / 77.6% | -50.3 | <0.001 | <0.001 | 3 | 66.7% / 66.7% | 0.0 | 1.000 | -28.9% / -30.8% |
+| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | **yetersiz örnek** | 209 | 17.2% / 59.8% | -42.6 | <0.001 | <0.001 | 22 | 22.7% / 36.4% | -13.6 | 0.409 | -41.9% / -25.5% |
+| KV-8 kum: favorinin şansı az (favori gelmez) | **yetersiz örnek** | 182 | 45.1% / 16.6% | +28.5 | <0.001 | <0.001 | 29 | 65.5% / 16.8% | +48.8 | <0.001 | -27.1% / -27.1% |
+| HAN-17 çim: hafif kg'lı atlar çok şanslı | **yetersiz örnek** | 125 | 28.8% / 68.0% | -39.2 | <0.001 | <0.001 | 17 | 23.5% / 88.2% | -64.7 | <0.001 | -52.6% / -15.5% |
+| KV-8 kum: 57 kg altındaki atlar kazanır | **yetersiz örnek** | 54 | 14.8% / 61.1% | -46.3 | <0.001 | <0.001 | 7 | 14.3% / 71.4% | -57.1 | 0.005 | +5.5% / -22.7% |
+| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | **yetersiz örnek** | 56 | 28.6% / 69.6% | -41.1 | <0.001 | <0.001 | 9 | 33.3% / 77.8% | -44.4 | 0.011 | -45.3% / -12.8% |
+| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | **yetersiz örnek** | 76 | 17.1% / 51.3% | -34.2 | <0.001 | <0.001 | 11 | 0.0% / 54.5% | -54.5 | <0.001 | -63.9% / -41.2% |
+| HAN-14 çim: en üstteki 2 handikabın şansı %20 | **yetersiz örnek** | 221 | 30.8% / 50.2% | -19.5 | <0.001 | <0.001 | 24 | 12.5% / 33.3% | -20.8 | 0.045 | -39.3% / -32.4% |
+| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | **yetersiz örnek** | 60 | 5.0% / 36.7% | -31.7 | <0.001 | <0.001 | 10 | 0.0% / 40.0% | -40.0 | 0.014 | -55.0% / -39.4% |
+| HAN-17 kum: plase atlar şanslı %70 | **yetersiz örnek** | 161 | 32.9% / 50.3% | -17.4 | 0.001 | 0.002 | 22 | 40.9% / 50.0% | -9.1 | 0.533 | -30.8% / -31.0% |
+| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | **yetersiz örnek** | 147 | 70.1% / 77.6% | -7.5 | 0.053 | 0.064 | 3 | 33.3% / 66.7% | -33.3 | 0.617 | -32.4% / -37.8% |
+| HAN-17 kum: puana göre 1-4. atlar | **yetersiz örnek** | 94 | 72.3% / 80.9% | -8.5 | 0.085 | 0.101 | 22 | 81.8% / 90.9% | -9.1 | 0.317 | -27.0% / -22.8% |
+| Şartlı 2: 1-2. handikap dışına çıkmaz | **yetersiz örnek** | 147 | 53.1% / 61.2% | -8.2 | 0.094 | 0.109 | 3 | 0.0% / 33.3% | -33.3 | 0.317 | -25.0% / -30.4% |
+| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | **yetersiz örnek** | 59 | 23.7% / 30.5% | -6.8 | 0.395 | 0.421 | 8 | 12.5% / 62.5% | -50.0 | 0.061 | +9.8% / -57.6% |
+| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | **yetersiz örnek** | 354 | 42.4% / 38.7% | +3.7 | 0.442 | 0.449 | 28 | 57.1% / 32.1% | +25.0 | 0.154 | -18.2% / -17.2% |
+| KV-7 dişi kum: 1-2. handikaplı atlar | **yetersiz örnek** | 62 | 54.8% / 59.7% | -4.8 | 0.440 | 0.449 | 14 | 78.6% / 92.9% | -14.3 | 0.141 | -32.8% / -29.5% |
+| Şartlı 2: favori varsa kazanır | **yetersiz örnek** | 147 | 37.4% / 37.4% | 0.0 | – | – | 3 | 33.3% / 33.3% | 0.0 | – | -36.3% / -36.3% |
 | Şartlı 2 kum: puanı 190 üstü favori kazanır | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
-| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | **yetersiz örnek** | 24 | 12.5% / 20.8% | -8.3 | 0.418 | – | 10 | 0.0% / 40.0% | -40.0 | 0.014 | -4.1% / -60.7% |
-| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | **yetersiz örnek** | 23 | 21.7% / 13.0% | +8.7 | 0.418 | – | 8 | 12.5% / 62.5% | -50.0 | 0.061 | -35.4% / -70.7% |
-| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | **yetersiz örnek** | 23 | 17.4% / 56.5% | -39.1 | <0.001 | – | 9 | 33.3% / 77.8% | -44.4 | 0.011 | -68.2% / -22.5% |
-| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | **yetersiz örnek** | 55 | 58.2% / 58.2% | 0.0 | – | – | 16 | 75.0% / 75.0% | 0.0 | – | -25.7% / -25.7% |
-| KV-7 erkek kum: %20 favori | **yetersiz örnek** | 61 | 32.8% / 32.8% | 0.0 | – | – | 25 | 36.0% / 36.0% | 0.0 | – | -44.8% / -44.8% |
-| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | **yetersiz örnek** | 27 | 18.5% / 44.4% | -25.9 | 0.023 | – | 11 | 0.0% / 54.5% | -54.5 | <0.001 | -56.5% / -48.6% |
-| KV-7 dişi çim: favori, yoksa plaseler | **yetersiz örnek** | 28 | 67.9% / 67.9% | 0.0 | – | – | 6 | 33.3% / 33.3% | 0.0 | – | -41.5% / -41.5% |
-| KV-7 dişi kum: 1-2. handikaplı atlar | **yetersiz örnek** | 28 | 50.0% / 60.7% | -10.7 | 0.254 | – | 14 | 78.6% / 92.9% | -14.3 | 0.141 | -37.5% / -27.4% |
-| KV-8 kum: 57 kg altındaki atlar kazanır | **yetersiz örnek** | 22 | 18.2% / 68.2% | -50.0 | 0.002 | – | 7 | 14.3% / 71.4% | -57.1 | 0.005 | +89.2% / -19.9% |
+| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | **yetersiz örnek** | 135 | 57.8% / 57.8% | 0.0 | – | – | 16 | 75.0% / 75.0% | 0.0 | – | -32.6% / -32.6% |
+| KV-7 erkek kum: %20 favori | **yetersiz örnek** | 146 | 36.3% / 36.3% | 0.0 | – | – | 25 | 36.0% / 36.0% | 0.0 | – | -41.2% / -41.2% |
+| KV-7 dişi çim: favori, yoksa plaseler | **yetersiz örnek** | 79 | 67.1% / 67.1% | 0.0 | – | – | 6 | 33.3% / 33.3% | 0.0 | – | -39.8% / -39.8% |
 | KV-21 çim: %60 3,4,5 numaralı atlar | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | KV-21 kum: %60 3,4,5 numaralı atlar | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | KV-21: favori gelmez | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
@@ -97,69 +97,70 @@ Keşif < 2026-01-01: 5019 koşu · doğrulama ≥ 2026-01-01: 2104 koşu. iddia 
 | KV-25 çim: 2,3,4,5 numaralı %75 | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | KV-25 kum: 3,4,5 numaralı %60 | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | HAN-13 çim: ilk 3 at çok şanslı | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
-| HAN-13 kum: 1,2,3,4. handikaplar %70 | **yetersiz örnek** | 11 | 81.8% / 90.9% | -9.1 | 0.576 | – | 3 | 100.0% / 100.0% | 0.0 | – | -31.2% / -29.0% |
-| Açık/Grup kum: %70 favori | **yetersiz örnek** | 38 | 57.9% / 57.9% | 0.0 | – | – | 19 | 47.4% / 47.4% | 0.0 | – | -26.1% / -26.1% |
+| HAN-13 kum: 1,2,3,4. handikaplar %70 | **yetersiz örnek** | 24 | 75.0% / 87.5% | -12.5 | 0.254 | – | 3 | 100.0% / 100.0% | 0.0 | – | -24.9% / -20.2% |
+| Açık/Grup kum: %70 favori | **yetersiz örnek** | 137 | 39.4% / 39.4% | 0.0 | – | – | 19 | 47.4% / 47.4% | 0.0 | – | -43.0% / -43.0% |
 
 ### Arap: doğrulama özeti
 
-Keşif < 2026-01-01: 4063 koşu · doğrulama ≥ 2026-01-01: 1601 koşu. tersi doğrulandı: 12 · iddia çürütüldü: 1 · tekrar etmedi: 2 · kanıt yok: 2 · favori seçimi: 12 · yetersiz örnek: 41.
+Keşif < 2026-01-01: 10210 koşu · doğrulama ≥ 2026-01-01: 1601 koşu. tersi doğrulandı: 12 · iddia çürütüldü: 1 · tekrar etmedi: 2 · kanıt yok: 2 · favori seçimi: 12 · yetersiz örnek: 41.
 
 | Kural | Karar | Keşif n | Keşif isabet / favori | Fark (puan) | p | q (BH) | Doğrulama n | Doğrulama isabet / favori | Fark (puan) | p | ROI kural / aynı sayıda favori (tüm dönem) |
 |---|---|---:|---|---:|---:|---:|---:|---|---:|---:|---|
-| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | **tersi doğrulandı** | 233 | 45.9% / 81.1% | -35.2 | <0.001 | <0.001 | 104 | 52.9% / 81.7% | -28.8 | <0.001 | -42.4% / -28.0% |
-| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | **tersi doğrulandı** | 138 | 31.9% / 66.7% | -34.8 | <0.001 | <0.001 | 48 | 43.8% / 75.0% | -31.3 | <0.001 | -30.8% / -34.4% |
-| Şartlı 5 çim: %40 hafif kg'lar kazanır | **tersi doğrulandı** | 128 | 38.3% / 73.4% | -35.2 | <0.001 | <0.001 | 42 | 42.9% / 71.4% | -28.6 | 0.006 | -30.8% / -31.3% |
-| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | **tersi doğrulandı** | 229 | 30.1% / 51.1% | -21.0 | <0.001 | <0.001 | 75 | 36.0% / 50.7% | -14.7 | 0.037 | -41.8% / -31.5% |
-| HAN-15 (özet): 3. handikaplı at tek | **tersi doğrulandı** | 349 | 16.3% / 32.7% | -16.3 | <0.001 | <0.001 | 134 | 17.2% / 35.8% | -18.7 | <0.001 | -20.5% / -26.4% |
-| HAN-16 kum: 1,2,3. handikaplar %80 | **tersi doğrulandı** | 156 | 34.6% / 59.6% | -25.0 | <0.001 | <0.001 | 65 | 32.3% / 67.7% | -35.4 | <0.001 | -40.1% / -30.9% |
-| HAN-16 çim: %30 7,8,9 numaralar | **tersi doğrulandı** | 125 | 25.6% / 54.4% | -28.8 | <0.001 | <0.001 | 46 | 17.4% / 58.7% | -41.3 | <0.001 | -26.9% / -24.1% |
-| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | **tersi doğrulandı** | 136 | 29.4% / 52.2% | -22.8 | <0.001 | <0.001 | 58 | 27.6% / 56.9% | -29.3 | <0.001 | -41.8% / -37.3% |
-| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | **tersi doğrulandı** | 127 | 18.1% / 37.8% | -19.7 | <0.001 | <0.001 | 52 | 15.4% / 32.7% | -17.3 | 0.023 | -24.7% / -37.5% |
-| HAN-16 (özet): hafif kilo favori | **tersi doğrulandı** | 214 | 24.3% / 34.1% | -9.8 | 0.004 | 0.006 | 92 | 28.3% / 44.6% | -16.3 | 0.007 | -27.1% / -12.8% |
-| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | **tersi doğrulandı** | 69 | 46.4% / 58.0% | -11.6 | 0.041 | 0.055 | 67 | 50.7% / 64.2% | -13.4 | 0.009 | -41.7% / -30.4% |
-| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | **tersi doğrulandı** | 87 | 51.7% / 66.7% | -14.9 | 0.044 | 0.058 | 46 | 37.0% / 63.0% | -26.1 | 0.006 | -21.0% / -33.3% |
-| HAN-14 kum: %75 1-2-3. atlara güvenin | **iddia çürütüldü** | 139 | 58.3% / 58.3% | 0.0 | – | – | 60 | 58.3% / 58.3% | 0.0 | – | -34.9% / -34.9% |
-| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | **tekrar etmedi** | 113 | 18.6% / 45.1% | -26.5 | <0.001 | <0.001 | 49 | 28.6% / 42.9% | -14.3 | 0.157 | -22.3% / -32.5% |
-| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | **tekrar etmedi** | 187 | 42.8% / 59.9% | -17.1 | <0.001 | <0.001 | 87 | 48.3% / 58.6% | -10.3 | 0.114 | -21.5% / -34.0% |
-| KV-6 kum: puana göre 1,2,3. atlar kazanır | **kanıt yok** | 40 | 65.0% / 75.0% | -10.0 | 0.152 | 0.178 | 33 | 75.8% / 75.8% | 0.0 | 1.000 | -37.8% / -37.0% |
-| KV-6 kum: 1,2,3. handikaplar arasında geçer | **kanıt yok** | 74 | 70.3% / 77.0% | -6.8 | 0.224 | 0.257 | 33 | 60.6% / 75.8% | -15.2 | 0.049 | -25.7% / -34.9% |
-| Şartlı 1 çim: ilk 4 at arasında biter | **favori seçimi** | 73 | 74.0% / 74.0% | 0.0 | – | – | 31 | 64.5% / 64.5% | 0.0 | – | -35.4% / -35.4% |
-| Şartlı 3 kum: favori şanslı | **favori seçimi** | 142 | 46.5% / 46.5% | 0.0 | – | – | 60 | 43.3% / 43.3% | 0.0 | – | -14.1% / -14.1% |
-| Şartlı 4: favori gelir | **favori seçimi** | 481 | 36.0% / 36.0% | 0.0 | – | – | 181 | 33.1% / 33.1% | 0.0 | – | -36.8% / -36.8% |
-| Şartlı 5 çim: favori çok şanslı | **favori seçimi** | 128 | 35.9% / 35.9% | 0.0 | – | – | 42 | 21.4% / 21.4% | 0.0 | – | -37.7% / -37.7% |
-| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | **favori seçimi** | 360 | 83.6% / 83.6% | 0.0 | – | – | 142 | 81.7% / 81.7% | 0.0 | – | -29.7% / -29.7% |
-| KV-6 kum: 1-2. atlar şanslı | **favori seçimi** | 74 | 56.8% / 56.8% | 0.0 | – | – | 33 | 60.6% / 60.6% | 0.0 | – | -40.3% / -40.3% |
-| HAN-14 (özet): 1-2. at kazanır | **favori seçimi** | 235 | 48.9% / 48.9% | 0.0 | – | – | 88 | 45.5% / 45.5% | 0.0 | – | -25.9% / -25.9% |
-| HAN-15 (özet): 1,2,3. at dışına çıkmaz | **favori seçimi** | 399 | 57.9% / 57.9% | 0.0 | – | – | 166 | 58.4% / 58.4% | 0.0 | – | -32.8% / -32.8% |
-| HAN-16 çim: favori-plaseler arasında biter | **favori seçimi** | 135 | 59.3% / 59.3% | 0.0 | – | – | 46 | 60.9% / 60.9% | 0.0 | – | -27.5% / -27.5% |
-| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | **favori seçimi** | 98 | 52.0% / 52.0% | 0.0 | – | – | 38 | 52.6% / 52.6% | 0.0 | – | -17.6% / -17.6% |
-| Maiden kum: genelde favori kazanır | **favori seçimi** | 384 | 35.4% / 35.4% | 0.0 | – | – | 171 | 33.3% / 33.3% | 0.0 | – | -34.0% / -34.0% |
-| Maiden (özet): ilk iki at arasında | **favori seçimi** | 833 | 56.7% / 56.7% | 0.0 | – | – | 340 | 51.8% / 51.8% | 0.0 | – | -30.5% / -30.5% |
-| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | **yetersiz örnek** | 59 | 15.3% / 55.9% | -40.7 | <0.001 | <0.001 | 14 | 7.1% / 57.1% | -50.0 | 0.004 | -58.8% / -29.6% |
-| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | **yetersiz örnek** | 62 | 16.1% / 54.8% | -38.7 | <0.001 | <0.001 | 22 | 27.3% / 45.5% | -18.2 | 0.147 | -23.5% / -3.2% |
-| KV-8 kum: favorinin şansı az (favori gelmez) | **yetersiz örnek** | 54 | 37.0% / 16.4% | +20.7 | 0.002 | 0.003 | 25 | 52.0% / 15.0% | +37.0 | <0.001 | -40.5% / -40.5% |
-| HAN-14 çim: en üstteki 2 handikabın şansı %20 | **yetersiz örnek** | 67 | 32.8% / 59.7% | -26.9 | 0.002 | 0.003 | 17 | 23.5% / 52.9% | -29.4 | 0.077 | -13.9% / -13.1% |
-| HAN-17 kum: plase atlar şanslı %70 | **yetersiz örnek** | 44 | 25.0% / 52.3% | -27.3 | 0.004 | 0.006 | 19 | 36.8% / 52.6% | -15.8 | 0.317 | -36.0% / -17.8% |
-| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | **yetersiz örnek** | 55 | 34.5% / 56.4% | -21.8 | 0.014 | 0.020 | 3 | 66.7% / 100.0% | -33.3 | 0.317 | +22.3% / -21.4% |
-| HAN-17 çim: hafif kg'lı atlar çok şanslı | **yetersiz örnek** | 38 | 36.8% / 65.8% | -28.9 | 0.015 | 0.021 | 13 | 38.5% / 84.6% | -46.2 | 0.001 | -34.2% / -22.4% |
-| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | **yetersiz örnek** | 122 | 39.3% / 25.4% | +13.9 | 0.053 | 0.068 | 27 | 25.9% / 29.6% | -3.7 | 0.800 | -15.9% / -29.8% |
-| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | **yetersiz örnek** | 61 | 67.2% / 75.4% | -8.2 | 0.091 | 0.111 | 3 | 66.7% / 100.0% | -33.3 | 0.317 | -29.2% / -20.1% |
-| Şartlı 2: 1-2. handikap dışına çıkmaz | **yetersiz örnek** | 61 | 41.0% / 47.5% | -6.6 | 0.317 | 0.343 | 3 | 33.3% / 33.3% | 0.0 | 1.000 | -38.9% / -35.7% |
-| Şartlı 1 kum: favori-plaseler arasında biter | **yetersiz örnek** | 33 | 57.6% / 57.6% | 0.0 | – | – | 17 | 64.7% / 64.7% | 0.0 | – | -31.7% / -31.7% |
-| Şartlı 2: favori varsa kazanır | **yetersiz örnek** | 61 | 23.0% / 23.0% | 0.0 | – | – | 3 | 0.0% / 0.0% | 0.0 | – | -62.3% / -62.3% |
+| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | **tersi doğrulandı** | 566 | 47.9% / 81.4% | -33.6 | <0.001 | <0.001 | 104 | 52.9% / 81.7% | -28.8 | <0.001 | -43.0% / -31.2% |
+| Şartlı 5 çim: %40 hafif kg'lar kazanır | **tersi doğrulandı** | 337 | 35.3% / 74.2% | -38.9 | <0.001 | <0.001 | 42 | 42.9% / 71.4% | -28.6 | 0.006 | -35.3% / -36.1% |
+| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | **tersi doğrulandı** | 360 | 36.1% / 71.9% | -35.8 | <0.001 | <0.001 | 48 | 43.8% / 75.0% | -31.3 | <0.001 | -35.0% / -32.7% |
+| HAN-15 (özet): 3. handikaplı at tek | **tersi doğrulandı** | 895 | 15.4% / 35.0% | -19.6 | <0.001 | <0.001 | 134 | 17.2% / 35.8% | -18.7 | <0.001 | -25.8% / -24.1% |
+| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | **tersi doğrulandı** | 515 | 30.5% / 50.3% | -19.8 | <0.001 | <0.001 | 75 | 36.0% / 50.7% | -14.7 | 0.037 | -34.0% / -28.4% |
+| HAN-16 çim: %30 7,8,9 numaralar | **tersi doğrulandı** | 327 | 26.6% / 53.2% | -26.6 | <0.001 | <0.001 | 46 | 17.4% / 58.7% | -41.3 | <0.001 | -19.2% / -34.7% |
+| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | **tersi doğrulandı** | 249 | 43.8% / 72.3% | -28.5 | <0.001 | <0.001 | 46 | 37.0% / 63.0% | -26.1 | 0.006 | -35.2% / -33.4% |
+| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | **tersi doğrulandı** | 340 | 29.7% / 51.8% | -22.1 | <0.001 | <0.001 | 58 | 27.6% / 56.9% | -29.3 | <0.001 | -41.8% / -33.0% |
+| HAN-16 kum: 1,2,3. handikaplar %80 | **tersi doğrulandı** | 383 | 37.6% / 58.0% | -20.4 | <0.001 | <0.001 | 65 | 32.3% / 67.7% | -35.4 | <0.001 | -34.8% / -34.3% |
+| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | **tersi doğrulandı** | 327 | 17.7% / 37.9% | -20.2 | <0.001 | <0.001 | 52 | 15.4% / 32.7% | -17.3 | 0.023 | -34.5% / -35.3% |
+| HAN-16 (özet): hafif kilo favori | **tersi doğrulandı** | 514 | 21.2% / 33.5% | -12.3 | <0.001 | <0.001 | 92 | 28.3% / 44.6% | -16.3 | 0.007 | -33.5% / -20.0% |
+| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | **tersi doğrulandı** | 187 | 52.9% / 60.4% | -7.5 | 0.033 | 0.042 | 67 | 50.7% / 64.2% | -13.4 | 0.009 | -34.1% / -30.2% |
+| HAN-14 kum: %75 1-2-3. atlara güvenin | **iddia çürütüldü** | 355 | 52.4% / 52.4% | 0.0 | – | – | 60 | 58.3% / 58.3% | 0.0 | – | -39.5% / -39.5% |
+| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | **tekrar etmedi** | 312 | 16.3% / 42.9% | -26.6 | <0.001 | <0.001 | 49 | 28.6% / 42.9% | -14.3 | 0.157 | -28.3% / -33.4% |
+| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | **tekrar etmedi** | 473 | 41.6% / 59.4% | -17.8 | <0.001 | <0.001 | 87 | 48.3% / 58.6% | -10.3 | 0.114 | -26.1% / -36.2% |
+| KV-6 kum: 1,2,3. handikaplar arasında geçer | **kanıt yok** | 186 | 67.2% / 71.5% | -4.3 | 0.216 | 0.243 | 33 | 60.6% / 75.8% | -15.2 | 0.049 | -25.4% / -37.6% |
+| KV-6 kum: puana göre 1,2,3. atlar kazanır | **kanıt yok** | 111 | 62.2% / 66.7% | -4.5 | 0.251 | 0.277 | 33 | 75.8% / 75.8% | 0.0 | 1.000 | -38.8% / -40.4% |
+| Şartlı 1 çim: ilk 4 at arasında biter | **favori seçimi** | 186 | 71.5% / 71.5% | 0.0 | – | – | 31 | 64.5% / 64.5% | 0.0 | – | -36.2% / -36.2% |
+| Şartlı 3 kum: favori şanslı | **favori seçimi** | 360 | 39.2% / 39.2% | 0.0 | – | – | 60 | 43.3% / 43.3% | 0.0 | – | -25.4% / -25.4% |
+| Şartlı 4: favori gelir | **favori seçimi** | 1197 | 38.8% / 38.8% | 0.0 | – | – | 181 | 33.1% / 33.1% | 0.0 | – | -34.2% / -34.2% |
+| Şartlı 5 çim: favori çok şanslı | **favori seçimi** | 337 | 35.9% / 35.9% | 0.0 | – | – | 42 | 21.4% / 21.4% | 0.0 | – | -39.4% / -39.4% |
+| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | **favori seçimi** | 894 | 84.0% / 84.0% | 0.0 | – | – | 142 | 81.7% / 81.7% | 0.0 | – | -32.5% / -32.5% |
+| KV-6 kum: 1-2. atlar şanslı | **favori seçimi** | 186 | 57.0% / 57.0% | 0.0 | – | – | 33 | 60.6% / 60.6% | 0.0 | – | -36.7% / -36.7% |
+| HAN-14 (özet): 1-2. at kazanır | **favori seçimi** | 609 | 44.3% / 44.3% | 0.0 | – | – | 88 | 45.5% / 45.5% | 0.0 | – | -32.1% / -32.1% |
+| HAN-15 (özet): 1,2,3. at dışına çıkmaz | **favori seçimi** | 1020 | 58.8% / 58.8% | 0.0 | – | – | 166 | 58.4% / 58.4% | 0.0 | – | -34.0% / -34.0% |
+| HAN-16 çim: favori-plaseler arasında biter | **favori seçimi** | 346 | 58.1% / 58.1% | 0.0 | – | – | 46 | 60.9% / 60.9% | 0.0 | – | -35.5% / -35.5% |
+| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | **favori seçimi** | 244 | 49.2% / 49.2% | 0.0 | – | – | 38 | 52.6% / 52.6% | 0.0 | – | -25.3% / -25.3% |
+| Maiden kum: genelde favori kazanır | **favori seçimi** | 969 | 38.0% / 38.0% | 0.0 | – | – | 171 | 33.3% / 33.3% | 0.0 | – | -33.0% / -33.0% |
+| Maiden (özet): ilk iki at arasında | **favori seçimi** | 2114 | 58.7% / 58.7% | 0.0 | – | – | 340 | 51.8% / 51.8% | 0.0 | – | -31.7% / -31.7% |
+| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | **yetersiz örnek** | 61 | 0.0% / 52.5% | -52.5 | <0.001 | <0.001 | 14 | 0.0% / 42.9% | -42.9 | 0.002 | -100.0% / -13.7% |
+| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | **yetersiz örnek** | 160 | 30.0% / 64.4% | -34.4 | <0.001 | <0.001 | 3 | 66.7% / 100.0% | -33.3 | 0.317 | -13.0% / -33.7% |
+| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | **yetersiz örnek** | 154 | 19.5% / 50.6% | -31.2 | <0.001 | <0.001 | 22 | 27.3% / 45.5% | -18.2 | 0.147 | -30.3% / -11.0% |
+| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | **yetersiz örnek** | 174 | 22.4% / 54.0% | -31.6 | <0.001 | <0.001 | 14 | 7.1% / 57.1% | -50.0 | 0.004 | -31.1% / -34.8% |
+| HAN-14 çim: en üstteki 2 handikabın şansı %20 | **yetersiz örnek** | 188 | 26.6% / 51.1% | -24.5 | <0.001 | <0.001 | 17 | 23.5% / 52.9% | -29.4 | 0.077 | -38.0% / -28.9% |
+| KV-8 kum: favorinin şansı az (favori gelmez) | **yetersiz örnek** | 123 | 34.1% / 15.5% | +18.6 | <0.001 | <0.001 | 25 | 52.0% / 15.0% | +37.0 | <0.001 | -45.6% / -45.6% |
+| HAN-17 çim: hafif kg'lı atlar çok şanslı | **yetersiz örnek** | 102 | 35.3% / 65.7% | -30.4 | <0.001 | <0.001 | 13 | 38.5% / 84.6% | -46.2 | 0.001 | -35.0% / -29.5% |
+| HAN-17 kum: plase atlar şanslı %70 | **yetersiz örnek** | 103 | 24.3% / 49.5% | -25.2 | <0.001 | <0.001 | 19 | 36.8% / 52.6% | -15.8 | 0.317 | -42.2% / -21.5% |
+| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | **yetersiz örnek** | 35 | 17.1% / 37.1% | -20.0 | 0.026 | 0.034 | 13 | 23.1% / 46.2% | -23.1 | 0.165 | -57.2% / -52.4% |
+| HAN-17 kum: puana göre 1-4. atlar | **yetersiz örnek** | 66 | 57.6% / 69.7% | -12.1 | 0.041 | 0.051 | 19 | 73.7% / 73.7% | 0.0 | 1.000 | -37.8% / -35.1% |
+| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | **yetersiz örnek** | 172 | 71.5% / 77.9% | -6.4 | 0.046 | 0.057 | 3 | 66.7% / 100.0% | -33.3 | 0.317 | -31.8% / -31.0% |
+| KV-8 çim: 1-2-4 startlı favori/plase atlar | **yetersiz örnek** | 79 | 38.0% / 48.1% | -10.1 | 0.141 | 0.161 | 9 | 66.7% / 44.4% | +22.2 | 0.131 | -19.7% / -35.5% |
+| Şartlı 2: 1-2. handikap dışına çıkmaz | **yetersiz örnek** | 172 | 50.6% / 54.7% | -4.1 | 0.274 | 0.297 | 3 | 33.3% / 33.3% | 0.0 | 1.000 | -32.8% / -37.1% |
+| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | **yetersiz örnek** | 293 | 31.1% / 33.4% | -2.4 | 0.611 | 0.611 | 27 | 25.9% / 29.6% | -3.7 | 0.800 | -34.1% / -35.9% |
+| Şartlı 1 kum: favori-plaseler arasında biter | **yetersiz örnek** | 82 | 56.1% / 56.1% | 0.0 | – | – | 17 | 64.7% / 64.7% | 0.0 | – | -39.6% / -39.6% |
+| Şartlı 2: favori varsa kazanır | **yetersiz örnek** | 173 | 31.2% / 31.2% | 0.0 | – | – | 3 | 0.0% / 0.0% | 0.0 | – | -51.5% / -51.5% |
 | Şartlı 2 kum: puanı 190 üstü favori kazanır | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
-| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | **yetersiz örnek** | 20 | 0.0% / 60.0% | -60.0 | <0.001 | – | 14 | 0.0% / 42.9% | -42.9 | 0.002 | -100.0% / -11.2% |
-| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | **yetersiz örnek** | 15 | 26.7% / 46.7% | -20.0 | 0.167 | – | 13 | 23.1% / 46.2% | -23.1 | 0.165 | -41.0% / -45.9% |
-| KV-6 çim: 1-2. atların dışına çıkmaz | **yetersiz örnek** | 83 | 56.6% / 56.6% | 0.0 | – | – | 26 | 46.2% / 46.2% | 0.0 | – | -29.2% / -29.2% |
-| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | **yetersiz örnek** | 10 | 20.0% / 30.0% | -10.0 | 0.577 | – | 5 | 0.0% / 20.0% | -20.0 | 0.317 | -81.5% / -82.4% |
-| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | **yetersiz örnek** | 37 | 67.6% / 67.6% | 0.0 | – | – | 12 | 50.0% / 50.0% | 0.0 | – | -9.5% / -9.5% |
-| KV-7 erkek kum: %20 favori | **yetersiz örnek** | 39 | 30.8% / 30.8% | 0.0 | – | – | 19 | 36.8% / 36.8% | 0.0 | – | -33.1% / -33.1% |
-| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | **yetersiz örnek** | 10 | 20.0% / 40.0% | -20.0 | 0.317 | – | 7 | 14.3% / 71.4% | -57.1 | 0.005 | -66.2% / -12.7% |
-| KV-7 dişi çim: favori, yoksa plaseler | **yetersiz örnek** | 11 | 81.8% / 81.8% | 0.0 | – | – | 4 | 75.0% / 75.0% | 0.0 | – | -16.6% / -16.6% |
-| KV-7 dişi kum: 1-2. handikaplı atlar | **yetersiz örnek** | 8 | 62.5% / 87.5% | -25.0 | 0.127 | – | 5 | 40.0% / 60.0% | -20.0 | 0.317 | -49.4% / -17.7% |
-| KV-8 çim: 1-2-4 startlı favori/plase atlar | **yetersiz örnek** | 27 | 40.7% / 59.3% | -18.5 | 0.122 | – | 9 | 66.7% / 44.4% | +22.2 | 0.131 | -14.2% / -14.0% |
-| KV-8 kum: 57 kg altındaki atlar kazanır | **yetersiz örnek** | 9 | 0.0% / 55.6% | -55.6 | 0.002 | – | 6 | 0.0% / 66.7% | -66.7 | 0.002 | -100.0% / -14.4% |
-| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | **yetersiz örnek** | 35 | 77.1% / 77.1% | 0.0 | – | – | 13 | 92.3% / 92.3% | 0.0 | – | -36.6% / -36.6% |
+| KV-6 çim: 1-2. atların dışına çıkmaz | **yetersiz örnek** | 188 | 57.4% / 57.4% | 0.0 | – | – | 26 | 46.2% / 46.2% | 0.0 | – | -34.1% / -34.1% |
+| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | **yetersiz örnek** | 23 | 17.4% / 43.5% | -26.1 | 0.069 | – | 5 | 0.0% / 20.0% | -20.0 | 0.317 | -72.9% / -64.4% |
+| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | **yetersiz örnek** | 97 | 61.9% / 61.9% | 0.0 | – | – | 12 | 50.0% / 50.0% | 0.0 | – | -24.1% / -24.1% |
+| KV-7 erkek kum: %20 favori | **yetersiz örnek** | 99 | 29.3% / 29.3% | 0.0 | – | – | 19 | 36.8% / 36.8% | 0.0 | – | -41.4% / -41.4% |
+| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | **yetersiz örnek** | 29 | 17.2% / 37.9% | -20.7 | 0.072 | – | 7 | 14.3% / 71.4% | -57.1 | 0.005 | -57.5% / -34.1% |
+| KV-7 dişi çim: favori, yoksa plaseler | **yetersiz örnek** | 26 | 69.2% / 69.2% | 0.0 | – | – | 4 | 75.0% / 75.0% | 0.0 | – | -24.2% / -24.2% |
+| KV-7 dişi kum: 1-2. handikaplı atlar | **yetersiz örnek** | 20 | 65.0% / 75.0% | -10.0 | 0.317 | – | 5 | 40.0% / 60.0% | -20.0 | 0.317 | -36.3% / -26.5% |
+| KV-8 kum: 57 kg altındaki atlar kazanır | **yetersiz örnek** | 20 | 5.0% / 50.0% | -45.0 | <0.001 | – | 6 | 0.0% / 66.7% | -66.7 | 0.002 | -91.1% / -27.7% |
+| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | **yetersiz örnek** | 60 | 80.0% / 80.0% | 0.0 | – | – | 13 | 92.3% / 92.3% | 0.0 | – | -35.6% / -35.6% |
 | KV-21 çim: %60 3,4,5 numaralı atlar | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | KV-21 kum: %60 3,4,5 numaralı atlar | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | KV-21: favori gelmez | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
@@ -171,54 +172,53 @@ Keşif < 2026-01-01: 4063 koşu · doğrulama ≥ 2026-01-01: 1601 koşu. tersi 
 | KV-24 kum: 90–120 puanlılar %80 | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | KV-25 çim: 2,3,4,5 numaralı %75 | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
 | KV-25 kum: 3,4,5 numaralı %60 | **yetersiz örnek** | 0 | – / – | – | – | – | 0 | – / – | – | – | – / – |
-| HAN-13 çim: ilk 3 at çok şanslı | **yetersiz örnek** | 2 | 100.0% / 100.0% | 0.0 | – | – | 1 | 100.0% / 100.0% | 0.0 | – | +13.3% / +13.3% |
-| HAN-13 kum: 1,2,3,4. handikaplar %70 | **yetersiz örnek** | 12 | 66.7% / 91.7% | -25.0 | 0.056 | – | 2 | 100.0% / 100.0% | 0.0 | – | -48.7% / -31.3% |
-| HAN-17 kum: puana göre 1-4. atlar | **yetersiz örnek** | 27 | 48.1% / 63.0% | -14.8 | 0.149 | – | 19 | 73.7% / 73.7% | 0.0 | 1.000 | -39.0% / -40.1% |
-| Açık/Grup çim: favori-plase dışına çıkmaz | **yetersiz örnek** | 54 | 63.0% / 63.0% | 0.0 | – | – | 26 | 76.9% / 76.9% | 0.0 | – | -37.2% / -37.2% |
-| Açık/Grup kum: %70 favori | **yetersiz örnek** | 28 | 53.6% / 53.6% | 0.0 | – | – | 12 | 33.3% / 33.3% | 0.0 | – | -11.7% / -11.7% |
+| HAN-13 çim: ilk 3 at çok şanslı | **yetersiz örnek** | 5 | 80.0% / 80.0% | 0.0 | – | – | 1 | 100.0% / 100.0% | 0.0 | – | -10.6% / -10.6% |
+| HAN-13 kum: 1,2,3,4. handikaplar %70 | **yetersiz örnek** | 21 | 71.4% / 90.5% | -19.0 | 0.088 | – | 2 | 100.0% / 100.0% | 0.0 | – | -21.2% / -28.8% |
+| Açık/Grup çim: favori-plase dışına çıkmaz | **yetersiz örnek** | 162 | 71.0% / 71.0% | 0.0 | – | – | 26 | 76.9% / 76.9% | 0.0 | – | -38.3% / -38.3% |
+| Açık/Grup kum: %70 favori | **yetersiz örnek** | 107 | 46.7% / 46.7% | 0.0 | – | – | 12 | 33.3% / 33.3% | 0.0 | – | -28.3% / -28.3% |
 
 ## İngiliz atları
 
-7123 sonuçlanmış İngiliz koşusu.
+14686 sonuçlanmış İngiliz koşusu.
 
 ### Kurallar (İngiliz)
 
 | Kural | Koşu | İsabet (95% aralık) | Ort. seçim | Rastgele | Aynı sayıda favori | İddia | Karar | 3 yaş (n / isabet / favori) | Sentetik (n / isabet / favori) |
 |---|---:|---|---:|---:|---:|---|---|---|---|
-| Şartlı 1 çim: ilk 4 at arasında biter | 166 | 77.1% (70.1%–82.8%) | 4.0 | 49.8% | 77.1% | – | favori seçimi (oran bilgi amaçlı) | 6 / 66.7% / 66.7% | – |
-| Şartlı 1 kum: favori-plaseler arasında biter | 105 | 71.4% (62.2%–79.2%) | 3.0 | 35.1% | 71.4% | – | favori seçimi (oran bilgi amaçlı) | 28 / 67.9% / 67.9% | 62 / 62.9% / 62.9% |
-| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | 217 | 59.9% (53.3%–66.2%) | 3.0 | 34.9% | 67.3% | – | favoriden kötü | 35 / 57.1% / 77.1% | – |
-| Şartlı 2: favori varsa kazanır | 54 | 42.6% (30.3%–55.8%) | 1.0 | 13.4% | 42.6% | – | favori seçimi (oran bilgi amaçlı) | 21 / 33.3% / 33.3% | – |
+| Şartlı 1 çim: ilk 4 at arasında biter | 341 | 80.6% (76.1%–84.5%) | 4.0 | 51.4% | 80.6% | – | favori seçimi (oran bilgi amaçlı) | 15 / 86.7% / 86.7% | – |
+| Şartlı 1 kum: favori-plaseler arasında biter | 215 | 72.6% (66.2%–78.1%) | 3.0 | 36.3% | 72.6% | – | favori seçimi (oran bilgi amaçlı) | 50 / 68.0% / 68.0% | 112 / 73.2% / 73.2% |
+| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | 408 | 63.2% (58.5%–67.8%) | 3.0 | 36.2% | 71.1% | – | favoriden kötü | 66 / 62.1% / 75.8% | – |
+| Şartlı 2: favori varsa kazanır | 150 | 37.3% (30.0%–45.3%) | 1.1 | 13.5% | 37.3% | – | favori seçimi (oran bilgi amaçlı) | 53 / 37.7% / 37.7% | – |
 | Şartlı 2 kum: puanı 190 üstü favori kazanır | 0 | – (–––) | – | – | – | – | yetersiz örnek | 0 / – / – | 0 / – / – |
-| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | 54 | 70.4% (57.2%–80.9%) | 4.0 | 50.9% | 83.3% | – | favoriden kötü | 21 / 76.2% / 85.7% | – |
-| Şartlı 2: 1-2. handikap dışına çıkmaz | 54 | 50.0% (37.1%–62.9%) | 2.1 | 27.4% | 61.1% | – | favoriden farksız | 21 / 38.1% / 57.1% | – |
-| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | 53 | 20.8% (12.0%–33.5%) | 3.2 | 37.1% | 75.5% | – | rastgeleden kötü | 21 / 42.9% / 71.4% | – |
-| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | 166 | 47.0% (39.5%–54.6%) | 2.0 | 26.3% | 69.3% | – | doğrulandı | 54 / 51.9% / 66.7% | – |
-| Şartlı 3 kum: favori şanslı | 273 | 43.2% (37.5%–49.2%) | 1.1 | 14.7% | 43.2% | – | favori seçimi (oran bilgi amaçlı) | 111 / 37.8% / 37.8% | 69 / 31.9% / 31.9% |
-| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | 123 | 26.0% (19.1%–34.4%) | 1.5 | 19.3% | 50.4% | – | favoriden kötü | 73 / 35.6% / 49.3% | 39 / 23.1% / 53.8% |
-| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | 284 | 32.4% (27.2%–38.0%) | 1.8 | 22.2% | 52.5% | – | favoriden kötü | 84 / 20.2% / 33.3% | – |
-| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | 184 | 52.2% (45.0%–59.3%) | 3.0 | 40.1% | 75.5% | – | favoriden kötü | 69 / 55.1% / 73.9% | – |
-| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | 377 | 53.3% (48.3%–58.3%) | 3.9 | 57.9% | 88.1% | – | favoriden kötü | 147 / 56.5% / 89.1% | 107 / 54.2% / 86.0% |
-| Şartlı 4: favori gelir | 775 | 42.2% (38.8%–45.7%) | 1.0 | 14.9% | 42.2% | – | favori seçimi (oran bilgi amaçlı) | 287 / 40.4% / 40.4% | – |
-| Şartlı 5 çim: favori çok şanslı | 178 | 40.4% (33.5%–47.8%) | 1.1 | 15.7% | 40.4% | – | favori seçimi (oran bilgi amaçlı) | 55 / 43.6% / 43.6% | – |
-| Şartlı 5 çim: %40 hafif kg'lar kazanır | 178 | 29.2% (23.0%–36.3%) | 3.3 | 43.3% | 76.4% | 40.0% · abartılı | rastgeleden kötü | 55 / 20.0% / 85.5% | – |
-| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | 34 | 8.8% (3.0%–23.0%) | 1.1 | 16.3% | 26.5% | – | favoriden kötü | 14 / 7.1% / 42.9% | 7 / 0.0% / 42.9% |
-| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | 31 | 19.4% (9.2%–36.3%) | 1.2 | 19.0% | 25.8% | – | favoriden farksız | 8 / 12.5% / 25.0% | 11 / 36.4% / 45.5% |
-| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | 548 | 87.0% (84.0%–89.6%) | 4.0 | 61.3% | 87.0% | – | favori seçimi (oran bilgi amaçlı) | 179 / 89.9% / 89.9% | – |
-| KV-6 çim: 1-2. atların dışına çıkmaz | 116 | 56.0% (47.0%–64.7%) | 2.0 | 28.0% | 56.0% | – | favori seçimi (oran bilgi amaçlı) | 44 / 56.8% / 56.8% | – |
-| KV-6 kum: 1-2. atlar şanslı | 167 | 61.7% (54.1%–68.7%) | 2.0 | 32.3% | 61.7% | – | favori seçimi (oran bilgi amaçlı) | 68 / 69.1% / 69.1% | 41 / 56.1% / 56.1% |
-| KV-6 kum: puana göre 1,2,3. atlar kazanır | 112 | 75.0% (66.2%–82.1%) | 3.0 | 47.5% | 78.6% | – | favoriden farksız | 46 / 76.1% / 78.3% | 27 / 70.4% / 81.5% |
-| KV-6 kum: 1,2,3. handikaplar arasında geçer | 167 | 70.7% (63.4%–77.0%) | 3.2 | 49.9% | 79.6% | – | favoriden kötü | 68 / 77.9% / 82.4% | 41 / 68.3% / 80.5% |
-| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | 32 | 21.9% (11.0%–38.8%) | 1.7 | 23.2% | 62.5% | – | favoriden kötü | 13 / 23.1% / 84.6% | 10 / 30.0% / 50.0% |
-| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | 71 | 62.0% (50.3%–72.4%) | 2.0 | 30.6% | 62.0% | – | favori seçimi (oran bilgi amaçlı) | 21 / 57.1% / 57.1% | – |
-| KV-7 erkek kum: %20 favori | 86 | 33.7% (24.6%–44.2%) | 1.0 | 16.2% | 33.7% | 20.0% · temkinli | iddia temkinli (gerçek oran daha yüksek) | 31 / 41.9% / 41.9% | 31 / 48.4% / 48.4% |
-| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | 38 | 13.2% (5.8%–27.3%) | 1.8 | 29.2% | 47.4% | – | rastgeleden kötü | 15 / 20.0% / 53.3% | 18 / 33.3% / 77.8% |
-| KV-7 dişi çim: favori, yoksa plaseler | 34 | 61.8% (45.0%–76.1%) | 3.0 | 37.8% | 61.8% | – | favori seçimi (oran bilgi amaçlı) | 13 / 61.5% / 61.5% | – |
-| KV-7 dişi kum: 1-2. handikaplı atlar | 42 | 59.5% (44.5%–73.0%) | 2.1 | 31.7% | 71.4% | – | favoriden farksız | 23 / 47.8% / 69.6% | 16 / 25.0% / 43.8% |
-| KV-8 çim: 1-2-4 startlı favori/plase atlar | 100 | 41.0% (31.9%–50.8%) | 1.5 | 23.9% | 49.0% | – | favoriden farksız | 41 / 31.7% / 51.2% | – |
-| KV-8 kum: favorinin şansı az (favori gelmez) | 111 | 52.3% (43.0%–61.3%) | 1.0 | 16.5% | 52.3% | – | doğrulanmadı (favori yine en şanslı) | 45 / 46.7% / 46.7% | 68 / 44.1% / 44.1% |
-| KV-8 kum: 57 kg altındaki atlar kazanır | 29 | 17.2% (7.6%–34.5%) | 1.5 | 22.1% | 69.0% | – | yetersiz örnek | 10 / 10.0% / 60.0% | 18 / 5.6% / 44.4% |
-| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | 112 | 83.9% (76.0%–89.6%) | 3.0 | 47.7% | 83.9% | – | favori seçimi (oran bilgi amaçlı) | 47 / 83.0% / 83.0% | – |
+| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | 150 | 69.3% (61.5%–76.2%) | 3.7 | 46.5% | 77.3% | – | favoriden kötü | 53 / 75.5% / 79.2% | – |
+| Şartlı 2: 1-2. handikap dışına çıkmaz | 150 | 52.0% (44.1%–59.8%) | 2.1 | 26.9% | 60.7% | – | favoriden kötü | 53 / 50.9% / 56.6% | – |
+| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | 146 | 28.1% (21.4%–35.9%) | 3.6 | 39.3% | 77.4% | – | rastgeleden kötü | 51 / 37.3% / 78.4% | – |
+| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | 382 | 43.5% (38.6%–48.5%) | 2.0 | 26.1% | 68.1% | – | doğrulandı | 133 / 45.1% / 63.2% | – |
+| Şartlı 3 kum: favori şanslı | 569 | 43.4% (39.4%–47.5%) | 1.1 | 14.3% | 43.4% | – | favori seçimi (oran bilgi amaçlı) | 222 / 41.4% / 41.4% | 139 / 40.3% / 40.3% |
+| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | 256 | 25.8% (20.8%–31.5%) | 1.5 | 17.9% | 49.2% | – | favoriden kötü | 131 / 33.6% / 51.9% | 71 / 26.8% / 56.3% |
+| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | 571 | 31.9% (28.2%–35.8%) | 1.7 | 21.1% | 52.4% | – | favoriden kötü | 170 / 21.2% / 40.6% | – |
+| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | 391 | 49.1% (44.2%–54.0%) | 3.0 | 39.9% | 79.3% | – | favoriden kötü | 141 / 53.9% / 78.0% | – |
+| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | 724 | 53.5% (49.8%–57.1%) | 3.9 | 56.5% | 87.8% | – | favoriden kötü | 288 / 56.9% / 90.3% | 225 / 55.6% / 87.6% |
+| Şartlı 4: favori gelir | 1571 | 41.8% (39.4%–44.3%) | 1.0 | 14.5% | 41.8% | – | favori seçimi (oran bilgi amaçlı) | 592 / 42.7% / 42.7% | – |
+| Şartlı 5 çim: favori çok şanslı | 388 | 39.9% (35.2%–44.9%) | 1.1 | 15.5% | 39.9% | – | favori seçimi (oran bilgi amaçlı) | 120 / 40.0% / 40.0% | – |
+| Şartlı 5 çim: %40 hafif kg'lar kazanır | 388 | 29.6% (25.3%–34.4%) | 3.2 | 43.4% | 76.5% | 40.0% · abartılı | rastgeleden kötü | 120 / 26.7% / 78.3% | – |
+| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | 70 | 4.3% (1.5%–11.9%) | 1.2 | 16.6% | 37.1% | – | rastgeleden kötü | 33 / 3.0% / 45.5% | 17 / 0.0% / 23.5% |
+| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | 67 | 22.4% (14.1%–33.7%) | 1.2 | 19.2% | 34.3% | – | favoriden kötü | 20 / 15.0% / 45.0% | 23 / 34.8% / 47.8% |
+| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | 1143 | 88.1% (86.1%–89.9%) | 4.0 | 60.8% | 88.1% | – | favori seçimi (oran bilgi amaçlı) | 377 / 90.2% / 90.2% | – |
+| KV-6 çim: 1-2. atların dışına çıkmaz | 240 | 55.4% (49.1%–61.6%) | 2.0 | 27.7% | 55.4% | – | favori seçimi (oran bilgi amaçlı) | 91 / 54.9% / 54.9% | – |
+| KV-6 kum: 1-2. atlar şanslı | 330 | 63.6% (58.3%–68.6%) | 2.0 | 32.2% | 63.6% | – | favori seçimi (oran bilgi amaçlı) | 130 / 65.4% / 65.4% | 84 / 58.3% / 58.3% |
+| KV-6 kum: puana göre 1,2,3. atlar kazanır | 205 | 76.1% (69.8%–81.4%) | 3.0 | 47.7% | 79.0% | – | favoriden farksız | 85 / 81.2% / 82.4% | 54 / 68.5% / 74.1% |
+| KV-6 kum: 1,2,3. handikaplar arasında geçer | 330 | 73.6% (68.6%–78.1%) | 3.1 | 49.6% | 81.2% | – | favoriden kötü | 130 / 82.3% / 82.3% | 84 / 59.5% / 78.6% |
+| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | 65 | 29.2% (19.6%–41.2%) | 1.8 | 25.8% | 70.8% | – | favoriden kötü | 21 / 33.3% / 90.5% | 21 / 38.1% / 57.1% |
+| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | 151 | 59.6% (51.6%–67.1%) | 2.0 | 29.7% | 59.6% | – | favori seçimi (oran bilgi amaçlı) | 41 / 65.9% / 65.9% | – |
+| KV-7 erkek kum: %20 favori | 171 | 36.3% (29.4%–43.7%) | 1.1 | 16.3% | 36.3% | 20.0% · temkinli | iddia temkinli (gerçek oran daha yüksek) | 64 / 46.9% / 46.9% | 67 / 41.8% / 41.8% |
+| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | 87 | 14.9% (8.9%–23.9%) | 1.8 | 28.6% | 51.7% | – | rastgeleden kötü | 37 / 16.2% / 59.5% | 39 / 41.0% / 74.4% |
+| KV-7 dişi çim: favori, yoksa plaseler | 85 | 64.7% (54.1%–74.0%) | 3.0 | 38.3% | 64.7% | – | favori seçimi (oran bilgi amaçlı) | 33 / 66.7% / 66.7% | – |
+| KV-7 dişi kum: 1-2. handikaplı atlar | 76 | 59.2% (48.0%–69.6%) | 2.0 | 31.8% | 65.8% | – | favoriden farksız | 39 / 51.3% / 59.0% | 33 / 42.4% / 63.6% |
+| KV-8 çim: 1-2-4 startlı favori/plase atlar | 227 | 39.6% (33.5%–46.1%) | 1.5 | 24.6% | 51.5% | – | favoriden kötü | 82 / 29.3% / 48.8% | – |
+| KV-8 kum: favorinin şansı az (favori gelmez) | 211 | 47.9% (41.2%–54.6%) | 1.0 | 16.6% | 47.9% | – | doğrulanmadı (favori yine en şanslı) | 82 / 48.8% / 48.8% | 121 / 43.0% / 43.0% |
+| KV-8 kum: 57 kg altındaki atlar kazanır | 61 | 14.8% (8.0%–25.7%) | 1.4 | 20.8% | 62.3% | – | favoriden kötü | 26 / 3.8% / 61.5% | 31 / 16.1% / 45.2% |
+| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | 203 | 82.3% (76.4%–86.9%) | 3.0 | 46.9% | 82.3% | – | favori seçimi (oran bilgi amaçlı) | 91 / 78.0% / 78.0% | – |
 | KV-21 çim: %60 3,4,5 numaralı atlar | 0 | – (–––) | – | – | – | 60.0% | yetersiz örnek | 0 / – / – | – |
 | KV-21 kum: %60 3,4,5 numaralı atlar | 0 | – (–––) | – | – | – | 60.0% | yetersiz örnek | 0 / – / – | 0 / – / – |
 | KV-21: favori gelmez | 0 | – (–––) | – | – | – | – | yetersiz örnek | 0 / – / – | – |
@@ -231,178 +231,190 @@ Keşif < 2026-01-01: 4063 koşu · doğrulama ≥ 2026-01-01: 1601 koşu. tersi 
 | KV-25 çim: 2,3,4,5 numaralı %75 | 0 | – (–––) | – | – | – | 75.0% | yetersiz örnek | 0 / – / – | – |
 | KV-25 kum: 3,4,5 numaralı %60 | 0 | – (–––) | – | – | – | 60.0% | yetersiz örnek | 0 / – / – | 0 / – / – |
 | HAN-13 çim: ilk 3 at çok şanslı | 0 | – (–––) | – | – | – | – | yetersiz örnek | 0 / – / – | – |
-| HAN-13 kum: 1,2,3,4. handikaplar %70 | 14 | 85.7% (60.1%–96.0%) | 4.4 | 61.2% | 92.9% | 70.0% | yetersiz örnek | 12 / 83.3% / 100.0% | 0 / – / – |
-| HAN-14 çim: en üstteki 2 handikabın şansı %20 | 106 | 34.0% (25.6%–43.4%) | 2.3 | 22.2% | 42.5% | 20.0% · temkinli | favoriden farksız | 57 / 35.1% / 49.1% | – |
-| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | 97 | 14.4% (8.8%–22.8%) | 2.6 | 23.3% | 49.5% | – | rastgeleden kötü | 51 / 9.8% / 51.0% | – |
-| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | 205 | 26.8% (21.2%–33.3%) | 2.4 | 25.4% | 56.6% | – | favoriden kötü | 103 / 24.3% / 56.3% | 30 / 23.3% / 76.7% |
-| HAN-14 kum: %75 1-2-3. atlara güvenin | 242 | 72.7% (66.8%–78.0%) | 3.0 | 35.8% | 72.7% | 75.0% · tutuyor | iddia edilen oran tutuyor | 123 / 78.9% / 78.9% | 35 / 68.6% / 68.6% |
-| HAN-14 (özet): 1-2. at kazanır | 383 | 53.0% (48.0%–57.9%) | 2.0 | 23.2% | 53.0% | – | favori seçimi (oran bilgi amaçlı) | 211 / 58.8% / 58.8% | – |
-| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | 212 | 37.7% (31.5%–44.4%) | 4.0 | 39.1% | 70.3% | – | favoriden kötü | 119 / 32.8% / 72.3% | – |
-| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | 330 | 47.0% (41.7%–52.4%) | 3.2 | 39.7% | 70.9% | – | favoriden kötü | 157 / 52.9% / 75.2% | 118 / 32.2% / 69.5% |
-| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | 211 | 21.3% (16.3%–27.3%) | 1.6 | 18.5% | 46.9% | – | favoriden kötü | 103 / 22.3% / 44.7% | 82 / 22.0% / 39.0% |
-| HAN-15 (özet): 1,2,3. at dışına çıkmaz | 660 | 65.9% (62.2%–69.4%) | 3.0 | 35.1% | 65.9% | – | favori seçimi (oran bilgi amaçlı) | 331 / 68.0% / 68.0% | – |
-| HAN-15 (özet): 3. handikaplı at tek | 561 | 14.6% (11.9%–17.8%) | 1.2 | 14.4% | 37.6% | – | favoriden kötü | 288 / 17.0% / 35.1% | – |
-| HAN-16 çim: favori-plaseler arasında biter | 207 | 64.3% (57.5%–70.5%) | 3.0 | 35.6% | 64.3% | – | favori seçimi (oran bilgi amaçlı) | 82 / 72.0% / 72.0% | – |
-| HAN-16 çim: %30 7,8,9 numaralar | 182 | 17.6% (12.7%–23.8%) | 2.5 | 26.2% | 58.2% | 30.0% · abartılı | rastgeleden kötü | 67 / 14.9% / 62.7% | – |
-| HAN-16 kum: 1,2,3. handikaplar %80 | 264 | 42.8% (37.0%–48.8%) | 3.2 | 38.2% | 70.1% | 80.0% · abartılı | favoriden kötü | 84 / 45.2% / 69.0% | 83 / 37.3% / 67.5% |
-| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | 189 | 25.4% (19.7%–32.1%) | 1.9 | 21.1% | 50.3% | – | favoriden kötü | 65 / 32.3% / 53.8% | 63 / 22.2% / 57.1% |
-| HAN-16 (özet): hafif kilo favori | 362 | 30.9% (26.4%–35.9%) | 1.3 | 15.1% | 41.7% | – | favoriden kötü | 114 / 28.1% / 43.9% | – |
-| HAN-17 çim: hafif kg'lı atlar çok şanslı | 63 | 22.2% (13.7%–33.9%) | 3.0 | 35.7% | 77.8% | – | rastgeleden kötü | 10 / 20.0% / 70.0% | – |
-| HAN-17 kum: plase atlar şanslı %70 | 86 | 32.6% (23.6%–43.0%) | 2.0 | 24.0% | 53.5% | 70.0% · abartılı | favoriden kötü | 2 / 50.0% / 50.0% | 36 / 19.4% / 52.8% |
-| HAN-17 kum: puana göre 1-4. atlar | 56 | 83.9% (72.2%–91.3%) | 4.0 | 45.7% | 89.3% | – | favoriden farksız | 1 / 100.0% / 100.0% | 22 / 68.2% / 63.6% |
-| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | 185 | 55.1% (47.9%–62.1%) | 2.0 | 25.3% | 55.1% | – | favori seçimi (oran bilgi amaçlı) | 16 / 75.0% / 75.0% | – |
-| Maiden kum: genelde favori kazanır | 549 | 40.3% (36.2%–44.4%) | 1.1 | 11.4% | 40.3% | – | favori seçimi (oran bilgi amaçlı) | 316 / 38.0% / 38.0% | 181 / 30.9% / 30.9% |
-| Maiden (özet): ilk iki at arasında | 1213 | 57.2% (54.4%–60.0%) | 2.1 | 21.4% | 57.2% | – | favori seçimi (oran bilgi amaçlı) | 620 / 54.5% / 54.5% | – |
-| Açık/Grup çim: favori-plase dışına çıkmaz | 167 | 66.5% (59.0%–73.2%) | 3.1 | 34.3% | 66.5% | – | favori seçimi (oran bilgi amaçlı) | 53 / 67.9% / 67.9% | – |
-| Açık/Grup kum: %70 favori | 57 | 54.4% (41.6%–66.6%) | 1.1 | 14.5% | 54.4% | 70.0% · abartılı | iddia abartılı | 13 / 38.5% / 38.5% | 33 / 39.4% / 39.4% |
+| HAN-13 kum: 1,2,3,4. handikaplar %70 | 27 | 77.8% (59.2%–89.4%) | 4.3 | 64.8% | 88.9% | 70.0% | yetersiz örnek | 22 / 77.3% / 95.5% | 0 / – / – |
+| HAN-14 çim: en üstteki 2 handikabın şansı %20 | 245 | 29.0% (23.7%–35.0%) | 2.3 | 21.6% | 48.6% | 20.0% · temkinli | favoriden kötü | 131 / 30.5% / 53.4% | – |
+| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | 231 | 17.7% (13.4%–23.2%) | 2.7 | 24.1% | 57.6% | – | rastgeleden kötü | 122 / 15.6% / 57.4% | – |
+| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | 430 | 31.6% (27.4%–36.2%) | 2.4 | 24.8% | 55.8% | – | favoriden kötü | 211 / 30.3% / 55.9% | 58 / 25.9% / 62.1% |
+| HAN-14 kum: %75 1-2-3. atlara güvenin | 499 | 69.1% (65.0%–73.0%) | 3.0 | 35.0% | 69.1% | 75.0% · abartılı | iddia abartılı | 250 / 74.8% / 74.8% | 72 / 69.4% / 69.4% |
+| HAN-14 (özet): 1-2. at kazanır | 816 | 51.0% (47.6%–54.4%) | 2.0 | 22.8% | 51.0% | – | favori seçimi (oran bilgi amaçlı) | 443 / 55.5% / 55.5% | – |
+| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | 473 | 37.0% (32.8%–41.4%) | 4.1 | 39.8% | 71.5% | – | favoriden kötü | 261 / 33.0% / 71.6% | – |
+| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | 645 | 45.3% (41.5%–49.1%) | 3.2 | 38.4% | 69.5% | – | favoriden kötü | 305 / 51.1% / 72.5% | 244 / 39.3% / 71.3% |
+| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | 413 | 21.3% (17.6%–25.5%) | 1.6 | 18.1% | 45.8% | – | favoriden kötü | 197 / 22.3% / 45.7% | 165 / 17.6% / 42.4% |
+| HAN-15 (özet): 1,2,3. at dışına çıkmaz | 1363 | 66.5% (63.9%–68.9%) | 3.0 | 34.6% | 66.5% | – | favori seçimi (oran bilgi amaçlı) | 675 / 68.3% / 68.3% | – |
+| HAN-15 (özet): 3. handikaplı at tek | 1184 | 14.8% (12.9%–16.9%) | 1.2 | 13.8% | 37.9% | – | favoriden kötü | 592 / 16.6% / 36.5% | – |
+| HAN-16 çim: favori-plaseler arasında biter | 455 | 62.4% (57.9%–66.7%) | 3.0 | 35.0% | 62.4% | – | favori seçimi (oran bilgi amaçlı) | 185 / 69.2% / 69.2% | – |
+| HAN-16 çim: %30 7,8,9 numaralar | 406 | 21.4% (17.7%–25.7%) | 2.5 | 26.2% | 53.9% | 30.0% · abartılı | rastgeleden kötü | 153 / 18.3% / 55.6% | – |
+| HAN-16 kum: 1,2,3. handikaplar %80 | 531 | 42.6% (38.4%–46.8%) | 3.1 | 37.5% | 70.2% | 80.0% · abartılı | favoriden kötü | 181 / 48.6% / 71.3% | 167 / 41.3% / 70.7% |
+| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | 409 | 27.9% (23.7%–32.4%) | 2.0 | 22.3% | 54.3% | – | favoriden kötü | 143 / 30.8% / 55.9% | 133 / 24.1% / 59.4% |
+| HAN-16 (özet): hafif kilo favori | 716 | 27.8% (24.6%–31.2%) | 1.2 | 14.3% | 39.1% | – | favoriden kötü | 225 / 28.4% / 40.9% | – |
+| HAN-17 çim: hafif kg'lı atlar çok şanslı | 142 | 28.2% (21.4%–36.1%) | 3.0 | 35.8% | 70.4% | – | favoriden kötü | 21 / 28.6% / 61.9% | – |
+| HAN-17 kum: plase atlar şanslı %70 | 183 | 33.9% (27.4%–41.0%) | 2.0 | 23.0% | 50.3% | 70.0% · abartılı | favoriden kötü | 5 / 80.0% / 60.0% | 77 / 28.6% / 53.2% |
+| HAN-17 kum: puana göre 1-4. atlar | 116 | 74.1% (65.5%–81.2%) | 4.0 | 45.4% | 82.8% | – | favoriden kötü | 3 / 66.7% / 100.0% | 47 / 68.1% / 70.2% |
+| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | 402 | 51.7% (46.9%–56.6%) | 2.0 | 24.9% | 51.7% | – | favori seçimi (oran bilgi amaçlı) | 40 / 67.5% / 67.5% | – |
+| Maiden kum: genelde favori kazanır | 1075 | 39.7% (36.8%–42.7%) | 1.1 | 11.7% | 39.7% | – | favori seçimi (oran bilgi amaçlı) | 596 / 38.4% / 38.4% | 359 / 36.5% / 36.5% |
+| Maiden (özet): ilk iki at arasında | 2490 | 58.9% (57.0%–60.8%) | 2.1 | 22.0% | 58.9% | – | favori seçimi (oran bilgi amaçlı) | 1237 / 56.2% / 56.2% | – |
+| Açık/Grup çim: favori-plase dışına çıkmaz | 375 | 69.1% (64.2%–73.5%) | 3.1 | 36.1% | 69.1% | – | favori seçimi (oran bilgi amaçlı) | 110 / 69.1% / 69.1% | – |
+| Açık/Grup kum: %70 favori | 156 | 40.4% (33.0%–48.2%) | 1.1 | 14.8% | 40.4% | 70.0% · abartılı | iddia abartılı | 37 / 37.8% / 37.8% | 87 / 41.4% / 41.4% |
 
 ### Favori referansı (İngiliz, sınıf × pist)
 
 | Sınıf | Pist | Koşu | Ort. at | Favori kazandı | İlk 3 favoriden biri |
 |---|---|---:|---:|---:|---:|
-| COND | Kum | 1119 | 7.7 | 42.1% | 78.4% |
-| HAND | Kum | 971 | 9.0 | 33.6% | 69.6% |
-| COND | Çim | 867 | 8.4 | 38.3% | 75.0% |
-| HAND | Çim | 616 | 9.7 | 31.7% | 62.5% |
-| MAIDEN | Kum | 549 | 9.8 | 40.3% | 73.8% |
-| KV | Kum | 495 | 6.7 | 45.3% | 81.4% |
-| MAIDEN | Çim | 483 | 10.8 | 40.0% | 68.9% |
-| KV | Çim | 407 | 7.7 | 33.9% | 73.5% |
-| COND | Sentetik | 341 | 8.4 | 36.4% | 74.8% |
-| HAND | Sentetik | 287 | 9.7 | 36.2% | 65.9% |
-| KV | Sentetik | 204 | 7.2 | 40.7% | 80.4% |
-| MAIDEN | Sentetik | 181 | 10.4 | 30.9% | 72.4% |
-| GROUP | Çim | 167 | 10.0 | 37.1% | 66.5% |
-| SAT | Kum | 166 | 9.1 | 43.4% | 71.7% |
-| SAT | Çim | 103 | 9.0 | 36.9% | 70.9% |
-| SAT | Sentetik | 64 | 9.8 | 32.8% | 65.6% |
-| GROUP | Kum | 57 | 7.7 | 54.4% | 77.2% |
-| GROUP | Sentetik | 33 | 9.4 | 39.4% | 69.7% |
+| COND | Kum | 2244 | 7.9 | 41.4% | 79.0% |
+| HAND | Kum | 1962 | 9.2 | 34.4% | 68.7% |
+| COND | Çim | 1878 | 8.4 | 39.1% | 77.0% |
+| HAND | Çim | 1401 | 9.7 | 31.8% | 63.9% |
+| MAIDEN | Kum | 1075 | 9.6 | 39.7% | 73.9% |
+| MAIDEN | Çim | 1056 | 10.6 | 40.5% | 70.3% |
+| KV | Kum | 924 | 6.7 | 42.7% | 81.8% |
+| KV | Çim | 838 | 7.7 | 36.0% | 72.8% |
+| COND | Sentetik | 686 | 8.4 | 38.0% | 75.8% |
+| HAND | Sentetik | 615 | 9.4 | 36.7% | 67.3% |
+| GROUP | Çim | 375 | 9.5 | 37.9% | 69.1% |
+| KV | Sentetik | 371 | 7.1 | 41.5% | 79.5% |
+| MAIDEN | Sentetik | 359 | 10.2 | 36.5% | 76.3% |
+| SAT | Kum | 324 | 9.4 | 41.4% | 71.3% |
+| SAT | Çim | 193 | 9.3 | 29.5% | 65.8% |
+| GROUP | Kum | 156 | 7.8 | 40.4% | 77.6% |
+| SAT | Sentetik | 124 | 10.1 | 34.7% | 67.7% |
+| GROUP | Sentetik | 87 | 8.8 | 41.4% | 65.5% |
 
 ### Start (kulvar) etkisi (İngiliz), alan büyüklüğüne göre düzeltilmiş
 
 A/E = gerçek birincilik / beklenen birincilik (Σ 1/at sayısı). 1,00 nötr; 1,20 = %20 fazla.
 
-**Kum 1400 m** (1013 koşu)
+**Kum 1400 m** (2016 koşu)
 
 | Start | Koşan | Birincilik | A/E |
 |---:|---:|---:|---:|
-| 1 | 980 | 133 | 1.06 |
-| 2 | 981 | 125 | 0.99 |
-| 3 | 978 | 120 | 0.95 |
-| 4 | 973 | 118 | 0.95 |
-| 5 | 969 | 127 | 1.04 |
-| 6 | 883 | 114 | 1.09 |
-| 7 | 762 | 76 | 0.90 |
-| 8 | 648 | 66 | 0.98 |
-| 9 | 481 | 45 | 0.98 |
-| 10 | 372 | 33 | 0.99 |
-| 11 | 257 | 24 | 1.13 |
-| 12 | 161 | 10 | 0.81 |
-| 13 | 106 | 8 | 1.05 |
-| 14 | 66 | 4 | 0.91 |
-| 15 | 41 | 3 | 1.18 |
-| 16 | 31 | 5 | 2.67 |
-| 17 | 20 | 0 | 0.00 |
+| 1 | 1963 | 270 | 1.08 |
+| 2 | 1959 | 245 | 0.98 |
+| 3 | 1951 | 235 | 0.95 |
+| 4 | 1947 | 233 | 0.94 |
+| 5 | 1927 | 245 | 1.02 |
+| 6 | 1767 | 215 | 1.04 |
+| 7 | 1537 | 155 | 0.92 |
+| 8 | 1302 | 122 | 0.91 |
+| 9 | 976 | 99 | 1.07 |
+| 10 | 730 | 71 | 1.10 |
+| 11 | 545 | 56 | 1.25 |
+| 12 | 367 | 23 | 0.82 |
+| 13 | 221 | 22 | 1.40 |
+| 14 | 144 | 9 | 0.94 |
+| 15 | 95 | 3 | 0.51 |
+| 16 | 67 | 7 | 1.75 |
+| 17 | 42 | 0 | 0.00 |
+| 18 | 28 | 5 | 3.32 |
 
-**Kum 1200 m** (469 koşu)
-
-| Start | Koşan | Birincilik | A/E |
-|---:|---:|---:|---:|
-| 1 | 456 | 65 | 1.13 |
-| 2 | 450 | 66 | 1.16 |
-| 3 | 460 | 51 | 0.88 |
-| 4 | 451 | 59 | 1.03 |
-| 5 | 448 | 49 | 0.88 |
-| 6 | 400 | 53 | 1.14 |
-| 7 | 357 | 37 | 0.94 |
-| 8 | 307 | 22 | 0.68 |
-| 9 | 253 | 24 | 0.96 |
-| 10 | 195 | 16 | 0.88 |
-| 11 | 131 | 15 | 1.32 |
-| 12 | 72 | 9 | 1.55 |
-| 13 | 40 | 1 | 0.33 |
-| 14 | 23 | 1 | 0.60 |
-
-**Kum 1900 m** (447 koşu)
+**Çim 1200 m** (973 koşu)
 
 | Start | Koşan | Birincilik | A/E |
 |---:|---:|---:|---:|
-| 1 | 430 | 62 | 1.06 |
-| 2 | 438 | 66 | 1.10 |
-| 3 | 435 | 53 | 0.90 |
-| 4 | 434 | 64 | 1.09 |
-| 5 | 432 | 46 | 0.79 |
-| 6 | 365 | 42 | 0.93 |
-| 7 | 315 | 38 | 1.04 |
-| 8 | 244 | 32 | 1.23 |
-| 9 | 181 | 17 | 0.95 |
-| 10 | 121 | 10 | 0.91 |
-| 11 | 83 | 9 | 1.26 |
-| 12 | 56 | 6 | 1.30 |
-| 13 | 28 | 1 | 0.48 |
-| 14 | 18 | 0 | 0.00 |
+| 1 | 935 | 137 | 1.13 |
+| 2 | 936 | 121 | 1.00 |
+| 3 | 936 | 127 | 1.05 |
+| 4 | 938 | 119 | 0.98 |
+| 5 | 914 | 121 | 1.04 |
+| 6 | 831 | 97 | 0.98 |
+| 7 | 731 | 75 | 0.91 |
+| 8 | 610 | 57 | 0.88 |
+| 9 | 473 | 48 | 1.05 |
+| 10 | 350 | 26 | 0.82 |
+| 11 | 247 | 19 | 0.92 |
+| 12 | 181 | 16 | 1.12 |
+| 13 | 71 | 2 | 0.40 |
+| 14 | 57 | 3 | 0.78 |
+| 15 | 30 | 3 | 1.63 |
+| 16 | 18 | 2 | 1.96 |
+| 17 | 16 | 2 | 2.22 |
 
-**Çim 1200 m** (441 koşu)
-
-| Start | Koşan | Birincilik | A/E |
-|---:|---:|---:|---:|
-| 1 | 422 | 61 | 1.15 |
-| 2 | 423 | 49 | 0.92 |
-| 3 | 425 | 49 | 0.91 |
-| 4 | 425 | 60 | 1.12 |
-| 5 | 422 | 56 | 1.07 |
-| 6 | 375 | 46 | 1.06 |
-| 7 | 330 | 31 | 0.86 |
-| 8 | 291 | 26 | 0.86 |
-| 9 | 237 | 30 | 1.31 |
-| 10 | 183 | 13 | 0.78 |
-| 11 | 130 | 6 | 0.54 |
-| 12 | 94 | 9 | 1.20 |
-| 13 | 37 | 2 | 0.75 |
-| 14 | 32 | 2 | 0.89 |
-
-**Kum 2000 m** (386 koşu)
+**Kum 1900 m** (914 koşu)
 
 | Start | Koşan | Birincilik | A/E |
 |---:|---:|---:|---:|
-| 1 | 380 | 53 | 1.02 |
-| 2 | 377 | 59 | 1.15 |
-| 3 | 376 | 47 | 0.92 |
-| 4 | 377 | 47 | 0.91 |
-| 5 | 369 | 58 | 1.17 |
-| 6 | 324 | 45 | 1.12 |
-| 7 | 270 | 33 | 1.05 |
-| 8 | 211 | 19 | 0.84 |
-| 9 | 143 | 15 | 1.07 |
-| 10 | 92 | 5 | 0.60 |
-| 11 | 68 | 2 | 0.35 |
-| 12 | 47 | 2 | 0.54 |
-| 13 | 25 | 0 | 0.00 |
-| 14 | 15 | 0 | 0.00 |
+| 1 | 879 | 124 | 1.06 |
+| 2 | 894 | 126 | 1.05 |
+| 3 | 887 | 104 | 0.88 |
+| 4 | 884 | 119 | 1.01 |
+| 5 | 876 | 110 | 0.95 |
+| 6 | 770 | 105 | 1.11 |
+| 7 | 663 | 71 | 0.93 |
+| 8 | 516 | 59 | 1.08 |
+| 9 | 389 | 37 | 0.98 |
+| 10 | 268 | 21 | 0.88 |
+| 11 | 190 | 15 | 0.94 |
+| 12 | 132 | 13 | 1.23 |
+| 13 | 71 | 2 | 0.39 |
+| 14 | 49 | 3 | 0.91 |
+| 15 | 35 | 2 | 0.89 |
+| 16 | 24 | 2 | 1.35 |
 
-**Çim 1300 m** (374 koşu)
+**Çim 1300 m** (885 koşu)
 
 | Start | Koşan | Birincilik | A/E |
 |---:|---:|---:|---:|
-| 1 | 360 | 47 | 1.15 |
-| 2 | 362 | 38 | 0.92 |
-| 3 | 360 | 53 | 1.30 |
-| 4 | 363 | 49 | 1.20 |
-| 5 | 353 | 35 | 0.88 |
-| 6 | 346 | 34 | 0.90 |
-| 7 | 317 | 25 | 0.76 |
-| 8 | 293 | 25 | 0.86 |
-| 9 | 228 | 18 | 0.87 |
-| 10 | 196 | 19 | 1.13 |
-| 11 | 157 | 14 | 1.10 |
-| 12 | 124 | 7 | 0.73 |
-| 13 | 76 | 4 | 0.72 |
-| 14 | 56 | 5 | 1.27 |
+| 1 | 862 | 108 | 1.07 |
+| 2 | 856 | 104 | 1.04 |
+| 3 | 852 | 132 | 1.34 |
+| 4 | 856 | 109 | 1.10 |
+| 5 | 842 | 87 | 0.90 |
+| 6 | 804 | 81 | 0.91 |
+| 7 | 751 | 72 | 0.90 |
+| 8 | 685 | 67 | 0.96 |
+| 9 | 519 | 36 | 0.75 |
+| 10 | 428 | 41 | 1.10 |
+| 11 | 339 | 24 | 0.85 |
+| 12 | 257 | 14 | 0.68 |
+| 13 | 103 | 4 | 0.54 |
+| 14 | 83 | 5 | 0.85 |
+| 15 | 24 | 2 | 1.30 |
+
+**Kum 1200 m** (874 koşu)
+
+| Start | Koşan | Birincilik | A/E |
+|---:|---:|---:|---:|
+| 1 | 847 | 114 | 1.05 |
+| 2 | 841 | 122 | 1.13 |
+| 3 | 849 | 96 | 0.88 |
+| 4 | 846 | 102 | 0.94 |
+| 5 | 826 | 110 | 1.06 |
+| 6 | 741 | 99 | 1.14 |
+| 7 | 656 | 62 | 0.85 |
+| 8 | 578 | 50 | 0.81 |
+| 9 | 442 | 38 | 0.88 |
+| 10 | 337 | 33 | 1.06 |
+| 11 | 227 | 23 | 1.18 |
+| 12 | 125 | 16 | 1.62 |
+| 13 | 78 | 5 | 0.86 |
+| 14 | 45 | 1 | 0.31 |
+| 15 | 22 | 2 | 1.37 |
+
+**Çim 1400 m** (764 koşu)
+
+| Start | Koşan | Birincilik | A/E |
+|---:|---:|---:|---:|
+| 1 | 741 | 69 | 0.77 |
+| 2 | 747 | 95 | 1.05 |
+| 3 | 743 | 81 | 0.90 |
+| 4 | 743 | 87 | 0.97 |
+| 5 | 734 | 98 | 1.11 |
+| 6 | 700 | 97 | 1.20 |
+| 7 | 615 | 58 | 0.87 |
+| 8 | 519 | 61 | 1.16 |
+| 9 | 379 | 38 | 1.10 |
+| 10 | 289 | 29 | 1.20 |
+| 11 | 217 | 16 | 0.95 |
+| 12 | 166 | 13 | 1.09 |
+| 13 | 126 | 10 | 1.18 |
+| 14 | 106 | 5 | 0.72 |
+| 15 | 74 | 4 | 0.87 |
+| 16 | 52 | 3 | 0.97 |
+| 17 | 34 | 2 | 1.04 |
+| 18 | 23 | 1 | 0.80 |
 
 ### HAN-16 profili (İngiliz)
 
-554 koşu; katılan atların handikap puanı 6–75 (P10–P90: 40–68); yaş şartları: 4U, 3O, 3U. Resmi katılım şartı metni bu kaynakta yok; bu aralık katılanlardan gözlemdir.
+1153 koşu; katılan atların handikap puanı 6–75 (P10–P90: 38–68); yaş şartları: 4U, 3O, 3U. Resmi katılım şartı metni bu kaynakta yok; bu aralık katılanlardan gözlemdir.
 
 | Tarih | Şehir | Pist | Mesafe | Yaş | Kazanan | Handikap | Kg | Ganyan | At |
 |---|---|---|---:|---|---|---:|---:|---:|---:|
@@ -424,46 +436,46 @@ A/E = gerçek birincilik / beklenen birincilik (Σ 1/at sayısı). 1,00 nötr; 1
 
 ## Arap atları
 
-5664 sonuçlanmış Arap koşusu. Kurallar İngiliz atları için yazıldı; bu bölüm Araplara aktarılıp aktarılamayacağını gösterir.
+11811 sonuçlanmış Arap koşusu. Kurallar İngiliz atları için yazıldı; bu bölüm Araplara aktarılıp aktarılamayacağını gösterir.
 
 ### Kurallar (Arap)
 
 | Kural | Koşu | İsabet (95% aralık) | Ort. seçim | Rastgele | Aynı sayıda favori | İddia | Karar | 3 yaş (n / isabet / favori) | Sentetik (n / isabet / favori) |
 |---|---:|---|---:|---:|---:|---|---|---|---|
-| Şartlı 1 çim: ilk 4 at arasında biter | 104 | 71.2% (61.8%–79.0%) | 4.0 | 38.4% | 71.2% | – | favori seçimi (oran bilgi amaçlı) | 104 / 71.2% / 71.2% | – |
-| Şartlı 1 kum: favori-plaseler arasında biter | 50 | 60.0% (46.2%–72.4%) | 3.0 | 32.2% | 60.0% | – | favori seçimi (oran bilgi amaçlı) | 50 / 60.0% / 60.0% | 45 / 64.4% / 64.4% |
-| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | 136 | 48.5% (40.3%–56.9%) | 3.0 | 28.3% | 61.0% | – | favoriden kötü | 136 / 48.5% / 61.0% | – |
-| Şartlı 2: favori varsa kazanır | 64 | 21.9% (13.5%–33.4%) | 1.1 | 12.7% | 21.9% | – | favori seçimi (oran bilgi amaçlı) | 17 / 17.6% / 17.6% | – |
+| Şartlı 1 çim: ilk 4 at arasında biter | 217 | 70.5% (64.1%–76.2%) | 4.1 | 39.7% | 70.5% | – | favori seçimi (oran bilgi amaçlı) | 217 / 70.5% / 70.5% | – |
+| Şartlı 1 kum: favori-plaseler arasında biter | 99 | 57.6% (47.7%–66.8%) | 3.1 | 32.1% | 57.6% | – | favori seçimi (oran bilgi amaçlı) | 99 / 57.6% / 57.6% | 77 / 68.8% / 68.8% |
+| Şartlı 1: genel puanı yüksek ilk 3 attan biri gelir | 254 | 52.4% (46.2%–58.4%) | 3.0 | 29.2% | 61.4% | – | favoriden kötü | 254 / 52.4% / 61.4% | – |
+| Şartlı 2: favori varsa kazanır | 176 | 30.7% (24.3%–37.8%) | 1.1 | 12.5% | 30.7% | – | favori seçimi (oran bilgi amaçlı) | 65 / 36.9% / 36.9% | – |
 | Şartlı 2 kum: puanı 190 üstü favori kazanır | 0 | – (–––) | – | – | – | – | yetersiz örnek | 0 / – / – | 0 / – / – |
-| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | 64 | 67.2% (55.0%–77.4%) | 4.1 | 47.3% | 76.6% | – | favoriden farksız | 17 / 76.5% / 82.4% | – |
-| Şartlı 2: 1-2. handikap dışına çıkmaz | 64 | 40.6% (29.5%–52.9%) | 2.1 | 24.7% | 46.9% | – | favoriden farksız | 17 / 41.2% / 47.1% | – |
-| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | 58 | 36.2% (25.1%–49.1%) | 3.4 | 37.7% | 58.6% | – | favoriden kötü | 17 / 47.1% / 70.6% | – |
-| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | 149 | 36.9% (29.6%–44.9%) | 2.0 | 22.2% | 48.3% | – | doğrulandı | 53 / 30.2% / 49.1% | – |
-| Şartlı 3 kum: favori şanslı | 202 | 45.5% (38.8%–52.4%) | 1.1 | 12.5% | 45.5% | – | favori seçimi (oran bilgi amaçlı) | 41 / 43.9% / 43.9% | 62 / 35.5% / 35.5% |
-| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | 84 | 19.0% (12.1%–28.7%) | 1.4 | 14.4% | 52.4% | – | favoriden kötü | 6 / 33.3% / 50.0% | 32 / 18.8% / 46.9% |
-| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | 304 | 31.6% (26.6%–37.0%) | 2.0 | 22.7% | 51.0% | – | favoriden kötü | 88 / 38.6% / 46.6% | – |
-| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | 133 | 46.6% (38.4%–55.1%) | 3.0 | 34.1% | 65.4% | – | favoriden kötü | 34 / 52.9% / 64.7% | – |
-| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | 337 | 48.1% (42.8%–53.4%) | 3.9 | 50.4% | 81.3% | – | favoriden kötü | 63 / 50.8% / 74.6% | 110 / 38.2% / 82.7% |
-| Şartlı 4: favori gelir | 662 | 35.2% (31.7%–38.9%) | 1.1 | 13.1% | 35.2% | – | favori seçimi (oran bilgi amaçlı) | 136 / 33.1% / 33.1% | – |
-| Şartlı 5 çim: favori çok şanslı | 170 | 32.4% (25.8%–39.7%) | 1.1 | 12.4% | 32.4% | – | favori seçimi (oran bilgi amaçlı) | 40 / 37.5% / 37.5% | – |
-| Şartlı 5 çim: %40 hafif kg'lar kazanır | 170 | 39.4% (32.4%–46.9%) | 4.3 | 45.6% | 72.9% | 40.0% · tutuyor | favoriden kötü | 40 / 32.5% / 80.0% | – |
-| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | 34 | 0.0% (0.0%–10.2%) | 1.1 | 13.2% | 52.9% | – | rastgeleden kötü | 10 / 0.0% / 50.0% | 8 / 0.0% / 50.0% |
-| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | 28 | 25.0% (12.7%–43.4%) | 1.7 | 19.3% | 46.4% | – | yetersiz örnek | 11 / 18.2% / 45.5% | 4 / 50.0% / 75.0% |
-| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | 502 | 83.1% (79.5%–86.1%) | 4.0 | 51.0% | 83.1% | – | favori seçimi (oran bilgi amaçlı) | 93 / 74.2% / 74.2% | – |
-| KV-6 çim: 1-2. atların dışına çıkmaz | 109 | 54.1% (44.8%–63.2%) | 2.0 | 25.6% | 54.1% | – | favori seçimi (oran bilgi amaçlı) | 28 / 46.4% / 46.4% | – |
-| KV-6 kum: 1-2. atlar şanslı | 107 | 57.9% (48.5%–66.9%) | 2.1 | 27.0% | 57.9% | – | favori seçimi (oran bilgi amaçlı) | 18 / 44.4% / 44.4% | 34 / 67.6% / 67.6% |
-| KV-6 kum: puana göre 1,2,3. atlar kazanır | 73 | 69.9% (58.6%–79.2%) | 3.0 | 39.0% | 75.3% | – | favoriden farksız | 11 / 54.5% / 72.7% | 24 / 70.8% / 79.2% |
-| KV-6 kum: 1,2,3. handikaplar arasında geçer | 107 | 67.3% (57.9%–75.4%) | 3.2 | 41.5% | 76.6% | – | favoriden kötü | 18 / 50.0% / 61.1% | 34 / 70.6% / 79.4% |
-| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | 15 | 13.3% (3.7%–37.9%) | 1.8 | 21.0% | 26.7% | – | yetersiz örnek | 3 / 0.0% / 33.3% | 7 / 28.6% / 71.4% |
-| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | 49 | 63.3% (49.3%–75.3%) | 2.0 | 26.2% | 63.3% | – | favori seçimi (oran bilgi amaçlı) | 16 / 43.8% / 43.8% | – |
-| KV-7 erkek kum: %20 favori | 58 | 32.8% (22.1%–45.6%) | 1.0 | 13.5% | 32.8% | 20.0% · temkinli | iddia temkinli (gerçek oran daha yüksek) | 6 / 50.0% / 50.0% | 13 / 84.6% / 84.6% |
-| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | 17 | 17.6% (6.2%–41.0%) | 1.5 | 23.5% | 52.9% | – | yetersiz örnek | 4 / 0.0% / 50.0% | 6 / 33.3% / 100.0% |
-| KV-7 dişi çim: favori, yoksa plaseler | 15 | 80.0% (54.8%–93.0%) | 3.0 | 39.9% | 80.0% | – | yetersiz örnek | 5 / 60.0% / 60.0% | – |
-| KV-7 dişi kum: 1-2. handikaplı atlar | 13 | 53.8% (29.1%–76.8%) | 2.0 | 26.2% | 76.9% | – | yetersiz örnek | 0 / – / – | 8 / 75.0% / 75.0% |
-| KV-8 çim: 1-2-4 startlı favori/plase atlar | 36 | 47.2% (32.0%–63.0%) | 1.5 | 19.7% | 55.6% | – | favoriden farksız | 10 / 50.0% / 70.0% | – |
-| KV-8 kum: favorinin şansı az (favori gelmez) | 79 | 41.8% (31.5%–52.8%) | 1.1 | 15.9% | 41.8% | – | doğrulanmadı (favori yine en şanslı) | 10 / 60.0% / 60.0% | 27 / 40.7% / 40.7% |
-| KV-8 kum: 57 kg altındaki atlar kazanır | 15 | 0.0% (0.0%–20.4%) | 1.2 | 18.6% | 60.0% | – | yetersiz örnek | 5 / 0.0% / 40.0% | 2 / 50.0% / 50.0% |
-| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | 48 | 81.3% (68.1%–89.8%) | 3.0 | 44.6% | 81.3% | – | favori seçimi (oran bilgi amaçlı) | 9 / 100.0% / 100.0% | – |
+| Şartlı 2: 1,2,3,5. handikaplar arasında geçer | 175 | 71.4% (64.3%–77.6%) | 4.0 | 46.6% | 78.3% | – | favoriden kötü | 64 / 78.1% / 84.4% | – |
+| Şartlı 2: 1-2. handikap dışına çıkmaz | 175 | 50.3% (43.0%–57.6%) | 2.1 | 25.0% | 54.3% | – | favoriden farksız | 64 / 57.8% / 65.6% | – |
+| Şartlı 2: favori yoksa 55 kg civarı sürpriz (54–56 kg, favori dışı) | 163 | 30.7% (24.1%–38.1%) | 3.6 | 38.4% | 65.0% | – | rastgeleden kötü | 63 / 31.7% / 71.4% | – |
+| Şartlı 3 çim: plaseler (2–3. favori) favoriden şanslı | 320 | 30.6% (25.8%–35.9%) | 2.0 | 21.9% | 50.3% | – | doğrulanmadı (favori daha sık kazanıyor) | 104 / 32.7% / 48.1% | – |
+| Şartlı 3 kum: favori şanslı | 420 | 39.8% (35.2%–44.5%) | 1.1 | 12.3% | 39.8% | – | favori seçimi (oran bilgi amaçlı) | 96 / 40.6% / 40.6% | 134 / 34.3% / 34.3% |
+| Şartlı 3 kum: 47–51 handikap puanlılar arasında geçer | 176 | 20.5% (15.2%–27.0%) | 1.3 | 14.5% | 50.0% | – | favoriden kötü | 25 / 52.0% / 64.0% | 69 / 23.2% / 44.9% |
+| Şartlı 3: favori yoksa 60 kg civarı at (59–61 kg) | 590 | 31.2% (27.6%–35.0%) | 1.9 | 21.1% | 50.3% | – | favoriden kötü | 161 / 37.9% / 48.4% | – |
+| Şartlı 4 çim: 2-3-4. TGP (puan) atlar kazanır | 295 | 42.7% (37.2%–48.4%) | 3.0 | 33.4% | 70.8% | – | favoriden kötü | 64 / 42.2% / 65.6% | – |
+| Şartlı 4 kum: 1,2,3,4 startlı atlar kazanır | 670 | 48.7% (44.9%–52.4%) | 3.9 | 48.9% | 81.5% | – | favoriden kötü | 120 / 50.8% / 80.8% | 228 / 43.9% / 83.3% |
+| Şartlı 4: favori gelir | 1378 | 38.1% (35.6%–40.7%) | 1.1 | 13.0% | 38.1% | – | favori seçimi (oran bilgi amaçlı) | 268 / 38.1% / 38.1% | – |
+| Şartlı 5 çim: favori çok şanslı | 379 | 34.3% (29.7%–39.2%) | 1.1 | 12.7% | 34.3% | – | favori seçimi (oran bilgi amaçlı) | 85 / 36.5% / 36.5% | – |
+| Şartlı 5 çim: %40 hafif kg'lar kazanır | 379 | 36.1% (31.5%–41.1%) | 4.1 | 44.8% | 73.9% | 40.0% · tutuyor | rastgeleden kötü | 85 / 30.6% / 78.8% | – |
+| Şartlı 5 kum: sürpriz 49–51 kg'lardan gelir | 75 | 0.0% (0.0%–4.9%) | 1.1 | 13.1% | 50.7% | – | rastgeleden kötü | 18 / 0.0% / 55.6% | 14 / 7.1% / 42.9% |
+| Şartlı 5 1200 kum: 1, 8, 13 startlılar kazanır | 48 | 18.8% (10.2%–31.9%) | 1.7 | 19.1% | 39.6% | – | favoriden kötü | 15 / 13.3% / 40.0% | 8 / 50.0% / 50.0% |
+| Şartlı 5: öne çıkan favori, yoksa 2,3,4. atlar (ilk 4 favori) | 1036 | 83.7% (81.3%–85.8%) | 4.0 | 50.9% | 83.7% | – | favori seçimi (oran bilgi amaçlı) | 187 / 78.6% / 78.6% | – |
+| KV-6 çim: 1-2. atların dışına çıkmaz | 214 | 56.1% (49.4%–62.6%) | 2.0 | 25.6% | 56.1% | – | favori seçimi (oran bilgi amaçlı) | 54 / 48.1% / 48.1% | – |
+| KV-6 kum: 1-2. atlar şanslı | 219 | 57.5% (50.9%–63.9%) | 2.1 | 27.2% | 57.5% | – | favori seçimi (oran bilgi amaçlı) | 44 / 45.5% / 45.5% | 72 / 65.3% / 65.3% |
+| KV-6 kum: puana göre 1,2,3. atlar kazanır | 144 | 65.3% (57.2%–72.6%) | 3.0 | 38.8% | 68.8% | – | favoriden farksız | 29 / 55.2% / 62.1% | 47 / 63.8% / 70.2% |
+| KV-6 kum: 1,2,3. handikaplar arasında geçer | 219 | 66.2% (59.7%–72.1%) | 3.2 | 41.2% | 72.1% | – | favoriden farksız | 44 / 54.5% / 54.5% | 72 / 66.7% / 76.4% |
+| KV-6 dişi kum: 6 numaralı ya da 6 startlı at | 28 | 14.3% (5.7%–31.5%) | 1.9 | 22.5% | 39.3% | – | yetersiz örnek | 6 / 16.7% / 33.3% | 13 / 23.1% / 46.2% |
+| KV-7 erkek çim: ilk 2 atın dışına çıkmaz | 109 | 60.6% (51.2%–69.2%) | 2.0 | 26.8% | 60.6% | – | favori seçimi (oran bilgi amaçlı) | 35 / 45.7% / 45.7% | – |
+| KV-7 erkek kum: %20 favori | 118 | 30.5% (22.9%–39.3%) | 1.1 | 14.1% | 30.5% | 20.0% · temkinli | iddia temkinli (gerçek oran daha yüksek) | 13 / 30.8% / 30.8% | 29 / 69.0% / 69.0% |
+| KV-7 erkek kum: 54 kg şansı yüksek (53.5–54.5) | 36 | 16.7% (7.9%–31.9%) | 1.7 | 23.2% | 44.4% | – | favoriden kötü | 8 / 0.0% / 50.0% | 13 / 15.4% / 76.9% |
+| KV-7 dişi çim: favori, yoksa plaseler | 30 | 70.0% (52.1%–83.3%) | 3.1 | 36.5% | 70.0% | – | favori seçimi (oran bilgi amaçlı) | 11 / 72.7% / 72.7% | – |
+| KV-7 dişi kum: 1-2. handikaplı atlar | 25 | 60.0% (40.7%–76.6%) | 2.0 | 24.7% | 72.0% | – | yetersiz örnek | 0 / – / – | 14 / 64.3% / 78.6% |
+| KV-8 çim: 1-2-4 startlı favori/plase atlar | 88 | 40.9% (31.2%–51.4%) | 1.5 | 20.4% | 47.7% | – | favoriden farksız | 20 / 30.0% / 65.0% | – |
+| KV-8 kum: favorinin şansı az (favori gelmez) | 148 | 37.2% (29.8%–45.2%) | 1.1 | 15.5% | 37.2% | – | doğrulanmadı (favori yine en şanslı) | 20 / 40.0% / 40.0% | 55 / 47.3% / 47.3% |
+| KV-8 kum: 57 kg altındaki atlar kazanır | 26 | 3.8% (0.7%–18.9%) | 1.2 | 17.4% | 53.8% | – | yetersiz örnek | 8 / 0.0% / 37.5% | 10 / 30.0% / 60.0% |
+| KV-9: kesin favori, yoksa plaseler dışına çıkmaz | 73 | 82.2% (71.9%–89.3%) | 3.0 | 45.4% | 82.2% | – | favori seçimi (oran bilgi amaçlı) | 18 / 88.9% / 88.9% | – |
 | KV-21 çim: %60 3,4,5 numaralı atlar | 0 | – (–––) | – | – | – | 60.0% | yetersiz örnek | 0 / – / – | – |
 | KV-21 kum: %60 3,4,5 numaralı atlar | 0 | – (–––) | – | – | – | 60.0% | yetersiz örnek | 0 / – / – | 0 / – / – |
 | KV-21: favori gelmez | 0 | – (–––) | – | – | – | – | yetersiz örnek | 0 / – / – | – |
@@ -475,188 +487,195 @@ A/E = gerçek birincilik / beklenen birincilik (Σ 1/at sayısı). 1,00 nötr; 1
 | KV-24 kum: 90–120 puanlılar %80 | 0 | – (–––) | – | – | – | 80.0% | yetersiz örnek | 0 / – / – | 0 / – / – |
 | KV-25 çim: 2,3,4,5 numaralı %75 | 0 | – (–––) | – | – | – | 75.0% | yetersiz örnek | 0 / – / – | – |
 | KV-25 kum: 3,4,5 numaralı %60 | 0 | – (–––) | – | – | – | 60.0% | yetersiz örnek | 0 / – / – | 0 / – / – |
-| HAN-13 çim: ilk 3 at çok şanslı | 3 | 100.0% (43.8%–100.0%) | 3.0 | 46.8% | 100.0% | – | yetersiz örnek | 3 / 100.0% / 100.0% | – |
-| HAN-13 kum: 1,2,3,4. handikaplar %70 | 14 | 71.4% (45.4%–88.3%) | 5.1 | 48.1% | 92.9% | 70.0% | yetersiz örnek | 6 / 50.0% / 100.0% | 0 / – / – |
-| HAN-14 çim: en üstteki 2 handikabın şansı %20 | 84 | 31.0% (22.1%–41.5%) | 2.3 | 21.2% | 58.3% | 20.0% · temkinli | favoriden kötü | 21 / 33.3% / 66.7% | – |
-| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | 73 | 13.7% (7.6%–23.4%) | 2.8 | 22.8% | 56.2% | – | favoriden kötü | 15 / 13.3% / 66.7% | – |
-| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | 194 | 28.9% (22.9%–35.6%) | 3.1 | 26.2% | 53.6% | – | favoriden kötü | 26 / 30.8% / 57.7% | 35 / 34.3% / 51.4% |
-| HAN-14 kum: %75 1-2-3. atlara güvenin | 199 | 58.3% (51.3%–64.9%) | 3.0 | 27.3% | 58.3% | 75.0% · abartılı | iddia abartılı | 27 / 63.0% / 63.0% | 40 / 47.5% / 47.5% |
-| HAN-14 (özet): 1-2. at kazanır | 323 | 48.0% (42.6%–53.4%) | 2.1 | 18.4% | 48.0% | – | favori seçimi (oran bilgi amaçlı) | 55 / 54.5% / 54.5% | – |
-| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | 186 | 34.9% (28.5%–42.0%) | 4.4 | 38.5% | 68.8% | – | favoriden kötü | 24 / 16.7% / 87.5% | – |
-| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | 274 | 44.5% (38.8%–50.4%) | 3.2 | 31.5% | 59.5% | – | favoriden kötü | 25 / 60.0% / 76.0% | 105 / 31.4% / 58.1% |
-| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | 179 | 17.3% (12.5%–23.5%) | 1.7 | 15.7% | 36.3% | – | favoriden kötü | 22 / 22.7% / 59.1% | 76 / 18.4% / 39.5% |
-| HAN-15 (özet): 1,2,3. at dışına çıkmaz | 565 | 58.1% (53.9%–62.1%) | 3.1 | 29.2% | 58.1% | – | favori seçimi (oran bilgi amaçlı) | 59 / 76.3% / 76.3% | – |
-| HAN-15 (özet): 3. handikaplı at tek | 483 | 16.6% (13.5%–20.1%) | 1.2 | 11.5% | 33.5% | – | favoriden kötü | 52 / 17.3% / 42.3% | – |
-| HAN-16 çim: favori-plaseler arasında biter | 181 | 59.7% (52.4%–66.5%) | 3.1 | 30.3% | 59.7% | – | favori seçimi (oran bilgi amaçlı) | 0 / – / – | – |
-| HAN-16 çim: %30 7,8,9 numaralar | 171 | 23.4% (17.7%–30.3%) | 2.7 | 24.8% | 55.6% | 30.0% · tutuyor | favoriden kötü | 0 / – / – | – |
-| HAN-16 kum: 1,2,3. handikaplar %80 | 221 | 33.9% (28.0%–40.4%) | 3.2 | 31.5% | 62.0% | 80.0% · abartılı | favoriden kötü | 0 / – / – | 72 / 31.9% / 66.7% |
-| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | 162 | 21.6% (16.0%–28.6%) | 2.1 | 18.7% | 44.4% | – | favoriden kötü | 0 / – / – | 57 / 24.6% / 47.4% |
-| HAN-16 (özet): hafif kilo favori | 306 | 25.5% (20.9%–30.7%) | 1.3 | 12.4% | 37.3% | – | favoriden kötü | 0 / – / – | – |
-| HAN-17 çim: hafif kg'lı atlar çok şanslı | 51 | 37.3% (25.3%–51.0%) | 3.8 | 36.1% | 70.6% | – | favoriden kötü | 0 / – / – | – |
-| HAN-17 kum: plase atlar şanslı %70 | 63 | 28.6% (18.9%–40.7%) | 2.0 | 19.1% | 52.4% | 70.0% · abartılı | favoriden kötü | 0 / – / – | 22 / 18.2% / 45.5% |
-| HAN-17 kum: puana göre 1-4. atlar | 46 | 58.7% (44.3%–71.7%) | 4.0 | 37.1% | 67.4% | – | favoriden farksız | 0 / – / – | 14 / 64.3% / 71.4% |
-| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | 136 | 52.2% (43.9%–60.4%) | 2.1 | 20.1% | 52.2% | – | favori seçimi (oran bilgi amaçlı) | 0 / – / – | – |
-| Maiden kum: genelde favori kazanır | 555 | 34.8% (30.9%–38.8%) | 1.1 | 11.1% | 34.8% | – | favori seçimi (oran bilgi amaçlı) | 343 / 36.4% / 36.4% | 174 / 43.7% / 43.7% |
-| Maiden (özet): ilk iki at arasında | 1173 | 55.2% (52.4%–58.1%) | 2.1 | 19.9% | 55.2% | – | favori seçimi (oran bilgi amaçlı) | 881 / 54.5% / 54.5% | – |
-| Açık/Grup çim: favori-plase dışına çıkmaz | 80 | 67.5% (56.6%–76.8%) | 3.0 | 27.2% | 67.5% | – | favori seçimi (oran bilgi amaçlı) | 26 / 53.8% / 53.8% | – |
-| Açık/Grup kum: %70 favori | 40 | 47.5% (32.9%–62.5%) | 1.1 | 11.8% | 47.5% | 70.0% · abartılı | iddia abartılı | 6 / 33.3% / 33.3% | 12 / 75.0% / 75.0% |
+| HAN-13 çim: ilk 3 at çok şanslı | 6 | 83.3% (43.6%–97.0%) | 3.0 | 46.0% | 83.3% | – | yetersiz örnek | 6 / 83.3% / 83.3% | – |
+| HAN-13 kum: 1,2,3,4. handikaplar %70 | 23 | 73.9% (53.5%–87.5%) | 5.1 | 49.1% | 91.3% | 70.0% | yetersiz örnek | 12 / 58.3% / 100.0% | 0 / – / – |
+| HAN-14 çim: en üstteki 2 handikabın şansı %20 | 205 | 26.3% (20.8%–32.8%) | 2.3 | 20.4% | 51.2% | 20.0% · temkinli | favoriden kötü | 51 / 33.3% / 52.9% | – |
+| HAN-14 çim: 7,8,9. handikap sırasındaki atlar | 188 | 21.3% (16.0%–27.7%) | 2.8 | 23.3% | 54.3% | – | favoriden kötü | 43 / 25.6% / 48.8% | – |
+| HAN-14 kum: 37,43,47,48,49,51,52 handikaplar fazla kazanıyor | 398 | 29.4% (25.1%–34.1%) | 3.1 | 25.7% | 52.5% | – | favoriden kötü | 57 / 31.6% / 56.1% | 70 / 31.4% / 55.7% |
+| HAN-14 kum: %75 1-2-3. atlara güvenin | 415 | 53.3% (48.4%–58.0%) | 3.1 | 27.2% | 53.3% | 75.0% · abartılı | iddia abartılı | 58 / 56.9% / 56.9% | 77 / 54.5% / 54.5% |
+| HAN-14 (özet): 1-2. at kazanır | 697 | 44.5% (40.8%–48.2%) | 2.1 | 18.2% | 44.5% | – | favori seçimi (oran bilgi amaçlı) | 125 / 44.0% / 44.0% | – |
+| HAN-15 çim: 5,6,8,9,10 numaralı atlar çok şanslı | 408 | 37.0% (32.5%–41.8%) | 4.5 | 39.2% | 72.3% | – | favoriden kötü | 52 / 28.8% / 76.9% | – |
+| HAN-15 kum: 1,2,3. handikaplar fazla kazanır | 560 | 42.7% (38.6%–46.8%) | 3.2 | 31.3% | 59.3% | – | favoriden kötü | 52 / 61.5% / 69.2% | 218 / 37.6% / 62.4% |
+| HAN-15 kum: 54 kg'lılar fazla kazanıyor (53.5–54.5) | 379 | 17.4% (13.9%–21.6%) | 1.8 | 15.9% | 37.2% | – | favoriden kötü | 42 / 16.7% / 45.2% | 152 / 18.4% / 40.8% |
+| HAN-15 (özet): 1,2,3. at dışına çıkmaz | 1186 | 58.8% (55.9%–61.5%) | 3.1 | 28.8% | 58.8% | – | favori seçimi (oran bilgi amaçlı) | 127 / 66.9% / 66.9% | – |
+| HAN-15 (özet): 3. handikaplı at tek | 1029 | 15.6% (13.6%–18.0%) | 1.2 | 11.5% | 35.1% | – | favoriden kötü | 114 / 22.8% / 38.6% | – |
+| HAN-16 çim: favori-plaseler arasında biter | 392 | 58.4% (53.5%–63.2%) | 3.1 | 30.3% | 58.4% | – | favori seçimi (oran bilgi amaçlı) | 0 / – / – | – |
+| HAN-16 çim: %30 7,8,9 numaralar | 373 | 25.5% (21.3%–30.1%) | 2.7 | 25.3% | 53.9% | 30.0% · tutuyor | favoriden kötü | 0 / – / – | – |
+| HAN-16 kum: 1,2,3. handikaplar %80 | 448 | 36.8% (32.5%–41.4%) | 3.2 | 31.0% | 59.4% | 80.0% · abartılı | favoriden kötü | 0 / – / – | 158 / 34.2% / 65.2% |
+| HAN-16 kum: 40,48,49,50,52,53,54 handikaplardan sürpriz | 361 | 18.0% (14.4%–22.3%) | 2.1 | 18.9% | 42.9% | – | favoriden kötü | 0 / – / – | 129 / 24.0% / 48.8% |
+| HAN-16 (özet): hafif kilo favori | 606 | 22.3% (19.1%–25.8%) | 1.2 | 12.1% | 35.1% | – | favoriden kötü | 0 / – / – | – |
+| HAN-17 çim: hafif kg'lı atlar çok şanslı | 115 | 35.7% (27.5%–44.7%) | 3.8 | 36.5% | 67.8% | – | favoriden kötü | 0 / – / – | – |
+| HAN-17 kum: plase atlar şanslı %70 | 122 | 26.2% (19.2%–34.7%) | 2.0 | 18.4% | 50.0% | 70.0% · abartılı | favoriden kötü | 0 / – / – | 45 / 31.1% / 44.4% |
+| HAN-17 kum: puana göre 1-4. atlar | 85 | 61.2% (50.5%–70.8%) | 4.0 | 36.8% | 70.6% | – | favoriden farksız | 0 / – / – | 28 / 60.7% / 78.6% |
+| HAN-17: normal şartlarda 1-2. at dışına çıkmaz | 282 | 49.6% (43.9%–55.4%) | 2.1 | 20.0% | 49.6% | – | favori seçimi (oran bilgi amaçlı) | 0 / – / – | – |
+| Maiden kum: genelde favori kazanır | 1140 | 37.3% (34.5%–40.1%) | 1.1 | 11.1% | 37.3% | – | favori seçimi (oran bilgi amaçlı) | 716 / 38.1% / 38.1% | 355 / 42.0% / 42.0% |
+| Maiden (özet): ilk iki at arasında | 2454 | 57.7% (55.7%–59.6%) | 2.1 | 20.3% | 57.7% | – | favori seçimi (oran bilgi amaçlı) | 1870 / 57.5% / 57.5% | – |
+| Açık/Grup çim: favori-plase dışına çıkmaz | 188 | 71.8% (65.0%–77.8%) | 3.1 | 28.7% | 71.8% | – | favori seçimi (oran bilgi amaçlı) | 61 / 68.9% / 68.9% | – |
+| Açık/Grup kum: %70 favori | 119 | 45.4% (36.7%–54.3%) | 1.1 | 12.9% | 45.4% | 70.0% · abartılı | iddia abartılı | 18 / 44.4% / 44.4% | 35 / 45.7% / 45.7% |
 
 ### Favori referansı (Arap, sınıf × pist)
 
 | Sınıf | Pist | Koşu | Ort. at | Favori kazandı | İlk 3 favoriden biri |
 |---|---|---:|---:|---:|---:|
-| COND | Kum | 924 | 8.8 | 39.0% | 74.1% |
-| HAND | Kum | 788 | 11.1 | 30.7% | 60.0% |
-| COND | Çim | 675 | 9.9 | 31.4% | 64.6% |
-| MAIDEN | Kum | 555 | 10.1 | 34.8% | 70.8% |
-| HAND | Çim | 544 | 11.2 | 30.3% | 60.3% |
-| MAIDEN | Çim | 444 | 11.6 | 32.7% | 66.2% |
-| KV | Kum | 310 | 7.9 | 39.4% | 74.8% |
-| COND | Sentetik | 308 | 9.3 | 38.6% | 73.1% |
-| HAND | Sentetik | 252 | 11.7 | 28.6% | 54.8% |
-| KV | Çim | 252 | 8.5 | 34.5% | 72.6% |
-| MAIDEN | Sentetik | 174 | 10.8 | 43.7% | 77.6% |
-| KV | Sentetik | 112 | 8.0 | 50.0% | 80.4% |
-| SAT | Kum | 91 | 10.1 | 28.6% | 59.3% |
-| GROUP | Çim | 80 | 12.0 | 45.0% | 67.5% |
-| SAT | Çim | 64 | 10.7 | 31.3% | 71.9% |
-| GROUP | Kum | 40 | 10.3 | 47.5% | 67.5% |
-| SAT | Sentetik | 31 | 11.0 | 41.9% | 64.5% |
+| COND | Kum | 1845 | 8.9 | 38.5% | 73.6% |
+| HAND | Kum | 1616 | 11.3 | 29.5% | 57.4% |
+| COND | Çim | 1497 | 9.9 | 34.3% | 66.6% |
+| HAND | Çim | 1219 | 11.2 | 30.9% | 59.6% |
+| MAIDEN | Kum | 1140 | 10.2 | 37.3% | 71.8% |
+| MAIDEN | Çim | 959 | 11.3 | 36.5% | 68.6% |
+| COND | Sentetik | 624 | 9.1 | 37.5% | 71.6% |
+| KV | Kum | 578 | 7.9 | 36.3% | 72.8% |
+| HAND | Sentetik | 542 | 11.4 | 29.9% | 58.9% |
+| KV | Çim | 498 | 8.4 | 36.1% | 71.5% |
+| MAIDEN | Sentetik | 355 | 10.6 | 42.0% | 76.9% |
+| KV | Sentetik | 205 | 7.7 | 47.3% | 79.5% |
+| GROUP | Çim | 188 | 11.5 | 42.6% | 71.8% |
+| SAT | Kum | 184 | 10.5 | 28.3% | 60.3% |
+| SAT | Çim | 131 | 11.2 | 29.8% | 67.9% |
+| GROUP | Kum | 119 | 9.1 | 45.4% | 75.6% |
+| SAT | Sentetik | 65 | 10.5 | 35.4% | 70.8% |
+| GROUP | Sentetik | 35 | 10.1 | 45.7% | 74.3% |
 
 ### Start (kulvar) etkisi (Arap), alan büyüklüğüne göre düzeltilmiş
 
 A/E = gerçek birincilik / beklenen birincilik (Σ 1/at sayısı). 1,00 nötr; 1,20 = %20 fazla.
 
-**Kum 1400 m** (796 koşu)
+**Kum 1400 m** (1593 koşu)
 
 | Start | Koşan | Birincilik | A/E |
 |---:|---:|---:|---:|
-| 1 | 780 | 92 | 1.09 |
-| 2 | 780 | 93 | 1.10 |
-| 3 | 776 | 87 | 1.03 |
-| 4 | 784 | 76 | 0.90 |
-| 5 | 764 | 78 | 0.95 |
-| 6 | 745 | 84 | 1.08 |
-| 7 | 704 | 58 | 0.82 |
-| 8 | 639 | 72 | 1.18 |
-| 9 | 556 | 44 | 0.88 |
-| 10 | 467 | 44 | 1.09 |
-| 11 | 353 | 23 | 0.80 |
-| 12 | 248 | 19 | 1.01 |
-| 13 | 163 | 11 | 0.96 |
-| 14 | 112 | 8 | 1.07 |
-| 15 | 78 | 4 | 0.81 |
-| 16 | 43 | 5 | 1.93 |
-| 17 | 27 | 1 | 0.64 |
-| 18 | 15 | 1 | 1.17 |
+| 1 | 1557 | 188 | 1.12 |
+| 2 | 1563 | 170 | 1.01 |
+| 3 | 1553 | 171 | 1.02 |
+| 4 | 1558 | 143 | 0.85 |
+| 5 | 1543 | 156 | 0.95 |
+| 6 | 1505 | 165 | 1.05 |
+| 7 | 1428 | 139 | 0.97 |
+| 8 | 1305 | 135 | 1.07 |
+| 9 | 1117 | 95 | 0.94 |
+| 10 | 923 | 82 | 1.04 |
+| 11 | 709 | 50 | 0.87 |
+| 12 | 513 | 39 | 1.00 |
+| 13 | 319 | 24 | 1.07 |
+| 14 | 221 | 17 | 1.15 |
+| 15 | 148 | 11 | 1.17 |
+| 16 | 90 | 11 | 2.02 |
+| 17 | 55 | 1 | 0.31 |
+| 18 | 31 | 2 | 1.13 |
 
-**Çim 1200 m** (452 koşu)
-
-| Start | Koşan | Birincilik | A/E |
-|---:|---:|---:|---:|
-| 1 | 446 | 63 | 1.39 |
-| 2 | 441 | 51 | 1.15 |
-| 3 | 440 | 37 | 0.83 |
-| 4 | 438 | 69 | 1.57 |
-| 5 | 437 | 40 | 0.91 |
-| 6 | 431 | 44 | 1.03 |
-| 7 | 422 | 44 | 1.07 |
-| 8 | 388 | 24 | 0.66 |
-| 9 | 343 | 20 | 0.66 |
-| 10 | 313 | 31 | 1.15 |
-| 11 | 251 | 11 | 0.54 |
-| 12 | 193 | 6 | 0.40 |
-| 13 | 112 | 8 | 0.99 |
-| 14 | 84 | 2 | 0.34 |
-| 15 | 26 | 1 | 0.61 |
-
-**Kum 1200 m** (417 koşu)
+**Çim 1200 m** (965 koşu)
 
 | Start | Koşan | Birincilik | A/E |
 |---:|---:|---:|---:|
-| 1 | 408 | 59 | 1.33 |
-| 2 | 409 | 52 | 1.17 |
-| 3 | 405 | 35 | 0.79 |
-| 4 | 404 | 48 | 1.09 |
-| 5 | 407 | 50 | 1.14 |
-| 6 | 384 | 38 | 0.95 |
-| 7 | 366 | 27 | 0.73 |
-| 8 | 338 | 34 | 1.05 |
-| 9 | 285 | 22 | 0.84 |
-| 10 | 244 | 24 | 1.12 |
-| 11 | 187 | 8 | 0.52 |
-| 12 | 132 | 8 | 0.79 |
-| 13 | 86 | 7 | 1.13 |
-| 14 | 60 | 5 | 1.21 |
-| 15 | 40 | 1 | 0.38 |
-| 16 | 17 | 2 | 1.89 |
-
-**Kum 1900 m** (359 koşu)
-
-| Start | Koşan | Birincilik | A/E |
-|---:|---:|---:|---:|
-| 1 | 350 | 37 | 0.91 |
-| 2 | 348 | 45 | 1.11 |
-| 3 | 352 | 43 | 1.04 |
-| 4 | 342 | 31 | 0.78 |
-| 5 | 348 | 38 | 0.95 |
-| 6 | 332 | 36 | 0.97 |
-| 7 | 300 | 38 | 1.19 |
-| 8 | 269 | 33 | 1.20 |
-| 9 | 202 | 24 | 1.30 |
-| 10 | 156 | 6 | 0.45 |
-| 11 | 123 | 11 | 1.12 |
-| 12 | 100 | 8 | 1.04 |
-| 13 | 63 | 3 | 0.66 |
-| 14 | 43 | 3 | 1.01 |
-| 15 | 23 | 2 | 1.33 |
-| 16 | 15 | 1 | 1.04 |
-
-**Çim 1400 m** (329 koşu)
-
-| Start | Koşan | Birincilik | A/E |
-|---:|---:|---:|---:|
-| 1 | 316 | 33 | 0.98 |
-| 2 | 323 | 29 | 0.84 |
-| 3 | 327 | 41 | 1.17 |
-| 4 | 319 | 38 | 1.12 |
-| 5 | 324 | 30 | 0.88 |
-| 6 | 318 | 49 | 1.48 |
-| 7 | 300 | 26 | 0.86 |
-| 8 | 266 | 17 | 0.67 |
-| 9 | 223 | 20 | 1.01 |
-| 10 | 185 | 20 | 1.29 |
-| 11 | 144 | 15 | 1.32 |
-| 12 | 111 | 2 | 0.24 |
-| 13 | 79 | 4 | 0.72 |
-| 14 | 49 | 5 | 1.56 |
-| 15 | 33 | 1 | 0.50 |
-| 16 | 19 | 0 | 0.00 |
+| 1 | 949 | 128 | 1.33 |
+| 2 | 943 | 113 | 1.18 |
+| 3 | 942 | 95 | 1.00 |
+| 4 | 942 | 130 | 1.37 |
+| 5 | 945 | 99 | 1.04 |
+| 6 | 923 | 97 | 1.05 |
+| 7 | 900 | 79 | 0.90 |
+| 8 | 836 | 54 | 0.69 |
+| 9 | 740 | 51 | 0.77 |
+| 10 | 658 | 50 | 0.88 |
+| 11 | 545 | 33 | 0.74 |
+| 12 | 435 | 24 | 0.69 |
+| 13 | 171 | 12 | 0.98 |
+| 14 | 127 | 3 | 0.34 |
+| 15 | 49 | 2 | 0.64 |
+| 16 | 22 | 1 | 0.77 |
 | 17 | 15 | 0 | 0.00 |
 
-**Çim 1300 m** (309 koşu)
+**Kum 1200 m** (817 koşu)
 
 | Start | Koşan | Birincilik | A/E |
 |---:|---:|---:|---:|
-| 1 | 303 | 28 | 1.00 |
-| 2 | 305 | 31 | 1.09 |
-| 3 | 303 | 31 | 1.10 |
-| 4 | 301 | 38 | 1.36 |
-| 5 | 302 | 23 | 0.82 |
-| 6 | 297 | 28 | 1.04 |
-| 7 | 292 | 27 | 1.04 |
-| 8 | 284 | 19 | 0.76 |
-| 9 | 265 | 17 | 0.75 |
-| 10 | 240 | 18 | 0.92 |
-| 11 | 211 | 22 | 1.31 |
-| 12 | 174 | 11 | 0.83 |
-| 13 | 107 | 7 | 0.92 |
-| 14 | 91 | 6 | 0.95 |
-| 15 | 35 | 2 | 0.88 |
+| 1 | 798 | 110 | 1.28 |
+| 2 | 799 | 103 | 1.19 |
+| 3 | 797 | 78 | 0.91 |
+| 4 | 794 | 92 | 1.08 |
+| 5 | 793 | 97 | 1.15 |
+| 6 | 760 | 67 | 0.85 |
+| 7 | 722 | 57 | 0.79 |
+| 8 | 668 | 59 | 0.92 |
+| 9 | 573 | 52 | 0.99 |
+| 10 | 487 | 41 | 0.96 |
+| 11 | 382 | 18 | 0.57 |
+| 12 | 259 | 19 | 0.95 |
+| 13 | 162 | 14 | 1.20 |
+| 14 | 102 | 7 | 1.01 |
+| 15 | 70 | 3 | 0.66 |
+| 16 | 39 | 2 | 0.83 |
+
+**Çim 1300 m** (729 koşu)
+
+| Start | Koşan | Birincilik | A/E |
+|---:|---:|---:|---:|
+| 1 | 715 | 73 | 1.09 |
+| 2 | 717 | 79 | 1.18 |
+| 3 | 719 | 75 | 1.11 |
+| 4 | 715 | 75 | 1.12 |
+| 5 | 712 | 65 | 0.97 |
+| 6 | 706 | 61 | 0.94 |
+| 7 | 698 | 66 | 1.04 |
+| 8 | 675 | 49 | 0.81 |
+| 9 | 629 | 50 | 0.92 |
+| 10 | 570 | 47 | 0.98 |
+| 11 | 497 | 39 | 0.96 |
+| 12 | 414 | 25 | 0.76 |
+| 13 | 165 | 14 | 1.20 |
+| 14 | 133 | 9 | 0.99 |
+| 15 | 65 | 2 | 0.48 |
+| 16 | 23 | 2 | 1.52 |
+| 17 | 15 | 1 | 1.24 |
+
+**Kum 1900 m** (712 koşu)
+
+| Start | Koşan | Birincilik | A/E |
+|---:|---:|---:|---:|
+| 1 | 699 | 75 | 0.93 |
+| 2 | 696 | 82 | 1.02 |
+| 3 | 697 | 74 | 0.92 |
+| 4 | 681 | 72 | 0.91 |
+| 5 | 697 | 87 | 1.09 |
+| 6 | 668 | 63 | 0.84 |
+| 7 | 606 | 74 | 1.15 |
+| 8 | 537 | 67 | 1.23 |
+| 9 | 412 | 44 | 1.16 |
+| 10 | 323 | 22 | 0.79 |
+| 11 | 245 | 19 | 0.96 |
+| 12 | 178 | 17 | 1.25 |
+| 13 | 114 | 5 | 0.62 |
+| 14 | 77 | 6 | 1.14 |
+| 15 | 47 | 3 | 0.99 |
+| 16 | 30 | 4 | 2.14 |
+
+**Çim 1400 m** (679 koşu)
+
+| Start | Koşan | Birincilik | A/E |
+|---:|---:|---:|---:|
+| 1 | 663 | 70 | 0.99 |
+| 2 | 673 | 64 | 0.89 |
+| 3 | 672 | 85 | 1.19 |
+| 4 | 665 | 80 | 1.13 |
+| 5 | 668 | 65 | 0.92 |
+| 6 | 660 | 81 | 1.17 |
+| 7 | 612 | 48 | 0.79 |
+| 8 | 549 | 55 | 1.05 |
+| 9 | 462 | 46 | 1.12 |
+| 10 | 382 | 38 | 1.18 |
+| 11 | 295 | 22 | 0.95 |
+| 12 | 227 | 5 | 0.30 |
+| 13 | 158 | 10 | 0.91 |
+| 14 | 98 | 7 | 1.10 |
+| 15 | 64 | 3 | 0.77 |
+| 16 | 40 | 1 | 0.44 |
+| 17 | 28 | 1 | 0.66 |
+| 18 | 22 | 0 | 0.00 |
+| 19 | 20 | 1 | 0.98 |
 
 ### HAN-16 profili (Arap)
 
-474 koşu; katılan atların handikap puanı 8–75 (P10–P90: 39–70); yaş şartları: 4U, 4O. Resmi katılım şartı metni bu kaynakta yok; bu aralık katılanlardan gözlemdir.
+998 koşu; katılan atların handikap puanı 8–75 (P10–P90: 37–69); yaş şartları: 4U, 5U, 4O. Resmi katılım şartı metni bu kaynakta yok; bu aralık katılanlardan gözlemdir.
 
 | Tarih | Şehir | Pist | Mesafe | Yaş | Kazanan | Handikap | Kg | Ganyan | At |
 |---|---|---|---:|---|---|---:|---:|---:|---:|

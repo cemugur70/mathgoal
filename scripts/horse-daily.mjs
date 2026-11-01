@@ -24,7 +24,7 @@ try{
   // Closed before the rebuild, which replaces the file.
   const last=await access(path.join(dir,'horses.db')).then(()=>{const db=new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true});try{return db.prepare('SELECT max(date) d FROM races').get().d;}finally{db.close();}},()=>null);
   // Re-read two days before the archive end so pages first cached on their own race day pick up their final results.
-  const from=last?day(Date.parse(last)-2*86400000):'2024-01-01';
+  const from=last?day(Date.parse(last)-2*86400000):'2021-01-01';
   await log(`collect ${from} → ${yesterday}`);run('collect-horses.mjs',['--from',from,'--to',yesterday]);
   await log(`db ${run('build-horse-db.mjs')}`);state.collectedTo=yesterday;
  }
