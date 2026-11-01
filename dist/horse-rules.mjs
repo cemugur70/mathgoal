@@ -1,17 +1,18 @@
 // User-supplied handicapping heuristics encoded as testable selections, and their walk-free historical evaluation.
 // Interpretations (stated in the report): "favori" = lowest final TJK ganyan, "plase" = 2nd–3rd favourite, "N. handikap" = Nth highest
 // handicap rating in the race, "puan / TGP / Türkiye puanı" = liderform point, "N numaralı" = program number, "N startlı" = gate, "hafif kg" = lightest third.
+// A missing value ranks Infinity, never null: `null <= 2` is true in JavaScript and would put every unrated horse into "top N" selections.
 const rank=(rows,key,desc)=>{
  const vals=rows.map(r=>r[key]).filter(v=>v!==null&&v>0),out=new Map();
- for(const r of rows){const v=r[key];out.set(r.number,v===null||!(v>0)?null:1+vals.filter(x=>desc?x>v:x<v).length);}
+ for(const r of rows){const v=r[key];out.set(r.number,v===null||!(v>0)?Infinity:1+vals.filter(x=>desc?x>v:x<v).length);}
  return out;
 };
-/** Per-race helper: competition ranks (ties share a rank) over runners only. */
+/** Per-race helper: competition ranks (ties share a rank; missing values rank Infinity) over runners only. */
 export function raceContext(race,entries){
  const runners=entries.filter(e=>e.status!=='NONRUNNER');
  const fav=rank(runners.map(e=>({...e,o:e.odds??(e.agf1?100/e.agf1:null)})),'o',false),hcp=rank(runners,'handicap',true),pt=rank(runners,'point',true),light=rank(runners,'kg',false);
  const third=Math.max(1,Math.round(runners.length/3));
- return {race,runners,field:runners.length,fav:n=>fav.get(n),hcp:n=>hcp.get(n),pt:n=>pt.get(n),light:n=>light.get(n),lightThird:n=>light.get(n)!==null&&light.get(n)<=third,
+ return {race,runners,field:runners.length,fav:n=>fav.get(n),hcp:n=>hcp.get(n),pt:n=>pt.get(n),light:n=>light.get(n),lightThird:n=>light.get(n)<=third,
   pick:test=>new Set(runners.filter(test).map(e=>e.number))};
 }
 const between=(v,a,b)=>v!==null&&v!==undefined&&v>=a&&v<=b,isIn=(v,list)=>list.includes(v);
@@ -100,22 +101,44 @@ export function ruleApplies(rule,race,{surfaceAs=null}={}){
 }
 // Wilson 95% interval for a proportion.
 export function wilson(k,n){if(!n)return [null,null];const z=1.96,p=k/n,d=1+z*z/n,c=(p+z*z/(2*n))/d,h=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;return [Math.max(0,c-h),Math.min(1,c+h)];}
+// Two-sided normal p-value (Abramowitz–Stegun 7.1.26 erf, |error| < 1.5e-7).
+export function pValue(z){const x=Math.abs(z)/Math.SQRT2,t=1/(1+.3275911*x),erf=1-((((1.061405429*t-1.453152027)*t+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);return 1-erf;}
+/** Benjamini–Hochberg adjusted q-values, same order as the input; null p-values stay null and are not counted. */
+export function benjaminiHochberg(ps){
+ const idx=ps.map((p,i)=>[p,i]).filter(([p])=>p!==null&&Number.isFinite(p)).sort((a,b)=>a[0]-b[0]),m=idx.length,q=ps.map(()=>null);let min=1;
+ for(let j=m-1;j>=0;j--){min=Math.min(min,idx[j][0]*m/(j+1));q[idx[j][1]]=min;}
+ return q;
+}
 /**
  * Evaluates one rule over finished races. Baselines per race: random share |S|/field, and the same number of shortest-priced horses
  * (the honest comparison: does the rule beat simply taking that many favourites?).
+ * `paired` is a per-race paired test of rule hit minus its comparator: same-size favourites by default, the favourite for "plase beats
+ * favourite" claims, and the random share for "favourite will not win" claims (expected direction negative).
+ * ROI is a 1 TL win (ganyan) stake on every selected horse at the official final ganyan, which equals the paid dividend.
  */
 export function evaluateRule(rule,races,{surfaceAs=null}={}){
- let n=0,hits=0,size=0,random=0,favSame=0,fav1=0,empty=0,identical=0;
+ let n=0,hits=0,size=0,random=0,favSame=0,fav1=0,empty=0,identical=0,stake=0,ret=0,favRet=0,dSum=0,dSq=0,fN=0,fSum=0,fSq=0,fIdentical=0;
  for(const {race,entries} of races){
   if(!race.winners?.length||!ruleApplies(rule,race,{surfaceAs}))continue;
   const c=raceContext(race,entries);if(c.field<3)continue;
   if(rule.conditional&&!rule.conditional(c))continue;
   const s=rule.select(c);if(!s.size){empty++;continue;}
   const win=race.winners.some(w=>s.has(w)),k=s.size,favTop=c.pick(e=>c.fav(e.number)!==null&&c.fav(e.number)<=k);
-  n++;hits+=win;size+=k;random+=Math.min(1,k/c.field);favSame+=race.winners.some(w=>favTop.has(w));fav1+=race.winners.some(w=>c.fav(w)===1);
+  const favWin=race.winners.some(w=>favTop.has(w)),oneWin=race.winners.some(w=>c.fav(w)===1),share=Math.min(1,k/c.field);
+  n++;hits+=win;size+=k;random+=share;favSame+=favWin;fav1+=oneWin;
   identical+=s.size===favTop.size&&[...s].every(v=>favTop.has(v));
+  const odds=w=>c.runners.find(e=>e.number===w)?.odds??0;
+  stake+=k;ret+=race.winners.filter(w=>s.has(w)).reduce((a,w)=>a+odds(w),0);favRet+=race.winners.filter(w=>favTop.has(w)).reduce((a,w)=>a+odds(w),0);
+  const d=win-(rule.expectLow?share:rule.versus==='fav1'?oneWin:favWin);dSum+=d;dSq+=d*d;
+  // Without a price for at least k horses there is no market comparison to make.
+  if(favTop.size>=k){const f=win-favWin;fN++;fSum+=f;fSq+=f*f;fIdentical+=s.size===favTop.size&&[...s].every(v=>favTop.has(v));}
  }
  const rate=n?hits/n:null,[lo,hi]=wilson(hits,n),favRate=n?favSame/n:null;
+ const mean=n?dSum/n:null,sd=n>1?Math.sqrt(Math.max(0,(dSq-n*mean*mean)/(n-1))):null,se=sd&&n?sd/Math.sqrt(n):null;
+ const z=se?mean/se:null,paired={diff:mean,z,p:z===null?null:pValue(z),direction:rule.expectLow?-1:1,testable:n>=30&&!(identical===n&&!rule.expectLow&&rule.versus!=='fav1')};
+ // Edge over the market for the model: rule hit minus the same number of favourites, whatever the rule claims.
+ const fMean=fN?fSum/fN:null,fSd=fN>1?Math.sqrt(Math.max(0,(fSq-fN*fMean*fMean)/(fN-1))):null,fZ=fSd?fMean/(fSd/Math.sqrt(fN)):null;
+ const vsFavorites={n:fN,diff:fMean,z:fZ,p:fZ===null?null:pValue(fZ),testable:fN>=30&&fIdentical<fN};
  let verdict;
  if(n<30)verdict='yetersiz örnek';
  // A pure favourite selection cannot beat itself; only its stated share is testable.
@@ -127,5 +150,62 @@ export function evaluateRule(rule,races,{surfaceAs=null}={}){
  else if(hi<favRate)verdict='favoriden kötü';
  else verdict='favoriden farksız';
  const claim=n>=30&&rule.claimed!=null?(lo<=rule.claimed&&rule.claimed<=hi?'tutuyor':rule.claimed>hi?'abartılı':'temkinli'):null;
- return {claim,id:rule.id,text:rule.text,n,empty,hits,rate,ci:[lo,hi],avgPick:n?size/n:null,random:n?random/n:null,favoriteSameSize:favRate,favoriteWin:n?fav1/n:null,claimed:rule.claimed??null,verdict};
+ return {claim,id:rule.id,text:rule.text,n,empty,hits,rate,ci:[lo,hi],avgPick:n?size/n:null,random:n?random/n:null,favoriteSameSize:favRate,favoriteWin:n?fav1/n:null,claimed:rule.claimed??null,verdict,
+  paired,vsFavorites,roi:stake?ret/stake-1:null,favoriteRoi:stake?favRet/stake-1:null};
+}
+// The model may only use what is known before the off: the final ganyan is not, so "favourite" there means the AGF order.
+const stripOdds=entries=>entries.map(e=>({...e,odds:null})),preRace=races=>races.map(x=>({...x,entries:stripOdds(x.entries)}));
+/**
+ * Backtest-gated rule weights for the prediction model (pre-race: favourite = AGF order), per breed ("TB:han15-hcp3"). A rule's weight is its edge over the same number of
+ * favourites (win-probability points; negative = the rule's horses do worse than the market suggests).
+ * - `discovery`: rules whose discovery-period edge survives Benjamini–Hochberg (q < alphaQ); weight from discovery only. Used by the walk-forward,
+ *   so confirmation races never influence which rules are applied.
+ * - `production`: rules that also repeat the same sign at p < alpha in the confirmation period; weight from the whole archive. Used for live races.
+ */
+export function learnRuleWeights(allRaces,{split,alphaQ=.10,alpha=.05,breeds=['TB','AR']}={}){
+ const table=[],races=preRace(allRaces);
+ for(const breed of breeds){
+  const rs=races.filter(x=>x.race.breed===breed),disc=rs.filter(x=>x.race.date<split),conf=rs.filter(x=>x.race.date>=split);
+  for(const rule of RULES)table.push({key:`${breed}:${rule.id}`,breed,id:rule.id,text:rule.text,discovery:evaluateRule(rule,disc).vsFavorites,confirmation:evaluateRule(rule,conf).vsFavorites,all:evaluateRule(rule,rs)});
+ }
+ const qs=benjaminiHochberg(table.map(t=>t.discovery.testable?t.discovery.p:null)),discovery={},production={};
+ table.forEach((t,i)=>{
+  t.q=qs[i];t.discoveryPass=t.q!==null&&t.q<alphaQ;
+  t.confirmed=t.discoveryPass&&t.confirmation.testable&&t.confirmation.p<alpha&&Math.sign(t.confirmation.diff)===Math.sign(t.discovery.diff);
+  if(t.discoveryPass)discovery[t.key]=+t.discovery.diff.toFixed(4);
+  if(t.confirmed)production[t.key]=+t.all.vsFavorites.diff.toFixed(4);
+ });
+ return {split,discovery,production,table:table.map(({all,...t})=>({...t,n:all.vsFavorites.n,rate:all.rate,favoriteSameSize:all.favoriteSameSize}))};
+}
+/** Per-runner rule signal: the sum of the weights of every applied rule that selects the horse, with the rules that fired. */
+export function ruleSignals(race,entries,weights){
+ const out=new Map(entries.map(e=>[e.number,{score:0,rules:[]}]));
+ if(!weights||!Object.keys(weights).length)return out;
+ const c=raceContext(race,stripOdds(entries));if(c.field<3)return out;
+ for(const rule of RULES){
+  const w=weights[`${race.breed}:${rule.id}`];if(w===undefined||!ruleApplies(rule,race))continue;
+  if(rule.conditional&&!rule.conditional(c))continue;
+  for(const n of rule.select(c)){const s=out.get(n);if(s){s.score+=w;s.rules.push({id:rule.id,text:rule.text,weight:w});}}
+ }
+ return out;
+}
+/**
+ * Out-of-sample decision. A rule is confirmed only when its discovery-period paired test survives Benjamini–Hochberg (q < 0.10)
+ * in the expected direction and the later, untouched confirmation period repeats that direction at p < 0.05.
+ * Pure favourite selections have no edge to test; only a stated share is checked, and it must hold (or fail) in both periods.
+ */
+export function confirmationVerdict(discovery,confirmation,q,{alphaQ=.10,alpha=.05}={}){
+ if(discovery.n<30||confirmation.n<30)return {status:'yetersiz örnek',detail:`keşif ${discovery.n}, doğrulama ${confirmation.n} koşu (en az 30+30 gerekir)`};
+ if(!discovery.paired.testable){
+  if(discovery.claimed==null)return {status:'favori seçimi',detail:'kural aynı sayıda favoriyi seçiyor; test edilecek ayrı bir üstünlük yok'};
+  const inside=r=>r.ci[0]<=r.claimed&&r.claimed<=r.ci[1];
+  if(inside(discovery)&&inside(confirmation))return {status:'iddia doğrulandı',detail:'iddia edilen oran iki dönemin %95 aralığında'};
+  if(!inside(discovery)&&!inside(confirmation)&&Math.sign(discovery.rate-discovery.claimed)===Math.sign(confirmation.rate-confirmation.claimed))
+   return {status:'iddia çürütüldü',detail:discovery.rate<discovery.claimed?'gerçek oran iki dönemde de iddianın altında':'gerçek oran iki dönemde de iddianın üstünde'};
+  return {status:'belirsiz',detail:'iddia dönemler arasında tutarlı değil'};
+ }
+ const dir=discovery.paired.direction,dOk=q!==null&&q<alphaQ,sameDir=Math.sign(discovery.paired.diff)===Math.sign(confirmation.paired.diff),cOk=confirmation.paired.p!==null&&confirmation.paired.p<alpha;
+ if(dOk&&sameDir&&cOk)return Math.sign(discovery.paired.diff)===dir?{status:'doğrulandı',detail:'keşifte anlamlı, doğrulama döneminde aynı yönde tekrar etti'}:{status:'tersi doğrulandı',detail:'iki dönemde de kuralın tersi yönde anlamlı'};
+ if(dOk)return {status:'tekrar etmedi',detail:'keşifte anlamlıydı, doğrulama döneminde tekrar etmedi'};
+ return {status:'kanıt yok',detail:'karşılaştırma ölçütünden anlamlı fark yok'};
 }

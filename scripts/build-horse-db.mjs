@@ -17,7 +17,9 @@ CREATE TABLE runs(horse_id INT,date TEXT,track_code TEXT,place INT,surface TEXT,
 CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT);`);
 const insRace=db.prepare('INSERT OR REPLACE INTO races VALUES('+Array(25).fill('?').join(',')+')'),insEntry=db.prepare('INSERT OR REPLACE INTO entries VALUES('+Array(31).fill('?').join(',')+')');
 const insRun=db.prepare('INSERT OR IGNORE INTO runs VALUES(?,?,?,?,?,?,?,?,?)');
-const files=(await readdir(cache)).filter(f=>/^program-\d{4}-\d{2}-\d{2}-[a-z]+-\d+\.json\.gz$/.test(f)).sort();let races=0,skipped=0;
+// Only settled days enter the archive; today's pages (cached by the live predictor) could otherwise leak into training.
+const today=new Date().toISOString().slice(0,10);
+const files=(await readdir(cache)).filter(f=>/^program-\d{4}-\d{2}-\d{2}-[a-z]+-\d+\.json\.gz$/.test(f)&&f.slice(8,18)<today).sort();let races=0,skipped=0;
 db.exec('BEGIN');
 for(const f of files){
  const [,date,city,number]=f.match(/^program-(\d{4}-\d{2}-\d{2})-([a-z]+)-(\d+)\.json\.gz$/);

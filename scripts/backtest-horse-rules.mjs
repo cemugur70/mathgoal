@@ -4,20 +4,28 @@ import {writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
-import {RULES,evaluateRule,raceContext} from '../dist/horse-rules.mjs';
+import {RULES,evaluateRule,raceContext,benjaminiHochberg,confirmationVerdict} from '../dist/horse-rules.mjs';
+import {CITIES} from './liderform-source.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const db=new DatabaseSync(path.join(root,'data/horse/horses.db'),{readOnly:true});
 const BREEDS={TB:'İngiliz',AR:'Arap'},S={TURF:'Çim',DIRT:'Kum',AWT:'Sentetik'};
-const pct=v=>v===null||v===undefined?'–':(100*v).toFixed(1)+'%';
+// Rules are judged on races before SPLIT (discovery) and must repeat on races from SPLIT on (confirmation), which they never saw.
+// While the archive is still short of pre-2026 races, the split moves to 60% of the predicted cities' finished races (an interim split, stated in the report).
+let SPLIT=process.env.HORSE_SPLIT||'2026-01-01',INTERIM=false;
+{const dates=db.prepare(`SELECT date FROM races WHERE status='RESULT' AND winners IS NOT NULL AND city IN (${Object.keys(CITIES).map(c=>`'${c}'`).join(',')}) ORDER BY date`).all().map(r=>r.date);
+ if(!process.env.HORSE_SPLIT&&dates.filter(d=>d<SPLIT).length<1000&&dates.length){SPLIT=dates[Math.floor(dates.length*.6)];INTERIM=true;}}
+const pct=v=>v===null||v===undefined?'–':(100*v).toFixed(1)+'%',signed=v=>v===null||v===undefined?'–':(v>0?'+':'')+(100*v).toFixed(1),roi=v=>v===null||v===undefined?'–':signed(v)+'%',pv=v=>v===null||v===undefined?'–':v<.001?'<0.001':v.toFixed(3);
 function analyse(breed){
- const raceRows=db.prepare("SELECT * FROM races WHERE status='RESULT' AND winners IS NOT NULL AND breed=? ORDER BY date").all(breed);
+ // The rules were written for the five predicted cities; network-only tracks are not judged.
+ const raceRows=db.prepare(`SELECT * FROM races WHERE status='RESULT' AND winners IS NOT NULL AND breed=? AND city IN (${Object.keys(CITIES).map(c=>`'${c}'`).join(',')}) ORDER BY date`).all(breed);
  const byRace=new Map();for(const e of db.prepare('SELECT e.* FROM entries e JOIN races r ON r.id=e.race_id WHERE r.breed=?').all(breed))(byRace.get(e.race_id)??byRace.set(e.race_id,[]).get(e.race_id)).push(e);
  const races=raceRows.map(r=>({race:{...r,classNumber:r.class_number,winners:r.winners.split(',')},entries:(byRace.get(r.id)||[]).map(e=>({...e}))}));
- const three=races.filter(x=>x.race.age==='3O');
+ const three=races.filter(x=>x.race.age==='3O'),discovery=races.filter(x=>x.race.date<SPLIT),confirmation=races.filter(x=>x.race.date>=SPLIT);
  const results=RULES.map(rule=>{
   const all=evaluateRule(rule,races),age3=evaluateRule(rule,three);
   const awt=rule.surface==='DIRT'?evaluateRule(rule,races.filter(x=>x.race.surface==='AWT'),{surfaceAs:{from:'AWT',to:'DIRT'}}):null;
-  return {...all,age3:{n:age3.n,rate:age3.rate,favoriteSameSize:age3.favoriteSameSize,verdict:age3.verdict},synthetic:awt&&{n:awt.n,rate:awt.rate,favoriteSameSize:awt.favoriteSameSize,verdict:awt.verdict}};
+  return {...all,age3:{n:age3.n,rate:age3.rate,favoriteSameSize:age3.favoriteSameSize,verdict:age3.verdict},synthetic:awt&&{n:awt.n,rate:awt.rate,favoriteSameSize:awt.favoriteSameSize,verdict:awt.verdict},
+   discovery:evaluateRule(rule,discovery),confirmation:evaluateRule(rule,confirmation)};
  });
  // Favourite baseline per class family and surface.
  const seg=new Map();
@@ -31,7 +39,7 @@ function analyse(breed){
  // HAN-16 profile: observed eligibility from the entrants themselves, and its winners.
  const han16=races.filter(x=>x.race.type==='HAND-16'),hc=han16.flatMap(x=>x.entries.map(e=>e.handicap).filter(v=>v>0)).sort((a,b)=>a-b);
  const winners=han16.slice(-15).reverse().map(x=>{const w=x.entries.find(e=>x.race.winners.includes(e.number));return w&&{date:x.race.date,city:x.race.city,surface:x.race.surface,distance:x.race.distance,age:x.race.age,horse:w.name,handicap:w.handicap,kg:w.kg,odds:w.odds,field:x.entries.filter(e=>e.status!=='NONRUNNER').length};}).filter(Boolean);
- return {races:races.length,results,segments:Object.fromEntries(seg),gates:Object.fromEntries(gateTables),
+ return {races:races.length,discoveryRaces:discovery.length,confirmationRaces:confirmation.length,results,segments:Object.fromEntries(seg),gates:Object.fromEntries(gateTables),
   han16:{races:han16.length,handicapRange:hc.length?[hc[0],hc.at(-1)]:null,handicapP10P90:hc.length?[hc[Math.floor(hc.length*.1)],hc[Math.floor(hc.length*.9)]]:null,ages:[...new Set(han16.map(x=>x.race.age))],winners}};
 }
 function section(breed,a){
@@ -49,15 +57,41 @@ function section(breed,a){
   ...a.han16.winners.map(w=>`| ${w.date} | ${w.city} | ${S[w.surface]??w.surface} | ${w.distance} | ${w.age} | ${w.horse} | ${w.handicap??'–'} | ${w.kg??'–'} | ${w.odds??'–'} | ${w.field} |`),''];
 }
 const range=db.prepare('SELECT min(date) a,max(date) b FROM races').get(),breeds=Object.fromEntries(Object.keys(BREEDS).map(b=>[b,analyse(b)]));
-const report={generatedAt:new Date().toISOString(),scope:{from:range.a,to:range.b},breeds};
+// One multiple-testing family: every testable discovery comparison across both breeds.
+const tested=Object.values(breeds).flatMap(a=>a.results),qs=benjaminiHochberg(tested.map(r=>r.discovery.paired.testable?r.discovery.paired.p:null));
+tested.forEach((r,i)=>{r.discovery.q=qs[i];r.confirmationVerdict=confirmationVerdict(r.discovery,r.confirmation,qs[i]);});
+const STATUS_ORDER=['doğrulandı','iddia doğrulandı','tersi doğrulandı','iddia çürütüldü','tekrar etmedi','kanıt yok','belirsiz','favori seçimi','yetersiz örnek'];
+function summary(breed,a){
+ const name=BREEDS[breed],rows=[...a.results].sort((x,y)=>STATUS_ORDER.indexOf(x.confirmationVerdict.status)-STATUS_ORDER.indexOf(y.confirmationVerdict.status)||(x.discovery.q??1)-(y.discovery.q??1));
+ const counts=STATUS_ORDER.map(s=>[s,a.results.filter(r=>r.confirmationVerdict.status===s).length]).filter(([,n])=>n);
+ return [`### ${name}: doğrulama özeti`,'',`Keşif < ${SPLIT}: ${a.discoveryRaces} koşu · doğrulama ≥ ${SPLIT}: ${a.confirmationRaces} koşu. ${counts.map(([s,n])=>`${s}: ${n}`).join(' · ')}.`,'',
+  '| Kural | Karar | Keşif n | Keşif isabet / favori | Fark (puan) | p | q (BH) | Doğrulama n | Doğrulama isabet / favori | Fark (puan) | p | ROI kural / aynı sayıda favori (tüm dönem) |',
+  '|---|---|---:|---|---:|---:|---:|---:|---|---:|---:|---|',
+  ...rows.map(r=>{const d=r.discovery,c=r.confirmation,ref=x=>x.paired.direction<0?pct(x.random):r.id==='srt3-cim-plase'?pct(x.favoriteWin):pct(x.favoriteSameSize);
+   return `| ${r.text} | **${r.confirmationVerdict.status}** | ${d.n} | ${pct(d.rate)} / ${ref(d)} | ${signed(d.paired.diff)} | ${pv(d.paired.p)} | ${pv(d.q)} | ${c.n} | ${pct(c.rate)} / ${ref(c)} | ${signed(c.paired.diff)} | ${pv(c.paired.p)} | ${roi(r.roi)} / ${roi(r.favoriteRoi)} |`;}),''];
+}
+// ROI relies on the final ganyan equalling the paid win dividend; re-measured on every run.
+const oddsCheck=db.prepare("SELECT r.bets_result b,e.odds o FROM races r JOIN entries e ON e.race_id=r.id AND e.place=1 AND e.place_source='dividends' WHERE r.dead_heat=0").all()
+ .map(x=>{const m=x.b.match(/(?:^|\s)GANYAN\([^)]*\):\s*([\d.,]+)TL/);return m&&x.o!=null?Math.abs(Number(m[1].replace(/\./g,'').replace(',','.'))-x.o)<.011:null;}).filter(v=>v!==null);
+const oddsMatch=`${oddsCheck.filter(Boolean).length}/${oddsCheck.length}`;
+const report={generatedAt:new Date().toISOString(),scope:{from:range.a,to:range.b,split:SPLIT,oddsMatch},breeds};
 await writeFile(path.join(root,'data/horse/rules-backtest.json'),JSON.stringify(report,null,1));
-const md=[`# Kural seti backtest'i (İngiliz ve Arap atları)`,'',`Kaynak: liderform.com.tr herkese açık program sayfaları, ${range.a} – ${range.b}; ${breeds.TB.races} İngiliz, ${breeds.AR.races} Arap koşusu. Üretim: ${report.generatedAt}.`,'',
+const md=[`# Kural seti backtest'i (İngiliz ve Arap atları)`,'',`Kaynak: liderform.com.tr herkese açık program sayfaları, ${range.a} – ${range.b}; İstanbul, Ankara, İzmir, Bursa ve Adana'da ${breeds.TB.races} İngiliz, ${breeds.AR.races} Arap koşusu. Üretim: ${report.generatedAt}.`,'',
  '## Yorum varsayımları','','- **Favori**: en düşük kapanış TJK ganyanı (yoksa AGF). **Plase**: 2.–3. favori. **İlk N at**: ilk N favori.',
  '- **N. handikap**: koşudaki N. en yüksek handikap puanı. **Puan / TGP / Türkiye puanı**: liderform "puan" alanı (varsayım).',
  '- **N numaralı**: program numarası; **N startlı**: kulvar. **Hafif kg**: koşunun en hafif üçte biri. "Fotomaç / posta puanı" ve "kazanç" verisi yok, o kurallar test edilmedi.',
  '- Çim/kum kuralları kendi pistinde ölçüldü; kum kuralları ayrıca sentetikte (AWT) denendi. İngiliz ve Arap koşuları ayrı ölçülür, hiç karıştırılmaz.','',
  '## Nasıl okunur','','- **İsabet**: kazanan, kuralın seçtiği atlar arasında mı. **Aynı sayıda favori**: kural kaç at seçtiyse o kadar favori seçilseydi isabet. Bir kuralın değeri bu sütunu geçip geçmemesidir.',
- '- **Karar**: %95 Wilson aralığına göre. 30 koşudan azsa karar verilmez.','',
+ '- **Karar** (ayrıntı tablolarında, tüm dönem): %95 Wilson aralığına göre. 30 koşudan azsa karar verilmez.','',
+ '## Geriye dönük doğrulama','',
+ `Kurallar önce **keşif** döneminde (${SPLIT} öncesi) test edilir, sonra hiç görmedikleri **doğrulama** döneminde (${SPLIT} ve sonrası) tekrar etmeleri beklenir.${INTERIM?' **Ara bölme**: 2026 öncesi veri henüz yetersiz; bölme noktası koşuların %60\'ına kondu. Tam veriyle 2026-01-01 kullanılacak.':''}`,
+ '- **Fark**: her koşuda kural isabeti (1/0) eksi karşılaştırma ölçütü, ortalaması yüzde puan olarak. Ölçüt: aynı sayıda favori; "plase favoriden şanslı" iddiası için favorinin kazanması; "favori gelmez" iddiaları için rastgele pay (beklenen yön negatif). p eşleştirilmiş z testinden.',
+ '- **q (BH)**: iki ırktaki tüm keşif testleri tek aile sayılarak Benjamini–Hochberg düzeltmesi. 140 testte birkaçının şansla anlamlı çıkması beklenir; q bunu düzeltir.',
+ '- **doğrulandı**: keşifte q < 0,10 ve doğrulamada aynı yönde p < 0,05. **tersi doğrulandı**: iki dönemde de kuralın aleyhine anlamlı. **tekrar etmedi**: keşifte anlamlı ama doğrulamada değil. **kanıt yok**: ölçütten farkı anlamlı değil.',
+ '- **favori seçimi**: kural tam olarak aynı sayıda favoriyi seçiyor, test edilecek ayrı üstünlük yok. Oran iddiası varsa (ör. "%70 favori") iki dönemin %95 aralığıyla karşılaştırılır: **iddia doğrulandı / çürütüldü**.',
+ '- **ROI**: seçilen her ata 1 TL ganyan; resmi kapanış ganyanı ile (ödenen ganyan ikramiyesiyle ${oddsMatch} koşuda birebir aynı). Hipodrom kesintisi yüzünden rastgele oynamanın beklenen ROI\'si negatiftir.','',
+ ...summary('TB',breeds.TB),...summary('AR',breeds.AR),
  ...section('TB',breeds.TB),...section('AR',breeds.AR)].join('\n');
 await writeFile(path.join(root,'docs/horse-rules-backtest.md'),md);
-console.log(JSON.stringify(Object.fromEntries(Object.entries(breeds).map(([b,a])=>[b,{races:a.races,judged:a.results.filter(r=>r.n>=30).length,better:a.results.filter(r=>r.verdict==='favoriden iyi').map(r=>r.id)}]))));
+console.log(JSON.stringify(Object.fromEntries(Object.entries(breeds).map(([b,a])=>[b,{races:a.races,discovery:a.discoveryRaces,confirmation:a.confirmationRaces,
+ status:Object.fromEntries(STATUS_ORDER.map(s=>[s,a.results.filter(r=>r.confirmationVerdict.status===s).map(r=>r.id)]).filter(([,v])=>v.length))}]))));
