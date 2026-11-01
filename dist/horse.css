@@ -1,0 +1,39 @@
+/* At yarışı sayfası: style.css tokenları üzerine yarış kartları, olasılık çubukları ve sonuç rozetleri. */
+.hz-toolbar{display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding:16px 20px}
+.hz-toolbar label{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.hz-toolbar select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:9px 12px;min-height:40px}
+.hz-chip{background:transparent;border:1px solid var(--border);border-radius:20px;padding:7px 14px;font-size:14px;color:var(--muted);min-height:36px}
+.hz-chip:hover{color:var(--text)}.hz-chip.active{background:#25341f;border-color:#46563d;color:var(--green)}
+.hz-day-head{display:flex;align-items:center;gap:12px;margin:26px 0 4px}.hz-day-head h2{font:600 21px 'Manrope',sans-serif;margin:0;letter-spacing:-.3px}
+.hz-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:14px 0 4px}
+.hz-kpis>div{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:2px}
+.hz-kpis span{font-size:13px;color:var(--muted);letter-spacing:.3px}.hz-kpis b{font:700 24px 'Manrope',sans-serif;color:var(--green)}.hz-kpis small{font-size:13px;color:var(--muted)}
+.hz-kpis.big b{font-size:32px}
+.hz-race-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.hz-race-head h2{font:600 18px 'Manrope',sans-serif;margin:0}.hz-race-head p{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.hz-time{font:500 14px 'DM Sans',sans-serif;color:var(--muted);margin-left:6px}
+.hz-race-tags{display:flex;gap:8px;flex-wrap:wrap}
+.hz-tag-hit{color:var(--green);border-color:#5d7a3a;background:#c3ef7918}.hz-tag-near{color:var(--blue);border-color:#3f566e;background:#8db5de12}
+.hz-tag-miss{color:var(--red);border-color:#6e3f3e;background:#ef9b9812}.hz-tag-wait{color:var(--muted);border-color:var(--border);background:transparent}
+.hz-table td{vertical-align:middle}.hz-table th small{display:block;font-size:11px;color:#6f8377}
+.hz-rank{color:var(--muted);width:36px}.hz-no{font-weight:700;width:36px}
+.hz-name b{display:block}.hz-name small{display:block;font-size:12px;color:var(--muted)}
+.hz-prob{min-width:150px}.hz-prob b{font-variant-numeric:tabular-nums}
+.hz-bar{display:inline-block;vertical-align:middle;width:70px;height:7px;border-radius:4px;background:#26332a;margin-right:9px;overflow:hidden}.hz-bar span{display:block;height:100%;background:var(--green);border-radius:4px}
+.hz-sub{display:block;font-size:12px;color:var(--muted)}.hz-muted{color:var(--muted)}
+.hz-up{color:var(--green)}.hz-down{color:var(--red)}
+.hz-runs{white-space:nowrap}
+.hz-run,.hz-place{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:5px;font-size:12px;font-weight:700;margin-right:3px;background:#26332a;color:var(--muted)}
+.hz-run.p1,.hz-place.p1{background:var(--green);color:#172218}.hz-run.p2,.hz-place.p2{background:#8db5de33;color:var(--blue)}.hz-run.p3,.hz-place.p3{background:#e7ab8030;color:var(--orange)}
+.hz-place.none{background:transparent}
+.hz-winner td{background:#c3ef790d}.hz-winner .hz-no{color:var(--green)}
+.hz-rules{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.hz-rule{font-size:11px;padding:1px 6px;border-radius:4px;border:1px dashed var(--border);color:var(--muted);cursor:help}.hz-rule.applied{border-style:solid;border-color:#6e3f3e;color:var(--red)}
+.hz-details{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}.hz-details summary{cursor:pointer;color:var(--green);font-size:15px}
+.hz-details[open] summary{margin-bottom:12px}
+.hz-net td{font-size:13px}.hz-meet{white-space:normal;min-width:260px;line-height:1.6}
+.hz-best td{background:#c3ef790d;font-weight:600}.hz-ref td{color:var(--muted);font-style:italic}
+.hz-two{grid-template-columns:1fr 1fr}.hz-method{margin:0;padding-left:20px;font-size:15px;line-height:1.7;color:#cbd6cd}.hz-method li+li{margin-top:6px}
+.hz-wrap{white-space:normal;min-width:260px}
+@media(max-width:850px){.hz-two{grid-template-columns:1fr}.hz-toolbar{gap:12px}}
+@media(max-width:640px){.hz-kpis.big b{font-size:26px}.hz-race-head h2{font-size:16px}.hz-bar{width:44px}}
