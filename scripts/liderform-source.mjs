@@ -20,14 +20,15 @@ const keep=p=>p&&{raceLocationsData:(p.raceLocationsData||[]).filter(l=>!l.is_fo
 
 /**
  * Cached client for public liderform program pages (llms.txt allows use; robots.txt only disallows query strings, which are never sent).
- * Pages dated before `today` are settled and never refetched; today/future pages expire after 10 minutes.
+ * Pages dated before `today` and fetched after their day ended are settled and never refetched; a past page fetched on its own
+ * race day (before the last results) is fetched once more. Today/future pages expire after 10 minutes.
  * The site's private data API and its client-embedded token are deliberately not used.
  */
 export function createLiderformClient({cache,today=new Date().toISOString().slice(0,10),throttleMs=300,sources=[]}){
  return async function program(date,city=null,race=null,{refresh=false}={}){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||(city!==null&&!(city in TRACKS))||(race!==null&&!/^\d{1,2}$/.test(String(race))))throw Error('Geçersiz liderform program seçimi');
   const parts=['program',date,city,race].filter(v=>v!==null),file=path.join(cache,parts.join('-')+'.json.gz'),settled=date<today;
-  if(!refresh)try{const info=await stat(file);if(settled||Date.now()-info.mtimeMs<LIVE_TTL)return JSON.parse(gunzipSync(await readFile(file)));}catch(error){if(error.code!=='ENOENT')throw error;}
+  if(!refresh)try{const info=await stat(file);if((settled&&info.mtimeMs>=Date.parse(date)+86400000)||Date.now()-info.mtimeMs<LIVE_TTL)return JSON.parse(gunzipSync(await readFile(file)));}catch(error){if(error.code!=='ENOENT')throw error;}
   const url='https://liderform.com.tr/'+parts.join('/');let data;
   for(let attempt=0;attempt<3;attempt++){
    try{

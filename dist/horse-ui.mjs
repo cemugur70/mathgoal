@@ -12,6 +12,7 @@ const TITLES={program:'Yarış programı',model:'Model doğrulama',rules:'Kural 
 const longDate=d=>new Date(d+'T12:00:00Z').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',weekday:'long'});
 // liderform race times are GMT without a zone suffix.
 const raceClock=t=>new Date(/Z|[+-]\d\d:?\d\d$/.test(t)?t:t+'Z').toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Istanbul'});
+const istanbulToday=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Istanbul'});
 const shortDate=d=>new Date(d+'T12:00:00Z').toLocaleDateString('tr-TR',{day:'numeric',month:'short'});
 const state={summary:null,day:null,city:'all',cache:new Map()};
 const store={get(k){try{return localStorage.getItem(k);}catch{return null;}},set(k,v){try{localStorage.setItem(k,v);}catch{}}};
@@ -69,16 +70,16 @@ async function renderProgram(){
  const cities=[...new Set(data.races.map(r=>r.city))];if(state.city!=='all'&&!cities.includes(state.city))state.city='all';
  const races=data.races.filter(r=>state.city==='all'||r.city===state.city),settled=races.filter(r=>r.winners);
  const top1=settled.filter(r=>r.winners.includes(r.runners[0].number)).length,top3=settled.filter(r=>r.runners.slice(0,3).some(x=>r.winners.includes(x.number))).length;
- const options=s.days.map(d=>`<option value="${d.date}" ${d.date===state.day?'selected':''}>${esc(shortDate(d.date))} · ${d.kind==='live'?'güncel program':`${d.top1}/${d.races} isabet`}</option>`).join('');
+ const options=s.days.map(d=>`<option value="${d.date}" ${d.date===state.day?'selected':''}>${esc(shortDate(d.date))} · ${d.kind==='live'?(d.date>istanbulToday()?'yarının programı':'bugünün programı'):`${d.top1}/${d.races} isabet`}</option>`).join('');
  const summary=settled.length?`<div class="hz-kpis"><div><span>1. tahmin kazandı</span><b>${top1}/${settled.length}</b><small>${pct(top1/settled.length,0)}</small></div><div><span>Kazanan ilk 3 tahminde</span><b>${top3}/${settled.length}</b><small>${pct(top3/settled.length,0)}</small></div><div><span>Koşu</span><b>${races.length}</b><small>${races.length-settled.length?`${races.length-settled.length} sonuç bekliyor`:'hepsi sonuçlandı'}</small></div></div>`:'';
  const note=data.kind==='live'
   ?`<p class="inline-note">Güncel program: rating'ler ${esc(s.range.to)} dahil tüm sonuçlanmış koşulardan, ağırlıklar tüm dönemden öğrenildi. Kurallardan yalnızca iki backtest döneminde de doğrulananlar olasılığı etkiler. AGF ve ganyan yayın anındaki değerlerdir.</p>`
   :`<p class="inline-note">Geriye dönük tahmin: her koşu yalnızca o günden önceki koşularla ve ${esc(s.split)} öncesinde öğrenilmiş ağırlıklarla tahmin edildi; model bu sonuçları görmedi. Ganyan kapanış değeridir ve modele girmez.</p>`;
  $('#view-program').innerHTML=`<div class="hz-toolbar card"><label>Gün<select id="hz-day">${options}</select></label>
   <div class="pill-row hz-cities" role="group" aria-label="Hipodrom">${['all',...cities].map(c=>`<button class="hz-chip ${c===state.city?'active':''}" data-city="${c}">${c==='all'?'Tümü':esc(CITY[c]??c)}</button>`).join('')}</div></div>
-  <div class="hz-day-head"><h2>${esc(longDate(state.day))}</h2>${meta?.kind==='live'?'<span class="tag">GÜNCEL</span>':'<span class="tag">GERİYE DÖNÜK</span>'}</div>${note}${summary}
+  <div class="hz-day-head"><h2>${esc(longDate(state.day))}</h2>${meta?.kind==='live'?`<span class="tag">${state.day>istanbulToday()?'YARIN':'GÜNCEL'}</span>`:'<span class="tag">GERİYE DÖNÜK</span>'}</div>${note}${summary}
   ${races.length?races.map(r=>raceCard(r,!!data.races.some(x=>x.winners))).join(''):'<p class="inline-note">Bu gün için koşu yok.</p>'}`;
- $('#hz-day').onchange=e=>{state.day=e.target.value;store.set('hz-day',state.day);renderProgram();};
+ $('#hz-day').onchange=e=>{state.day=e.target.value;renderProgram();};
  for(const b of document.querySelectorAll('.hz-chip'))b.onclick=()=>{state.city=b.dataset.city;store.set('hz-city',state.city);renderProgram();};
 }
 
@@ -117,7 +118,8 @@ function renderRules(){
 async function start(){
  try{
   state.summary=await json('/data/horse/summary.json');const days=state.summary.days;if(!days.length)throw Error('Yayınlanmış gün yok.');
-  const saved=store.get('hz-day');state.day=days.some(d=>d.date===saved)?saved:days[0].date;state.city=store.get('hz-city')||'all';
+  // Opens on today's programme (the newest published day otherwise); only the hippodrome filter is remembered.
+  state.day=(days.find(d=>d.date===istanbulToday())??days[0]).date;state.city=store.get('hz-city')||'all';
   $('#archive-tag').innerHTML=`<span class="live-dot"></span> ${esc(state.summary.range.from)} – ${esc(state.summary.range.to)}`;
   await renderProgram();renderModel();renderRules();
   for(const b of document.querySelectorAll('.nav[data-view]'))b.onclick=()=>show(b.dataset.view);

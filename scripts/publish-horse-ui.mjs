@@ -1,6 +1,7 @@
 // Publishes the horse-racing page data to dist/data/horse: the model's validation summary, out-of-sample predictions for the
-// most recent settled race days and predictions for an upcoming programme. Usage: node scripts/publish-horse-ui.mjs [--days 21] [--date YYYY-AA-GG]
-import {readFile,writeFile,mkdir,rm} from 'node:fs/promises';
+// most recent settled race days and predictions for today's and (once published) tomorrow's programme.
+// Usage: node scripts/publish-horse-ui.mjs [--days 21] [--date YYYY-AA-GG]
+import {readFile,writeFile,mkdir,rm,rename} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
@@ -12,7 +13,8 @@ import {createLiderformClient,CITIES} from './liderform-source.mjs';
 import {loadHorseArchive} from './horse-archive.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),dir=path.join(root,'data/horse'),out=path.join(root,'dist/data/horse');
 const arg=k=>{const i=process.argv.indexOf('--'+k);return i>0?process.argv[i+1]:null;};
-const today=new Date().toISOString().slice(0,10),upcoming=arg('date')||today,dayCount=Number(arg('days')||21);
+const today=new Date().toISOString().slice(0,10),dayCount=Number(arg('days')||21);
+const upcoming=arg('date')?[arg('date')]:[today,new Date(Date.now()+86400000).toISOString().slice(0,10)];
 const model=JSON.parse(await readFile(path.join(dir,'horse-model.json'),'utf8'));
 const {races,runsByHorse,range}=loadHorseArchive(new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}));
 const finished=races.filter(x=>x.race.status==='RESULT'&&x.race.winners),predicted=x=>x.race.city in CITIES;
@@ -54,30 +56,33 @@ for(const x of finished){
 flush();
 
 // Upcoming programme: the full archive state, production weights and only the rules confirmed in both backtest periods.
-let live=[];
-if(upcoming>range.to){
- const program=createLiderformClient({cache:path.join(dir,'cache'),today}),index=await program(upcoming);
+const live=new Map(),program=createLiderformClient({cache:path.join(dir,'cache'),today});
+for(const date of upcoming.filter(d=>d>range.to)){
+ const index=await program(date),list=[];
  for(const loc of index.raceLocationsData||[]){
   const city=Object.keys(CITIES).find(k=>CITIES[k]===loc.track_code);if(!city)continue;
-  const first=await program(upcoming,city,1);if(first.notFound)continue;
+  const first=await program(date,city,1);if(first.notFound)continue;
   for(const n of first.raceTimeList.map(r=>r.race_number)){
-   const t=normalizeRacePage(n===1?first:await program(upcoming,city,n),{date:upcoming,city,number:n});if(!t)continue;
-   for(const u of t.runs){const list=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!list.some(y=>y.date===u.date&&y.trackCode===u.trackCode))list.push(u);}
-   live.push(raceRecord(t.race,t.entries,{ratings:engine.predict(t.race,t.entries),rules:ruleSignals(t.race,t.entries,model.ruleWeights.production),
-    watched:ruleSignals(t.race,t.entries,model.ruleWeights.discovery),weights:model.production,date:upcoming}));
+   const t=normalizeRacePage(n===1?first:await program(date,city,n),{date,city,number:n});if(!t)continue;
+   for(const u of t.runs){const runs=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!runs.some(y=>y.date===u.date&&y.trackCode===u.trackCode))runs.push(u);}
+   list.push(raceRecord(t.race,t.entries,{ratings:engine.predict(t.race,t.entries),rules:ruleSignals(t.race,t.entries,model.ruleWeights.production),
+    watched:ruleSignals(t.race,t.entries,model.ruleWeights.discovery),weights:model.production,date}));
   }
  }
+ if(list.length)live.set(date,list);
 }
 
 const hitStats=list=>{const s=list.filter(r=>r.winners);return {races:s.length,top1:s.filter(r=>r.winners.includes(r.runners[0]?.number)).length,top3:s.filter(r=>r.runners.slice(0,3).some(x=>r.winners.includes(x.number))).length};};
-await rm(out,{recursive:true,force:true});await mkdir(out,{recursive:true});
+// Written beside the served folder and swapped in at the end, so the page never reads a half-written set.
+const next=out+'.next';await rm(next,{recursive:true,force:true});await mkdir(next,{recursive:true});
 const dayList=[];
-if(live.length){await writeFile(path.join(out,`day-${upcoming}.json`),JSON.stringify({date:upcoming,kind:'live',races:live}));dayList.push({date:upcoming,kind:'live',...hitStats(live),settled:hitStats(live).races,races:live.length});}
-for(const d of [...byDay.keys()].reverse()){const list=byDay.get(d);await writeFile(path.join(out,`day-${d}.json`),JSON.stringify({date:d,kind:'settled',races:list}));dayList.push({date:d,kind:'settled',...hitStats(list),races:list.length});}
+for(const [d,list] of [...live].reverse()){await writeFile(path.join(next,`day-${d}.json`),JSON.stringify({date:d,kind:'live',races:list}));dayList.push({date:d,kind:'live',...hitStats(list),settled:hitStats(list).races,races:list.length});}
+for(const d of [...byDay.keys()].reverse()){const list=byDay.get(d);await writeFile(path.join(next,`day-${d}.json`),JSON.stringify({date:d,kind:'settled',races:list}));dayList.push({date:d,kind:'settled',...hitStats(list),races:list.length});}
 const conf=Object.fromEntries([...Object.entries(model.models).map(([k,m])=>[k,m.confirmation]),['closingOdds',model.references.closingOdds.confirmation],['uniform',model.references.uniform.confirmation]]);
 const byBreed=Object.fromEntries([...Object.entries(model.models).map(([k,m])=>[k,m.byBreed]),['closingOdds',model.references.closingOdds.byBreed]]);
 const rules=model.ruleWeights.table.filter(t=>t.discoveryPass).map(t=>({breed:t.breed,text:t.text,n:t.n,discovery:{diff:r3(t.discovery.diff),n:t.discovery.n},
  confirmation:{diff:r3(t.confirmation.diff),p:t.confirmation.p==null?null:+t.confirmation.p.toPrecision(2),n:t.confirmation.n},confirmed:t.confirmed})).sort((a,b)=>b.confirmed-a.confirmed||a.confirmation.diff-b.confirmation.diff);
-await writeFile(path.join(out,'summary.json'),JSON.stringify({generatedAt:new Date().toISOString(),trainedAt:model.trainedAt,range,split:model.split,cities:CITIES,
+await writeFile(path.join(next,'summary.json'),JSON.stringify({generatedAt:new Date().toISOString(),trainedAt:model.trainedAt,range,split:model.split,cities:CITIES,
  confirmation:conf,byBreed,rules,days:dayList}));
+await rm(out,{recursive:true,force:true});await rename(next,out);
 console.log(JSON.stringify({days:dayList.map(d=>`${d.date}:${d.kind}:${d.races}${d.kind==='settled'?` top1 ${d.top1}`:''}`)}));
