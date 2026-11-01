@@ -89,7 +89,7 @@ const md=[`# Kural seti backtest'i (İngiliz ve Arap atları)`,'',`Kaynak: lider
  '- **q (BH)**: iki ırktaki tüm keşif testleri tek aile sayılarak Benjamini–Hochberg düzeltmesi. 140 testte birkaçının şansla anlamlı çıkması beklenir; q bunu düzeltir.',
  '- **doğrulandı**: keşifte q < 0,10 ve doğrulamada aynı yönde p < 0,05. **tersi doğrulandı**: iki dönemde de kuralın aleyhine anlamlı. **tekrar etmedi**: keşifte anlamlı ama doğrulamada değil. **kanıt yok**: ölçütten farkı anlamlı değil.',
  '- **favori seçimi**: kural tam olarak aynı sayıda favoriyi seçiyor, test edilecek ayrı üstünlük yok. Oran iddiası varsa (ör. "%70 favori") iki dönemin %95 aralığıyla karşılaştırılır: **iddia doğrulandı / çürütüldü**.',
- '- **ROI**: seçilen her ata 1 TL ganyan; resmi kapanış ganyanı ile (ödenen ganyan ikramiyesiyle ${oddsMatch} koşuda birebir aynı). Hipodrom kesintisi yüzünden rastgele oynamanın beklenen ROI\'si negatiftir.','',
+ `- **ROI**: seçilen her ata 1 TL ganyan; resmi kapanış ganyanı ile (ödenen ganyan ikramiyesiyle ${oddsMatch} koşuda birebir aynı). Hipodrom kesintisi yüzünden rastgele oynamanın beklenen ROI'si negatiftir.`,'',
  ...summary('TB',breeds.TB),...summary('AR',breeds.AR),
  ...section('TB',breeds.TB),...section('AR',breeds.AR)].join('\n');
 await writeFile(path.join(root,'docs/horse-rules-backtest.md'),md);
