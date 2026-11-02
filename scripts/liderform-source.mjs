@@ -29,20 +29,39 @@ export function createLiderformClient({cache,today=new Date().toISOString().slic
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||(city!==null&&!(city in TRACKS))||(race!==null&&!/^\d{1,2}$/.test(String(race))))throw Error('Geçersiz liderform program seçimi');
   const parts=['program',date,city,race].filter(v=>v!==null),file=path.join(cache,parts.join('-')+'.json.gz'),settled=date<today;
   if(!refresh)try{const info=await stat(file);if((settled&&info.mtimeMs>=Date.parse(date)+86400000)||Date.now()-info.mtimeMs<LIVE_TTL)return JSON.parse(gunzipSync(await readFile(file)));}catch(error){if(error.code!=='ENOENT')throw error;}
-  const url='https://liderform.com.tr/'+parts.join('/');let data;
-  for(let attempt=0;attempt<3;attempt++){
-   try{
-    const response=await fetch(url,{signal:AbortSignal.timeout(30000),headers:{'user-agent':'Mozilla/5.0 (MathGoal at yarisi arsivi)',accept:'text/html'}});
-    if(response.status===404)data={notFound:true};
-    else if(!response.ok)throw Object.assign(Error(`HTTP ${response.status}`),{status:response.status});
-    else data=keep(extractPageProps(await response.text()))??{notFound:true};
-    break;
-   }catch(error){if(attempt===2)throw error;await delay((error.status===429?30000:2000)*(attempt+1));}
-  }
-  data.url=url;data.observedAt=new Date().toISOString();
-  await mkdir(cache,{recursive:true});await writeFile(file,gzipSync(JSON.stringify(data)));sources.push({url,observedAt:data.observedAt});
-  // Politeness pause after a real request only.
-  if(throttleMs>0)await delay(throttleMs);
-  return data;
+  return fetchPage('https://liderform.com.tr/'+parts.join('/'),file,keep,{throttleMs,sources});
  };
+}
+
+/**
+ * Cached client for public horse profile pages (/istatistik/at/{id}): pedigree, foaling date, current handicap, trainer, owner,
+ * prize money and career starts per surface. The page's race-by-race list is loaded from the private API, so it is not taken;
+ * runs come from the program pages. A cached profile is reused while younger than `maxAgeMs`.
+ */
+export function createHorseProfileClient({cache,maxAgeMs=Infinity,throttleMs=300,sources=[]}){
+ const pick=p=>{const h=p?.horseDetailData;if(!h)return null;const {media,...rest}=h;return {horse:rest};};
+ return async function profile(id){
+  if(!/^\d{1,9}$/.test(String(id)))throw Error('Geçersiz at numarası');
+  const file=path.join(cache,`${id}.json.gz`);
+  try{const info=await stat(file);if(Date.now()-info.mtimeMs<maxAgeMs)return JSON.parse(gunzipSync(await readFile(file)));}catch(error){if(error.code!=='ENOENT')throw error;}
+  return fetchPage(`https://liderform.com.tr/istatistik/at/${id}`,file,pick,{throttleMs,sources});
+ };
+}
+
+async function fetchPage(url,file,pick,{throttleMs,sources}){
+ let data;
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   const response=await fetch(url,{signal:AbortSignal.timeout(30000),headers:{'user-agent':'Mozilla/5.0 (MathGoal at yarisi arsivi)',accept:'text/html'}});
+   if(response.status===404)data={notFound:true};
+   else if(!response.ok)throw Object.assign(Error(`HTTP ${response.status}`),{status:response.status});
+   else data=pick(extractPageProps(await response.text()))??{notFound:true};
+   break;
+  }catch(error){if(attempt===2)throw error;await delay((error.status===429?30000:2000)*(attempt+1));}
+ }
+ data.url=url;data.observedAt=new Date().toISOString();
+ await mkdir(path.dirname(file),{recursive:true});await writeFile(file,gzipSync(JSON.stringify(data)));sources.push({url,observedAt:data.observedAt});
+ // Politeness pause after a real request only.
+ if(throttleMs>0)await delay(throttleMs);
+ return data;
 }

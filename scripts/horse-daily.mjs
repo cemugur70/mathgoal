@@ -27,6 +27,8 @@ try{
   const from=last?day(Date.parse(last)-2*86400000):'2021-01-01';
   await log(`collect ${from} → ${yesterday}`);run('collect-horses.mjs',['--from',from,'--to',yesterday]);
   await log(`db ${run('build-horse-db.mjs')}`);state.collectedTo=yesterday;
+  // Profiles of horses new to the archive; they enter the database with the next rebuild.
+  await log(`profiles ${run('collect-horse-profiles.mjs')}`);
  }
  await log(`publish ${run('publish-horse-ui.mjs')}`);
  Object.assign(state,{lastRun:new Date().toISOString(),ok:true,error:null,durationMs:Date.now()-started});
