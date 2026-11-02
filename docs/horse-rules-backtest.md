@@ -1,6 +1,6 @@
 # Kural seti backtest'i (İngiliz ve Arap atları)
 
-Kaynak: liderform.com.tr herkese açık program sayfaları, 2021-01-01 – 2026-11-01; İstanbul, Ankara, İzmir, Bursa ve Adana'da 14696 İngiliz, 11818 Arap koşusu. Üretim: 2026-11-02T20:39:52.067Z.
+Kaynak: liderform.com.tr herkese açık program sayfaları, 2021-01-01 – 2026-11-01; İstanbul, Ankara, İzmir, Bursa ve Adana'da 14696 İngiliz, 11818 Arap koşusu. Üretim: 2026-11-02T22:21:08.682Z.
 
 ## Yorum varsayımları
 

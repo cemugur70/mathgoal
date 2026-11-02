@@ -10,13 +10,16 @@ import {raceFeatures,raceProbabilities,FEATURE_NAMES} from '../dist/horse-model.
 import {normalizeRacePage,SURFACES} from '../dist/horse-data.mjs';
 import {ruleSignals} from '../dist/horse-rules.mjs';
 import {createLiderformClient,CITIES} from './liderform-source.mjs';
+import {buildSpeedPars,attachSpeedFigures} from '../dist/horse-speed.mjs';
 import {loadHorseArchive} from './horse-archive.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),dir=path.join(root,'data/horse'),out=path.join(root,'dist/data/horse');
 const arg=k=>{const i=process.argv.indexOf('--'+k);return i>0?process.argv[i+1]:null;};
 const today=new Date().toISOString().slice(0,10),dayCount=Number(arg('days')||21);
 const upcoming=arg('date')?[arg('date')]:[today,new Date(Date.now()+86400000).toISOString().slice(0,10)];
 const model=JSON.parse(await readFile(path.join(dir,'horse-model.json'),'utf8'));
-const {races,runsByHorse,range}=loadHorseArchive(new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}));
+const {races,runsByHorse,breedByHorse,range}=loadHorseArchive(new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}));
+// Settled days are shown with pars from the discovery period, matching their weights; live days use pars from the whole archive.
+attachSpeedFigures(runsByHorse,breedByHorse,buildSpeedPars(runsByHorse,breedByHorse,{before:model.split}));
 const finished=races.filter(x=>x.race.status==='RESULT'&&x.race.winners),predicted=x=>x.race.city in CITIES;
 // Settled days use the weights and rules learned on the discovery period only, so days on or after the split are true out-of-sample forecasts.
 const byName=w=>FEATURE_NAMES.map(f=>w[f]??0),discWeights={obsidian:byName(model.models.obsidian.weights),piyasasiz:byName(model.models.piyasasiz.weights)};
@@ -56,6 +59,7 @@ for(const x of finished){
 flush();
 
 // Upcoming programme: the full archive state, production weights and only the rules confirmed in both backtest periods.
+attachSpeedFigures(runsByHorse,breedByHorse,buildSpeedPars(runsByHorse,breedByHorse));
 const live=new Map(),program=createLiderformClient({cache:path.join(dir,'cache'),today});
 for(const date of upcoming.filter(d=>d>range.to)){
  const index=await program(date),list=[];

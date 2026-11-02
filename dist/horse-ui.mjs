@@ -7,7 +7,7 @@ const signed=(v,d=2)=>v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(d
 const pts=v=>v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(100*v).toFixed(1).replace('.',',');
 const CITY={istanbul:'İstanbul',ankara:'Ankara',izmir:'İzmir',bursa:'Bursa',adana:'Adana'},BREED={TB:'İngiliz',AR:'Arap'},BUCKET={kisa:'kısa',mil:'mil',orta:'orta',uzun:'uzun'};
 const AGE={'2O':'2 yaşlı','3O':'3 yaşlı','3U':'3 ve yukarı','4U':'4 ve yukarı'};
-const MODEL_NAMES={uniform:'Tekdüze (rastgele at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız',obsidian:'Obsidian + kurallar',closingOdds:'Kapanış ganyanı (yarış öncesi bilinmez)'};
+const MODEL_NAMES={uniform:'Tekdüze (rastgele at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',obsidianHizsiz:'Obsidian, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız',obsidian:'Obsidian + kurallar',closingOdds:'Kapanış ganyanı (yarış öncesi bilinmez)'};
 const TITLES={program:'Yarış programı',model:'Model doğrulama',rules:'Kural backtest\'i'};
 const longDate=d=>new Date(d+'T12:00:00Z').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',weekday:'long'});
 // liderform race times are GMT without a zone suffix.
@@ -85,7 +85,7 @@ async function renderProgram(){
 
 // ---------- Model ----------
 function renderModel(){
- const s=state.summary,order=['uniform','handikap','ag','agTercih','piyasasiz','agf','obsidianKuralsiz','obsidian','closingOdds'];
+ const s=state.summary,order=['uniform','handikap','ag','agTercih','hiz','piyasasiz','agf','obsidianHizsiz','obsidianKuralsiz','obsidian','closingOdds'];
  const best=s.confirmation.obsidian,mkt=s.confirmation.closingOdds,net=s.confirmation.ag;
  const row=k=>{const m=s.confirmation[k];if(!m)return '';return `<tr class="${k==='obsidian'?'hz-best':k==='closingOdds'?'hz-ref':''}"><td>${esc(MODEL_NAMES[k])}</td><td>${m.races}</td>
   <td class="hz-prob"><div class="hz-bar"><span style="width:${(100*m.top1/0.45).toFixed(1)}%"></span></div><b>${pct(m.top1)}</b></td><td>${pct(m.top3)}</td><td>${m.logLoss.toFixed(3).replace('.',',')}</td><td class="hz-down">${pct(m.topRoi)}</td></tr>`;};
@@ -99,7 +99,8 @@ function renderModel(){
   <li><b>Kim kimi geçti:</b> her geçmiş koşuda bilinen dereceler; aynı koşudaki her at çifti bir karşılaşmadır.</li>
   <li><b>Rakip ağı rating'i:</b> Plackett–Luce. Güçlü atı geçen çok, zayıfı geçen az puan kazanır; güç ortak rakipler üzerinden yayılır. Tüm yurt içi hipodromlardan öğrenilir.</li>
   <li><b>Pist ve mesafe tercihi:</b> rakip gücüne göre düzeltilmiş çim / kum / sentetik ve kısa / mil / orta / uzun sapmaları, artı kariyer kaydı.</li>
-  <li><b>Obsidian:</b> ağ rating'i, tercihler, kilo, handikap, puan, form, dinlenme, apranti ve yarış öncesi AGF'yi koşu içi softmax ile birleştirir.</li>
+  <li><b>Hız puanı:</b> atın bitiş derecesi, aynı ırk, hipodrom, pist ve mesafedeki tipik dereceyle karşılaştırılır ve o günün pist koşuluna göre düzeltilir (1000 m başına saniye).</li>
+  <li><b>Obsidian:</b> ağ rating'i, tercihler, kilo, handikap, puan, form, dinlenme, hız puanı, apranti ve yarış öncesi AGF'yi koşu içi softmax ile birleştirir.</li>
   <li><b>Kurallar:</b> yalnızca backtest'in iki döneminde de tutarlı çıkanlar modele girer.</li></ol></section></div>`;
 }
 

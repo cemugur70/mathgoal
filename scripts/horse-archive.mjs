@@ -10,7 +10,10 @@ export function loadHorseArchive(db){
   races.push({race:{id:r.id,date:r.date,city:r.city,number:r.number,time:r.time,status:r.status,breed:r.breed,surface:r.surface,distance:r.distance,
   type:r.type,label:r.label,family:r.family,classNumber:r.class_number,gender:r.gender,age:r.age,winners:r.winners?r.winners.split(','):null,order:r.result_order?r.result_order.split('/'):null},entries:ent.get(r.id)||[]});
  const runsByHorse=new Map();
- for(const u of db.prepare('SELECT horse_id,date,place,surface,distance,track_code FROM runs ORDER BY date').iterate())(runsByHorse.get(u.horse_id)??runsByHorse.set(u.horse_id,[]).get(u.horse_id)).push({date:u.date,place:u.place,surface:u.surface,distance:u.distance,trackCode:u.track_code});
+ for(const u of db.prepare('SELECT horse_id,date,place,surface,distance,track_code,timing FROM runs ORDER BY date').iterate())(runsByHorse.get(u.horse_id)??runsByHorse.set(u.horse_id,[]).get(u.horse_id)).push({date:u.date,place:u.place,surface:u.surface,distance:u.distance,trackCode:u.track_code,timing:u.timing});
+ // Breed from the horse profiles, else from the races the horse ran in (speed pars are per breed).
+ const breedByHorse=new Map();
+ for(const h of db.prepare("SELECT id,breed FROM horses WHERE breed IS NOT NULL UNION ALL SELECT DISTINCT e.horse_id,r.breed FROM entries e JOIN races r ON r.id=e.race_id WHERE r.breed IN ('TB','AR')").iterate())if(!breedByHorse.has(h.id))breedByHorse.set(h.id,h.breed);
  const range=db.prepare('SELECT min(date) "from",max(date) "to" FROM races').get();
- return {races,runsByHorse,range:{from:range.from,to:range.to}};
+ return {races,runsByHorse,breedByHorse,range:{from:range.from,to:range.to}};
 }

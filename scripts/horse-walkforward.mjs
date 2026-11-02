@@ -6,11 +6,12 @@ import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createHorseRatingEngine,RATING_POLICY} from '../dist/horse-rating.mjs';
 import {raceFeatures,raceProbabilities,fitConditionalLogit,scoreForecasts,MODEL_SETS,FEATURE_NAMES} from '../dist/horse-model.mjs';
+import {buildSpeedPars,attachSpeedFigures} from '../dist/horse-speed.mjs';
 import {loadHorseArchive} from './horse-archive.mjs';
 import {CITIES} from './liderform-source.mjs';
 import {learnRuleWeights,ruleSignals} from '../dist/horse-rules.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const {races,runsByHorse,range}=loadHorseArchive(new DatabaseSync(path.join(root,'data/horse/horses.db'),{readOnly:true}));
+const {races,runsByHorse,breedByHorse,range}=loadHorseArchive(new DatabaseSync(path.join(root,'data/horse/horses.db'),{readOnly:true}));
 const WARMUP_DAYS=60,warmEnd=new Date(Date.parse(range.from)+WARMUP_DAYS*86400000).toISOString().slice(0,10);
 const finished=races.filter(x=>x.race.status==='RESULT'&&x.race.winners);
 
@@ -33,6 +34,8 @@ const evaluable=finished.filter(x=>x.race.date>=warmEnd&&predicted(x)).map(x=>x.
 let split=process.env.HORSE_SPLIT||'2026-01-01',interim=false;
 if(evaluable.filter(d=>d<split).length<500){split=evaluable[Math.floor(evaluable.length*.6)]??split;interim=true;}
 const inDisc=r=>predicted(r)&&r.race.date>=warmEnd&&r.race.date<split,inConf=r=>predicted(r)&&r.race.date>=split;
+// Speed-figure pars come from runs before the split only; each figure enters a race only through runs strictly before it.
+const speedPars=buildSpeedPars(runsByHorse,breedByHorse,{before:split}),speedRuns=attachSpeedFigures(runsByHorse,breedByHorse,speedPars);
 const netScore=(recs,pred)=>scoreForecasts(recs.map(r=>({probs:r.ratings.map(x=>x.prob),rows:r.ratings.map(x=>({number:x.number,odds:null})),winners:r.winners})));
 
 // 1) Network policy: small grid, chosen by discovery log-loss of the pure rating (no other inputs).
@@ -66,7 +69,7 @@ const model={schemaVersion:2,trainedAt:new Date().toISOString(),range,warmupUnti
 await writeFile(path.join(root,'data/horse/horse-model.json'),JSON.stringify(model,null,1));
 
 const pct=v=>v==null?'–':(100*v).toFixed(1)+'%',f3=v=>v==null?'–':v.toFixed(3),sg=v=>v==null?'–':(v>0?'+':'')+(100*v).toFixed(1)+'%';
-const NAMES={uniform:'Tekdüze olasılık (1. tahmin = 1 numaralı at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız (AGF dahil)',obsidian:'Obsidian + backtest\'ten geçen kurallar',closingOdds:'Kapanış ganyanı (referans, yarış öncesi bilinmez)'};
+const NAMES={uniform:'Tekdüze olasılık (1. tahmin = 1 numaralı at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',piyasasizHizsiz:'Obsidian, piyasasız, hız puanı olmadan',obsidianHizsiz:'Obsidian, kuralsız, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız (AGF dahil)',obsidian:'Obsidian + backtest\'ten geçen kurallar',closingOdds:'Kapanış ganyanı (referans, yarış öncesi bilinmez)'};
 const row=(name,s)=>`| ${NAMES[name]} | ${s.races} | ${pct(s.top1)} | ${pct(s.top3)} | ${f3(s.logLoss)} | ${sg(s.topRoi)} | ${s.valueBets??'–'} | ${sg(s.valueRoi)} |`;
 const head=['| Model | Koşu | 1. tahmin kazandı | İlk 3 tahminde | Log-kayıp (düşük iyi) | ROI: her koşu 1. tahmin | Değer bahsi sayısı | ROI: değer bahsi |','|---|---:|---:|---:|---:|---:|---:|---:|'];
 const md=['# At yarışı: rakip ağı rating\'i ve Obsidian modeli','',
@@ -77,8 +80,9 @@ const md=['# At yarışı: rakip ağı rating\'i ve Obsidian modeli','',
  '1. **Kim kimi geçti**: her geçmiş koşuda ödeme metninden bilinen ilk dereceler ve sonraki programlardan bilinen dereceler; derecesi bilinmeyen atlar bilinen ilk derecelerin arkasında sayılır.',
  '2. **Rakip ağı rating\'i** (Plackett–Luce, çevrimiçi): her koşu sonrası her at, rakiplerinin o anki gücüne göre beklenen ile gerçekleşen arasındaki fark kadar hareket eder. Güçlü atı geçmek daha çok kazandırır; güç ortak rakipler üzerinden yayılır.',
  '3. **Pist / mesafe tercihi**: ağ içinde rakip gücüne göre düzeltilmiş pist (çim/kum/sentetik) ve mesafe (kısa ≤1300, mil ≤1600, orta ≤2000, uzun) sapmaları; ayrıca atın tüm hipodromlardaki kariyer kaydından aynı koşulda ortalama derece puanı (1/derece) eksi genel ortalaması, 3 sanal koşuyla büzülmüş.',
- '4. **Obsidian**: koşu içi softmax (koşullu logit) ile ağ rating\'i, tercihler, kilo, handikap, puan, son 3 koşu formu, dinlenme, apranti ve yarış öncesi AGF birleştirilir. Ağırlıklar yalnız keşif döneminde öğrenilir.',
- `5. Ağ politikası keşif döneminde küçük bir ızgaradan seçildi: öğrenme hızı ${best.lr}, yarı ömür ${best.halfLifeDays} gün. Kilo katsayıları (log-güç / kg): ${Object.entries(model.kgBeta).map(([b,v])=>`${b} ${v.toFixed(3)}`).join(', ')}.`,'',
+ `4. **Hız puanı**: atın kendi bitiş derecesi, ırk + hipodrom + pist + mesafe için ${split} öncesi koşulardan alınan medyan dereceyle (par) karşılaştırılır ve o günün pist farkıyla (aynı gün, hipodrom ve pistteki tüm atların medyan sapması) düzeltilir; birim 1000 m başına saniye, pozitif = par'dan hızlı. ${speedRuns} koşuya puan verildi. Modele son 3 koşunun ortalaması ve son bir yıldaki son 4 koşunun en iyisi girer.`,
+ '5. **Obsidian**: koşu içi softmax (koşullu logit) ile ağ rating\'i, tercihler, kilo, handikap, puan, son 3 koşu formu, dinlenme, hız puanı, apranti ve yarış öncesi AGF birleştirilir. Ağırlıklar yalnız keşif döneminde öğrenilir.',
+ `6. Ağ politikası keşif döneminde küçük bir ızgaradan seçildi: öğrenme hızı ${best.lr}, yarı ömür ${best.halfLifeDays} gün. Kilo katsayıları (log-güç / kg): ${Object.entries(model.kgBeta).map(([b,v])=>`${b} ${v.toFixed(3)}`).join(', ')}.`,'',
  '**Değer bahsi**: model olasılığı × kapanış ganyanı ≥ 1,20 olan her ata 1 TL. Kapanış ganyanı yarıştan önce kesin bilinmediği için bu ROI gösterge niteliğindedir.','',
  '## Doğrulama dönemi (modelin hiç görmediği koşular)','',...head,row('uniform',references.uniform.confirmation),...Object.keys(MODEL_SETS).map(n=>row(n,models[n].confirmation)),row('closingOdds',references.closingOdds.confirmation),'',
  '### Irka göre (doğrulama)','','| Model | İngiliz: 1. tahmin | İngiliz: log-kayıp | Arap: 1. tahmin | Arap: log-kayıp |','|---|---:|---:|---:|---:|',

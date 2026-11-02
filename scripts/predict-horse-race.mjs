@@ -9,17 +9,19 @@ import {raceFeatures,raceProbabilities} from '../dist/horse-model.mjs';
 import {normalizeRacePage,SURFACES} from '../dist/horse-data.mjs';
 import {ruleSignals} from '../dist/horse-rules.mjs';
 import {createLiderformClient} from './liderform-source.mjs';
+import {buildSpeedPars,attachSpeedFigures} from '../dist/horse-speed.mjs';
 import {loadHorseArchive} from './horse-archive.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),dir=path.join(root,'data/horse');
 const [date,city,number]=process.argv.slice(2);
 if(!/^\d{4}-\d{2}-\d{2}$/.test(date||'')||!city||!/^\d{1,2}$/.test(number||''))throw Error('Kullanım: node scripts/predict-horse-race.mjs YYYY-AA-GG şehir koşuNo');
 const model=JSON.parse(await readFile(path.join(dir,'horse-model.json'),'utf8'));
-const {races,runsByHorse}=loadHorseArchive(new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}));
+const {races,runsByHorse,breedByHorse}=loadHorseArchive(new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}));
 const page=await createLiderformClient({cache:path.join(dir,'cache')})(date,city,Number(number));
 if(page.notFound)throw Error('Koşu sayfası bulunamadı.');
 const target=normalizeRacePage(page,{date,city,number});if(!target)throw Error('Koşu sayfasında bu koşu yok.');
 // The target page's own "last runs" fill career gaps (other tracks) for horses missing from the archive.
 for(const u of target.runs){const list=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!list.some(x=>x.date===u.date&&x.trackCode===u.trackCode))list.push(u);}
+attachSpeedFigures(runsByHorse,breedByHorse,buildSpeedPars(runsByHorse,breedByHorse));
 const engine=createHorseRatingEngine(model.policy),past=races.filter(x=>x.race.date<date&&x.race.status==='RESULT');
 for(const x of past)engine.update(x.race,x.entries);
 const race={...target.race,classNumber:target.race.classNumber},entries=target.entries;

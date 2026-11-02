@@ -9,8 +9,9 @@ Keşif: 2021-03-02 – 2026-01-01 öncesi (22174 koşu) · doğrulama: 2026-01-0
 1. **Kim kimi geçti**: her geçmiş koşuda ödeme metninden bilinen ilk dereceler ve sonraki programlardan bilinen dereceler; derecesi bilinmeyen atlar bilinen ilk derecelerin arkasında sayılır.
 2. **Rakip ağı rating'i** (Plackett–Luce, çevrimiçi): her koşu sonrası her at, rakiplerinin o anki gücüne göre beklenen ile gerçekleşen arasındaki fark kadar hareket eder. Güçlü atı geçmek daha çok kazandırır; güç ortak rakipler üzerinden yayılır.
 3. **Pist / mesafe tercihi**: ağ içinde rakip gücüne göre düzeltilmiş pist (çim/kum/sentetik) ve mesafe (kısa ≤1300, mil ≤1600, orta ≤2000, uzun) sapmaları; ayrıca atın tüm hipodromlardaki kariyer kaydından aynı koşulda ortalama derece puanı (1/derece) eksi genel ortalaması, 3 sanal koşuyla büzülmüş.
-4. **Obsidian**: koşu içi softmax (koşullu logit) ile ağ rating'i, tercihler, kilo, handikap, puan, son 3 koşu formu, dinlenme, apranti ve yarış öncesi AGF birleştirilir. Ağırlıklar yalnız keşif döneminde öğrenilir.
-5. Ağ politikası keşif döneminde küçük bir ızgaradan seçildi: öğrenme hızı 0.6, yarı ömür 540 gün. Kilo katsayıları (log-güç / kg): TB 0.082, AR 0.012.
+4. **Hız puanı**: atın kendi bitiş derecesi, ırk + hipodrom + pist + mesafe için 2026-01-01 öncesi koşulardan alınan medyan dereceyle (par) karşılaştırılır ve o günün pist farkıyla (aynı gün, hipodrom ve pistteki tüm atların medyan sapması) düzeltilir; birim 1000 m başına saniye, pozitif = par'dan hızlı. 350057 koşuya puan verildi. Modele son 3 koşunun ortalaması ve son bir yıldaki son 4 koşunun en iyisi girer.
+5. **Obsidian**: koşu içi softmax (koşullu logit) ile ağ rating'i, tercihler, kilo, handikap, puan, son 3 koşu formu, dinlenme, hız puanı, apranti ve yarış öncesi AGF birleştirilir. Ağırlıklar yalnız keşif döneminde öğrenilir.
+6. Ağ politikası keşif döneminde küçük bir ızgaradan seçildi: öğrenme hızı 0.6, yarı ömür 540 gün. Kilo katsayıları (log-güç / kg): TB 0.082, AR 0.012.
 
 **Değer bahsi**: model olasılığı × kapanış ganyanı ≥ 1,20 olan her ata 1 TL. Kapanış ganyanı yarıştan önce kesin bilinmediği için bu ROI gösterge niteliğindedir.
 
@@ -22,10 +23,13 @@ Keşif: 2021-03-02 – 2026-01-01 öncesi (22174 koşu) · doğrulama: 2026-01-0
 | Yalnız handikap | 3722 | 21.2% | 51.0% | 2.105 | -35.2% | 13781 | -47.7% |
 | Rakip ağı rating'i | 3722 | 27.4% | 60.0% | 1.998 | -23.4% | 11548 | -44.7% |
 | Ağ + pist/mesafe tercihi + kilo | 3722 | 27.2% | 60.0% | 1.998 | -25.0% | 11453 | -45.7% |
-| Obsidian, piyasasız (AGF hariç) | 3722 | 30.8% | 65.9% | 1.890 | -29.6% | 6344 | -43.5% |
+| Yalnız hız puanı | 3722 | 24.3% | 56.0% | 2.044 | -22.9% | 12093 | -42.2% |
+| Obsidian, piyasasız, hız puanı olmadan | 3722 | 30.8% | 65.9% | 1.890 | -29.6% | 6344 | -43.5% |
+| Obsidian, kuralsız, hız puanı olmadan | 3722 | 33.6% | 68.1% | 1.840 | -27.5% | 4420 | -43.2% |
+| Obsidian, piyasasız (AGF hariç) | 3722 | 31.5% | 66.6% | 1.874 | -27.7% | 5946 | -33.3% |
 | Yalnız AGF | 3722 | 28.6% | 61.1% | 1.906 | -36.1% | 5454 | -51.1% |
-| Obsidian, kuralsız (AGF dahil) | 3722 | 33.6% | 68.1% | 1.840 | -27.5% | 4420 | -43.2% |
-| Obsidian + backtest'ten geçen kurallar | 3722 | 33.6% | 68.1% | 1.840 | -27.7% | 4416 | -43.5% |
+| Obsidian, kuralsız (AGF dahil) | 3722 | 34.0% | 68.6% | 1.828 | -25.5% | 4242 | -37.3% |
+| Obsidian + backtest'ten geçen kurallar | 3722 | 34.0% | 68.6% | 1.828 | -25.6% | 4245 | -37.7% |
 | Kapanış ganyanı (referans, yarış öncesi bilinmez) | 3722 | 36.0% | 69.5% | 1.788 | -29.4% | 0 | – |
 
 ### Irka göre (doğrulama)
@@ -33,9 +37,9 @@ Keşif: 2021-03-02 – 2026-01-01 öncesi (22174 koşu) · doğrulama: 2026-01-0
 | Model | İngiliz: 1. tahmin | İngiliz: log-kayıp | Arap: 1. tahmin | Arap: log-kayıp |
 |---|---:|---:|---:|---:|
 | Rakip ağı rating'i | 28.0% | 1.929 | 26.6% | 2.089 |
-| Obsidian, piyasasız (AGF hariç) | 32.2% | 1.823 | 29.0% | 1.978 |
-| Obsidian, kuralsız (AGF dahil) | 35.7% | 1.769 | 30.9% | 1.932 |
-| Obsidian + backtest'ten geçen kurallar | 35.6% | 1.769 | 31.0% | 1.932 |
+| Obsidian, piyasasız (AGF hariç) | 33.1% | 1.805 | 29.3% | 1.964 |
+| Obsidian, kuralsız (AGF dahil) | 35.4% | 1.757 | 32.2% | 1.921 |
+| Obsidian + backtest'ten geçen kurallar | 35.5% | 1.757 | 32.0% | 1.921 |
 | Kapanış ganyanı (referans, yarış öncesi bilinmez) | 38.3% | 1.709 | 33.1% | 1.892 |
 
 ## Keşif dönemi (ağırlıkların öğrenildiği dönem)
@@ -46,10 +50,13 @@ Keşif: 2021-03-02 – 2026-01-01 öncesi (22174 koşu) · doğrulama: 2026-01-0
 | Yalnız handikap | 22174 | 22.3% | 53.4% | 2.051 | -33.8% | 76511 | -45.8% |
 | Rakip ağı rating'i | 22174 | 26.6% | 59.0% | 1.983 | -24.5% | 67118 | -41.0% |
 | Ağ + pist/mesafe tercihi + kilo | 22174 | 26.6% | 59.2% | 1.981 | -24.6% | 66503 | -40.7% |
-| Obsidian, piyasasız (AGF hariç) | 22174 | 30.1% | 64.7% | 1.887 | -26.2% | 48219 | -38.4% |
+| Yalnız hız puanı | 22174 | 24.3% | 57.7% | 2.006 | -21.4% | 69541 | -38.3% |
+| Obsidian, piyasasız, hız puanı olmadan | 22174 | 30.1% | 64.7% | 1.887 | -26.2% | 48219 | -38.4% |
+| Obsidian, kuralsız, hız puanı olmadan | 22174 | 33.0% | 68.0% | 1.823 | -26.6% | 31011 | -37.0% |
+| Obsidian, piyasasız (AGF hariç) | 22174 | 31.0% | 65.6% | 1.865 | -22.9% | 44549 | -32.0% |
 | Yalnız AGF | 22174 | 28.9% | 61.9% | 1.885 | -31.8% | 31821 | -44.7% |
-| Obsidian, kuralsız (AGF dahil) | 22174 | 33.0% | 68.0% | 1.823 | -26.6% | 31011 | -37.0% |
-| Obsidian + backtest'ten geçen kurallar | 22174 | 33.0% | 68.0% | 1.823 | -26.6% | 31016 | -37.2% |
+| Obsidian, kuralsız (AGF dahil) | 22174 | 33.4% | 68.2% | 1.809 | -24.5% | 30015 | -29.2% |
+| Obsidian + backtest'ten geçen kurallar | 22174 | 33.4% | 68.2% | 1.809 | -24.5% | 30023 | -29.0% |
 | Kapanış ganyanı (referans, yarış öncesi bilinmez) | 22174 | 35.4% | 70.4% | 1.762 | -30.1% | 0 | – |
 
 ## Kural katmanı (backtest ile uygulanan kurallar)
@@ -57,7 +64,7 @@ Keşif: 2021-03-02 – 2026-01-01 öncesi (22174 koşu) · doğrulama: 2026-01-0
 Kullanıcı kural setindeki her kural, yarış öncesi bilgiyle (favori = AGF sırası; kapanış ganyanı yarıştan önce bilinmez) aynı sayıda AGF favorisine karşı test edilir. Kuralın modeldeki ağırlığı bu farktır (kazanma olasılığı puanı; negatif = kuralın seçtiği atlar piyasanın sandığından kötü).
 - **Walk-forward'da uygulanan**: keşif döneminde Benjamini–Hochberg q < 0,10 olan kurallar (50 kural). Doğrulama dönemi bu seçimi hiç etkilemez.
 - **Canlı tahminde uygulanan**: ayrıca doğrulama döneminde aynı yönde p < 0,05 tekrar eden kurallar (17 kural).
-- Etki: doğrulama döneminde kurallı Obsidian log-kayıp 1.840, kuralsız 1.840; 1. tahmin 33.6% / 33.6%. Obsidian'daki kural katsayısı: -0.0577.
+- Etki: doğrulama döneminde kurallı Obsidian log-kayıp 1.828, kuralsız 1.828; 1. tahmin 34.0% / 34.0%. Obsidian'daki kural katsayısı: -0.0504.
 
 | Irk | Kural | Koşu (tüm) | Keşif: fark / q | Doğrulama: fark / p | Walk-forward | Canlı |
 |---|---|---:|---|---|---|---|
@@ -95,19 +102,22 @@ Tablo keşif q değerine göre ilk 25 test edilebilir kuralı gösterir; tamamı
 
 | Özellik | Ağırlık |
 |---|---:|
-| net | 0.3498 |
-| rated | -0.2513 |
-| kg | -0.0575 |
-| handicap | 0.2517 |
-| handicapMissing | -0.1405 |
-| point | 0.184 |
-| surfaceAffinity | 0.1383 |
-| distanceAffinity | 0.0029 |
-| form | 0.1246 |
-| daysOff | -0.0386 |
-| agf | 0.6654 |
-| apprentice | -0.3068 |
-| rules | -0.0577 |
+| net | 0.2631 |
+| rated | -0.3454 |
+| kg | -0.0617 |
+| handicap | 0.2282 |
+| handicapMissing | -0.0171 |
+| point | 0.1701 |
+| surfaceAffinity | 0.1655 |
+| distanceAffinity | 0.0457 |
+| form | 0.0188 |
+| daysOff | -0.0564 |
+| speedAvg | 0.0612 |
+| speedBest | 0.2139 |
+| speedMissing | -0.2495 |
+| agf | 0.6346 |
+| apprentice | -0.3015 |
+| rules | -0.0504 |
 
 ## Ağ politikası ızgarası (keşif, yalnız rating)
 

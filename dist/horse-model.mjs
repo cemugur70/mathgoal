@@ -1,13 +1,18 @@
 // Per-runner features and the "Obsidian" blend: a conditional-logit (softmax within a race) over network rating, preferences,
 // weight, official ratings, form and the pre-race AGF market. Pure.
 import {distanceBucket} from './horse-rating.mjs';
-export const FEATURE_NAMES=['net','rated','kg','handicap','handicapMissing','point','surfaceAffinity','distanceAffinity','form','daysOff','agf','apprentice','rules'];
+import {speedProfile} from './horse-speed.mjs';
+export const FEATURE_NAMES=['net','rated','kg','handicap','handicapMissing','point','surfaceAffinity','distanceAffinity','form','daysOff','speedAvg','speedBest','speedMissing','agf','apprentice','rules'];
 /** Feature subsets compared in the walk-forward report; "obsidian" is the full blend. "rules" is the backtest-gated rule signal, which
  * uses the AGF order for "favourite", so it is market information and stays out of the market-free set. */
 export const MODEL_SETS={
  handikap:['handicap','handicapMissing'],
  ag:['net','rated'],
  agTercih:['net','rated','surfaceAffinity','distanceAffinity','kg'],
+ hiz:['speedAvg','speedBest','speedMissing'],
+ // Same blends without the speed figures, to measure what they add.
+ piyasasizHizsiz:FEATURE_NAMES.filter(f=>!/^speed|^agf$|^rules$/.test(f)),
+ obsidianHizsiz:FEATURE_NAMES.filter(f=>!/^speed|^rules$/.test(f)),
  piyasasiz:FEATURE_NAMES.filter(f=>f!=='agf'&&f!=='rules'),
  agf:['agf'],
  obsidianKuralsiz:FEATURE_NAMES.filter(f=>f!=='rules'),
@@ -31,11 +36,12 @@ const mean=v=>v.length?v.reduce((a,x)=>a+x,0)/v.length:0;
 export function raceFeatures(race,entries,{ratings,runsByHorse,rules=null}){
  const rs=entries.filter(e=>e.status!=='NONRUNNER'),rate=new Map(ratings.map(r=>[r.number,r]));
  const raw=rs.map(e=>{
-  const r=rate.get(e.number),p=careerProfile(runsByHorse.get(e.horseId),race);
+  const r=rate.get(e.number),p=careerProfile(runsByHorse.get(e.horseId),race),sp=speedProfile(runsByHorse.get(e.horseId),race);
   const rule=rules?.get(e.number)??{score:0,rules:[]};
-  return {number:e.number,horseId:e.horseId,name:e.name,profile:p,rating:r,rule,
+  return {number:e.number,horseId:e.horseId,name:e.name,profile:p,speed:sp,rating:r,rule,
    v:{net:r?r.base+r.surface+r.distance:0,rated:Math.min(r?.starts??0,10)/10,kg:e.kg>0?e.kg:null,handicap:e.handicap>0?e.handicap/10:null,handicapMissing:e.handicap>0?0:1,
     point:e.point>0?e.point/50:null,surfaceAffinity:p.surface.value,distanceAffinity:p.distance.value,form:p.form,daysOff:e.daysOff>=0?Math.log1p(e.daysOff):null,
+    speedAvg:sp.avg,speedBest:sp.best,speedMissing:sp.n?0:1,
     agf:e.agf1>0?Math.log(e.agf1):null,apprentice:e.apprentice?1:0,rules:rule.score}};
  });
  // Centre each feature on the race; a missing value takes the race mean (neutral) except AGF, where a horse without a share is the weakest.
