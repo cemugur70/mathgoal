@@ -7,22 +7,27 @@ import {DatabaseSync} from 'node:sqlite';
 import {createHorseRatingEngine,RATING_POLICY} from '../dist/horse-rating.mjs';
 import {raceFeatures,raceProbabilities,fitConditionalLogit,scoreForecasts,MODEL_SETS,FEATURE_NAMES} from '../dist/horse-model.mjs';
 import {buildSpeedPars,attachSpeedFigures} from '../dist/horse-speed.mjs';
+import {createConnectionStats} from '../dist/horse-connections.mjs';
+import {createSirePreference} from '../dist/horse-pedigree.mjs';
+import {surpriseInputs,fitLogistic,surpriseRisk,surpriseCandidates,riskLevel,RISK_LEVELS,auc,SURPRISE_ODDS,SURPRISE_FEATURES} from '../dist/horse-surprise.mjs';
 import {loadHorseArchive} from './horse-archive.mjs';
 import {CITIES} from './liderform-source.mjs';
 import {learnRuleWeights,ruleSignals} from '../dist/horse-rules.mjs';
+// HORSE_FIT_SCALE=0 fits without per-feature scaling of the L2 penalty (the pre-2026-11 fit), for comparison.
+const FIT={scale:process.env.HORSE_FIT_SCALE!=='0'};
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const {races,runsByHorse,breedByHorse,range}=loadHorseArchive(new DatabaseSync(path.join(root,'data/horse/horses.db'),{readOnly:true}));
+const {races,runsByHorse,breedByHorse,sireByHorse,range}=loadHorseArchive(new DatabaseSync(path.join(root,'data/horse/horses.db'),{readOnly:true}));
 const WARMUP_DAYS=60,warmEnd=new Date(Date.parse(range.from)+WARMUP_DAYS*86400000).toISOString().slice(0,10);
 const finished=races.filter(x=>x.race.status==='RESULT'&&x.race.winners);
 
 /** Replays the archive day by day; returns one record per finished race with the pre-race engine prediction and features. */
 function replay(policy,{features=true,ruleWeights=null}={}){
- const engine=createHorseRatingEngine(policy),out=[];let day=null,pending=[];
- const flush=()=>{for(const x of pending)engine.update(x.race,x.entries);pending=[];};
+ const engine=createHorseRatingEngine(policy),connections=createConnectionStats(),pedigree=features?createSirePreference(runsByHorse,sireByHorse):null,out=[];let day=null,pending=[];
+ const flush=()=>{for(const x of pending){engine.update(x.race,x.entries);connections.update(x.race,x.entries);}pending=[];};
  for(const x of finished){
   if(x.race.date!==day){flush();day=x.race.date;}
   const ratings=engine.predict(x.race,x.entries),rules=features?ruleSignals(x.race,x.entries,ruleWeights):null;
-  out.push({race:x.race,winners:x.race.winners,ratings,rows:features?raceFeatures(x.race,x.entries,{ratings,runsByHorse,rules}).map(r=>({...r,odds:x.entries.find(e=>e.number===r.number)?.odds??null})):null});
+  out.push({race:x.race,winners:x.race.winners,ratings,rows:features?raceFeatures(x.race,x.entries,{ratings,runsByHorse,rules,connections,pedigree}).map(r=>{const e=x.entries.find(e=>e.number===r.number);return {...r,odds:e?.odds??null,agf:e?.agf1??null};}):null});
   pending.push(x);
  }
  flush();return {engine,out};
@@ -51,9 +56,9 @@ console.log('Kurallar',JSON.stringify({kesif:ruleWeights.discovery,uretim:ruleWe
 // 3) Features with the chosen policy, then each model set fitted on discovery and scored on confirmation.
 const {engine,out}=replay(best,{ruleWeights:ruleWeights.discovery}),disc=out.filter(inDisc),conf=out.filter(inConf);
 const asRace=r=>({rows:r.rows,winners:r.winners});
-const models={};
+const models={},fitted={};
 for(const [name,use] of Object.entries(MODEL_SETS)){
- const w=fitConditionalLogit(disc.map(asRace),use);
+ const w=fitted[name]=fitConditionalLogit(disc.map(asRace),use,FIT);
  const score=recs=>scoreForecasts(recs.map(r=>({probs:raceProbabilities(r.rows,w),rows:r.rows,winners:r.winners})));
  models[name]={features:use,weights:Object.fromEntries(use.map(f=>[f,+w[FEATURE_NAMES.indexOf(f)].toFixed(4)])),discovery:score(disc),confirmation:score(conf),
   byBreed:Object.fromEntries(['TB','AR'].map(b=>[b,score(conf.filter(r=>r.race.breed===b))]))};
@@ -63,13 +68,39 @@ const closing=recs=>scoreForecasts(recs.map(r=>{const inv=r.rows.map(x=>x.odds>0
 const uniform=recs=>scoreForecasts(recs.map(r=>({probs:r.rows.map(()=>1/r.rows.length),rows:r.rows,winners:r.winners})));
 const references={uniform:{discovery:uniform(disc),confirmation:uniform(conf)},closingOdds:{discovery:closing(disc),confirmation:closing(conf),byBreed:Object.fromEntries(['TB','AR'].map(b=>[b,closing(conf.filter(r=>r.race.breed===b))]))}};
 // 4) Production weights on every evaluable race, with the rules confirmed in both periods.
-const all=replay(best,{ruleWeights:ruleWeights.production}).out.filter(r=>predicted(r)&&r.race.date>=warmEnd).map(asRace),production=Object.fromEntries(Object.entries(MODEL_SETS).map(([n,use])=>[n,fitConditionalLogit(all,use).map(v=>+v.toFixed(5))]));
-const model={schemaVersion:2,trainedAt:new Date().toISOString(),range,warmupUntil:warmEnd,split,interim,policy:best,kgBeta:engine.kgBeta(),featureNames:FEATURE_NAMES,production,models,references,ruleWeights,
+const allRecs=replay(best,{ruleWeights:ruleWeights.production}).out.filter(r=>predicted(r)&&r.race.date>=warmEnd),all=allRecs.map(asRace),production=Object.fromEntries(Object.entries(MODEL_SETS).map(([n,use])=>[n,fitConditionalLogit(all,use,FIT).map(v=>+v.toFixed(5))]));
+// 5) Surprise model: long-shot (final ganyan >= 10) risk per race and surprise candidates; fitted on discovery, judged on confirmation.
+const winProbs=(r,w)=>raceProbabilities(r.rows,w[r.rows.some(x=>x.agf>0)?'obsidian':'piyasasiz']);
+const surpriseItem=(r,w)=>{const probs=winProbs(r,w),wo=r.rows.find(x=>r.winners.includes(x.number))?.odds;return wo>0?{r,probs,x:surpriseInputs(r.race,r.rows,probs),y:wo>=SURPRISE_ODDS?1:0}:null;};
+const sDisc=disc.map(r=>surpriseItem(r,fitted)).filter(Boolean),sConf=conf.map(r=>surpriseItem(r,fitted)).filter(Boolean),surpriseW=fitLogistic(sDisc);
+const riskEval=items=>{const p=items.map(i=>({p:surpriseRisk(i.x,surpriseW),y:i.y})),rate=p.reduce((a,v)=>a+v.y,0)/p.length;
+ return {races:p.length,rate,auc:auc(p),brier:p.reduce((a,v)=>a+(v.p-v.y)**2,0)/p.length,brierBase:p.reduce((a,v)=>a+(rate-v.y)**2,0)/p.length,
+  levels:RISK_LEVELS.map(([,name])=>{const l=p.filter(v=>riskLevel(v.p)===name);return {level:name,races:l.length,rate:l.length?l.reduce((a,v)=>a+v.y,0)/l.length:null,predicted:l.length?l.reduce((a,v)=>a+v.p,0)/l.length:null};})};};
+const candEval=(items,opt,keep=()=>true)=>{let n=0,w=0,ret=0;for(const i of items){if(!keep(i))continue;for(const num of surpriseCandidates(i.r.rows,i.probs,opt)){const row=i.r.rows.find(x=>x.number===num);if(!(row.odds>0))continue;n++;const won=i.r.winners.includes(num);w+=won;ret+=won?row.odds:0;}}return {bets:n,wins:w,winRate:n?w/n:null,roi:n?ret/n-1:null};};
+const outsideTop3=items=>{let n=0,w=0,ret=0;for(const i of items){const s=i.r.rows.reduce((a,x)=>a+(x.agf>0?x.agf:0),0);if(!s)continue;const top=new Set(i.r.rows.map((x,k)=>k).sort((a,b)=>(i.r.rows[b].agf||0)-(i.r.rows[a].agf||0)).slice(0,3));i.r.rows.forEach((x,k)=>{if(top.has(k)||!(x.odds>0))return;n++;const won=i.r.winners.includes(x.number);w+=won;ret+=won?x.odds:0;});}return {bets:n,wins:w,winRate:n?w/n:null,roi:n?ret/n-1:null};};
+const candGrid=[];for(const minProb of [.06,.08,.1,.12,.15])for(const ratio of [1.25,1.5,2,3])candGrid.push({minProb,ratio,disc:candEval(sDisc,{minProb,ratio})});
+const candOpt=(({minProb,ratio})=>({minProb,ratio}))(candGrid.filter(g=>g.disc.bets>=500).sort((a,b)=>b.disc.roi-a.disc.roi)[0]??candGrid[0]);
+const high=i=>riskLevel(surpriseRisk(i.x,surpriseW))!=='düşük';
+// Race types: share of races won by a long shot, per period.
+const typeRate=key=>{const g=new Map();for(const x of finished.filter(x=>predicted(x)&&x.race.date>=warmEnd)){const wo=x.entries.find(e=>x.race.winners.includes(e.number))?.odds;if(!(wo>0))continue;const k=key(x);const o=g.get(k)??g.set(k,{disc:[0,0],conf:[0,0]}).get(k),t=x.race.date<split?o.disc:o.conf;t[0]++;t[1]+=wo>=SURPRISE_ODDS;}
+ return [...g].map(([k,o])=>({key:k,discovery:{races:o.disc[0],rate:o.disc[0]?o.disc[1]/o.disc[0]:null},confirmation:{races:o.conf[0],rate:o.conf[0]?o.conf[1]/o.conf[0]:null}})).filter(t=>t.discovery.races>=80).sort((a,b)=>b.discovery.rate-a.discovery.rate);};
+const FAMILY={HAND:'Handikap',MAIDEN:'Maiden',COND:'Şartlı',KV:'KV',GROUP:'Grup / kupa',SAT:'Satış'},fieldBand=n=>n<=7?'≤7 atlı':n<=10?'8–10 atlı':n<=13?'11–13 atlı':'14+ atlı';
+const runnersOf=x=>x.entries.filter(e=>e.status!=='NONRUNNER').length;
+const surprise={odds:SURPRISE_ODDS,features:SURPRISE_FEATURES,weights:surpriseW.map(v=>+v.toFixed(4)),candidates:candOpt,
+ risk:{discovery:riskEval(sDisc),confirmation:riskEval(sConf)},
+ candidateResults:{discovery:candEval(sDisc,candOpt),confirmation:candEval(sConf,candOpt),confirmationRisky:candEval(sConf,candOpt,high),outsideTop3:outsideTop3(sConf)},
+ candidateGrid:candGrid.map(g=>({minProb:g.minProb,ratio:g.ratio,bets:g.disc.bets,winRate:g.disc.winRate==null?null:+g.disc.winRate.toFixed(4),roi:g.disc.roi==null?null:+g.disc.roi.toFixed(4)})),
+ types:{family:typeRate(x=>FAMILY[x.race.family]??x.race.family),field:typeRate(x=>fieldBand(runnersOf(x))),breedFamily:typeRate(x=>(x.race.breed==='AR'?'Arap ':'İngiliz ')+(FAMILY[x.race.family]??x.race.family)),
+  breedField:typeRate(x=>(x.race.breed==='AR'?'Arap ':'İngiliz ')+fieldBand(runnersOf(x))),surface:typeRate(x=>({TURF:'Çim',DIRT:'Kum',AWT:'Sentetik',TAPETA:'Sentetik'})[x.race.surface]??x.race.surface)}};
+const prodByName=Object.fromEntries(Object.entries(production).map(([n,w])=>[n,w]));
+surprise.production=fitLogistic(allRecs.map(r=>surpriseItem(r,prodByName)).filter(Boolean)).map(v=>+v.toFixed(4));
+console.log('Sürpriz',JSON.stringify({auc:surprise.risk.confirmation.auc,levels:surprise.risk.confirmation.levels,cand:candOpt,conf:surprise.candidateResults.confirmation,risky:surprise.candidateResults.confirmationRisky,base:surprise.candidateResults.outsideTop3}));
+const model={schemaVersion:2,surprise,trainedAt:new Date().toISOString(),range,warmupUntil:warmEnd,split,interim,policy:best,kgBeta:engine.kgBeta(),featureNames:FEATURE_NAMES,production,models,references,ruleWeights,
  policyGrid:tried.map(t=>({lr:t.policy.lr,halfLifeDays:t.policy.halfLifeDays,discoveryLogLoss:+t.disc.logLoss.toFixed(4),discoveryTop1:+t.disc.top1.toFixed(4)}))};
 await writeFile(path.join(root,'data/horse/horse-model.json'),JSON.stringify(model,null,1));
 
 const pct=v=>v==null?'–':(100*v).toFixed(1)+'%',f3=v=>v==null?'–':v.toFixed(3),sg=v=>v==null?'–':(v>0?'+':'')+(100*v).toFixed(1)+'%';
-const NAMES={uniform:'Tekdüze olasılık (1. tahmin = 1 numaralı at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',piyasasizHizsiz:'Obsidian, piyasasız, hız puanı olmadan',obsidianHizsiz:'Obsidian, kuralsız, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız (AGF dahil)',obsidian:'Obsidian + backtest\'ten geçen kurallar',closingOdds:'Kapanış ganyanı (referans, yarış öncesi bilinmez)'};
+const NAMES={uniform:'Tekdüze olasılık (1. tahmin = 1 numaralı at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',piyasasizHizsiz:'Obsidian, piyasasız, hız puanı olmadan',obsidianHizsiz:'Obsidian, kuralsız, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız (AGF dahil)',obsidianEski:'Obsidian, kuralsız, ilk özellik seti (jokey/antrenör, galop ve pist kaydı olmadan)',obsidianPistsiz:'Obsidian + kurallar, ayrıntılı pist kaydı ve baba pist tercihi olmadan',obsidianJokeysiz:'Obsidian + kurallar, jokey AGF üstü başarısı olmadan',obsidianGalopsuz:'Obsidian + kurallar, galop olmadan',obsidian:'Obsidian + backtest\'ten geçen kurallar',closingOdds:'Kapanış ganyanı (referans, yarış öncesi bilinmez)'};
 const row=(name,s)=>`| ${NAMES[name]} | ${s.races} | ${pct(s.top1)} | ${pct(s.top3)} | ${f3(s.logLoss)} | ${sg(s.topRoi)} | ${s.valueBets??'–'} | ${sg(s.valueRoi)} |`;
 const head=['| Model | Koşu | 1. tahmin kazandı | İlk 3 tahminde | Log-kayıp (düşük iyi) | ROI: her koşu 1. tahmin | Değer bahsi sayısı | ROI: değer bahsi |','|---|---:|---:|---:|---:|---:|---:|---:|'];
 const md=['# At yarışı: rakip ağı rating\'i ve Obsidian modeli','',
@@ -81,7 +112,7 @@ const md=['# At yarışı: rakip ağı rating\'i ve Obsidian modeli','',
  '2. **Rakip ağı rating\'i** (Plackett–Luce, çevrimiçi): her koşu sonrası her at, rakiplerinin o anki gücüne göre beklenen ile gerçekleşen arasındaki fark kadar hareket eder. Güçlü atı geçmek daha çok kazandırır; güç ortak rakipler üzerinden yayılır.',
  '3. **Pist / mesafe tercihi**: ağ içinde rakip gücüne göre düzeltilmiş pist (çim/kum/sentetik) ve mesafe (kısa ≤1300, mil ≤1600, orta ≤2000, uzun) sapmaları; ayrıca atın tüm hipodromlardaki kariyer kaydından aynı koşulda ortalama derece puanı (1/derece) eksi genel ortalaması, 3 sanal koşuyla büzülmüş.',
  `4. **Hız puanı**: atın kendi bitiş derecesi, ırk + hipodrom + pist + mesafe için ${split} öncesi koşulardan alınan medyan dereceyle (par) karşılaştırılır ve o günün pist farkıyla (aynı gün, hipodrom ve pistteki tüm atların medyan sapması) düzeltilir; birim 1000 m başına saniye, pozitif = par'dan hızlı. ${speedRuns} koşuya puan verildi. Modele son 3 koşunun ortalaması ve son bir yıldaki son 4 koşunun en iyisi girer.`,
- '5. **Obsidian**: koşu içi softmax (koşullu logit) ile ağ rating\'i, tercihler, kilo, handikap, puan, son 3 koşu formu, dinlenme, hız puanı, apranti ve yarış öncesi AGF birleştirilir. Ağırlıklar yalnız keşif döneminde öğrenilir.',
+ '5. **Obsidian**: koşu içi softmax (koşullu logit) ile ağ rating\'i, tercihler, kilo, handikap, puan, son 3 koşu formu, dinlenme, hız puanı, apranti, jokey ve antrenör formu (atlı sayısına göre beklenen galibiyete oranı, bir yıllık yarı ömür), jokeyin bindiği atın AGF payının üstünde kazanması (genel ve ırka göre), son koşuya göre mesafe değişimi, koşulan pistteki ayrıntılı kayıt (kazanma ve ilk 3 oranı, o pistteki koşu sayısı, en iyi diğer pistle fark, son koşudan bu yana pist değişimi), babanın yavrularının bu pist tercihi, galop (antrenman) dereceleri ve yarış öncesi AGF birleştirilir. Galop puanı, son 45 gündeki galopların aynı tür galopların 2026 öncesi ortancasından yüzde kaç hızlı olduğudur; galop sayısı ve son galoptan bu yana geçen gün de ayrı özelliktir. Sürprize açık koşularda (handikap veya 11+ atlı) AGF ve ağ rating\'i ayrı bir ağırlık daha alır. Ağırlıklar yalnız keşif döneminde öğrenilir; L2 cezası her özelliğin standart sapmasına göre uygulanır, böylece dar ölçekli özellikler (form, pist tercihi) orantısız bastırılmaz.',
  `6. Ağ politikası keşif döneminde küçük bir ızgaradan seçildi: öğrenme hızı ${best.lr}, yarı ömür ${best.halfLifeDays} gün. Kilo katsayıları (log-güç / kg): ${Object.entries(model.kgBeta).map(([b,v])=>`${b} ${v.toFixed(3)}`).join(', ')}.`,'',
  '**Değer bahsi**: model olasılığı × kapanış ganyanı ≥ 1,20 olan her ata 1 TL. Kapanış ganyanı yarıştan önce kesin bilinmediği için bu ROI gösterge niteliğindedir.','',
  '## Doğrulama dönemi (modelin hiç görmediği koşular)','',...head,row('uniform',references.uniform.confirmation),...Object.keys(MODEL_SETS).map(n=>row(n,models[n].confirmation)),row('closingOdds',references.closingOdds.confirmation),'',
@@ -89,6 +120,14 @@ const md=['# At yarışı: rakip ağı rating\'i ve Obsidian modeli','',
  ...['ag','piyasasiz','obsidianKuralsiz','obsidian'].map(n=>`| ${NAMES[n]} | ${pct(models[n].byBreed.TB.top1)} | ${f3(models[n].byBreed.TB.logLoss)} | ${pct(models[n].byBreed.AR.top1)} | ${f3(models[n].byBreed.AR.logLoss)} |`),
  `| ${NAMES.closingOdds} | ${pct(references.closingOdds.byBreed.TB.top1)} | ${f3(references.closingOdds.byBreed.TB.logLoss)} | ${pct(references.closingOdds.byBreed.AR.top1)} | ${f3(references.closingOdds.byBreed.AR.logLoss)} |`,'',
  '## Keşif dönemi (ağırlıkların öğrenildiği dönem)','',...head,row('uniform',references.uniform.discovery),...Object.keys(MODEL_SETS).map(n=>row(n,models[n].discovery)),row('closingOdds',references.closingOdds.discovery),'',
+ ...(()=>{const S=surprise,R=S.risk.confirmation,C=S.candidateResults;const tt=(title,list)=>['### '+title,'','| | Keşif koşu | Sürpriz | 2026 koşu | Sürpriz |','|---|---:|---:|---:|---:|',...list.map(t=>`| ${t.key} | ${t.discovery.races} | ${pct(t.discovery.rate)} | ${t.confirmation.races} | ${pct(t.confirmation.rate)} |`),''];
+  const cr=(name,c)=>`| ${name} | ${c.bets} | ${c.wins} | ${pct(c.winRate)} | ${sg(c.roi)} |`;
+  return ['## Sürpriz modeli','',`Sürpriz = kazananın kapanış ganyanı ≥ ${S.odds} TL. Oranlar beş şehirdeki koşulardan; keşif ${warmEnd} – ${split} öncesi, doğrulama ${split} ve sonrası.`,'',
+   ...tt('Koşu ailesi',S.types.family),...tt('Atlı sayısı',S.types.field),...tt('Irk × koşu ailesi',S.types.breedFamily),...tt('Irk × atlı sayısı',S.types.breedField),...tt('Pist',S.types.surface),
+   '### Koşu başına sürpriz riski (doğrulama)','',`Yarış öncesi bilgiyle lojistik model: atlı sayısı, koşu ailesi, ırk, pist, AGF favorisinin payı, kazanma modelinin en yüksek olasılığı ve olasılıkların dağınıklığı. Ağırlıklar keşifte öğrenildi. Doğrulamada AUC ${f3(R.auc)} (0,5 = şans), Brier ${f3(R.brier)} (sabit oranla ${f3(R.brierBase)}).`,'',
+   '| Risk | Koşu | Gerçek sürpriz | Tahmin edilen |','|---|---:|---:|---:|',...R.levels.map(l=>`| ${l.level} | ${l.races} | ${pct(l.rate)} | ${pct(l.predicted)} |`),'',
+   '### Sürpriz adayları','',`AGF'de ilk 3'te olmayan, kazanma olasılığı ≥ %${(100*S.candidates.minProb).toFixed(0)} ve AGF payının ≥ ${S.candidates.ratio} katı olan atlar. Eşik keşif döneminde seçildi (en az 500 bahis, en yüksek ROI). ROI kapanış ganyanıyla, at başına 1 TL.`,'',
+   '| Küme | Bahis | Kazandı | Kazanma | ROI |','|---|---:|---:|---:|---:|',cr('Keşif: adaylar',C.discovery),cr('Doğrulama: adaylar',C.confirmation),cr('Doğrulama: adaylar, orta/yüksek riskli koşular',C.confirmationRisky),cr('Doğrulama: AGF ilk 3 dışındaki tüm atlar',C.outsideTop3),''];})(),
  '## Kural katmanı (backtest ile uygulanan kurallar)','',
  'Kullanıcı kural setindeki her kural, yarış öncesi bilgiyle (favori = AGF sırası; kapanış ganyanı yarıştan önce bilinmez) aynı sayıda AGF favorisine karşı test edilir. Kuralın modeldeki ağırlığı bu farktır (kazanma olasılığı puanı; negatif = kuralın seçtiği atlar piyasanın sandığından kötü).',
  `- **Walk-forward'da uygulanan**: keşif döneminde Benjamini–Hochberg q < 0,10 olan kurallar (${Object.keys(ruleWeights.discovery).length} kural). Doğrulama dönemi bu seçimi hiç etkilemez.`,

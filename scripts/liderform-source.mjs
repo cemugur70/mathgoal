@@ -48,6 +48,22 @@ export function createHorseProfileClient({cache,maxAgeMs=Infinity,throttleMs=300
  };
 }
 
+/**
+ * Cached client for public race gallop pages (/program/galop/{date}/{city}/{race}): each declared runner's last ten workouts
+ * before the race (split times per 200 m checkpoint, effort, going, inner/outer rail, rider weight). Same caching rules as program pages.
+ */
+export function createGallopClient({cache,today=new Date().toISOString().slice(0,10),throttleMs=300,sources=[]}){
+ const pick=p=>p?.raceData&&{runners:p.raceData.map(r=>({number:r.horse_number,horseId:r.horse?.id??null,workouts:(r.workouts||[]).map(w=>({date:w.meeting_date,track:w.track?.tjk_code??null,
+  type:w.track_type,method:w.race_method,effort:w.effort,going:w.going,rail:w.inner_outer,kg:w.jockey?.weight_kg??null,jockeyId:w.jockey?.id??null,
+  times:Object.fromEntries((w.graph||[]).filter(g=>g.value!=null&&Number(g.value)>0).map(g=>[g.label,Number(g.value)]))}))}))};
+ return async function gallops(date,city,race,{refresh=false}={}){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!(city in TRACKS)||!/^\d{1,2}$/.test(String(race)))throw Error('Geçersiz liderform galop seçimi');
+  const file=path.join(cache,`galop-${date}-${city}-${race}.json.gz`),settled=date<today;
+  if(!refresh)try{const info=await stat(file);if((settled&&info.mtimeMs>=Date.parse(date)+86400000)||Date.now()-info.mtimeMs<LIVE_TTL)return JSON.parse(gunzipSync(await readFile(file)));}catch(error){if(error.code!=='ENOENT')throw error;}
+  return fetchPage(`https://liderform.com.tr/program/galop/${date}/${city}/${race}`,file,pick,{throttleMs,sources});
+ };
+}
+
 async function fetchPage(url,file,pick,{throttleMs,sources}){
  let data;
  for(let attempt=0;attempt<3;attempt++){

@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {normalizeRacePage} from '../dist/horse-data.mjs';
+import {buildGallopPars,gallopProfile,GALLOP_PARS_BEFORE} from '../dist/horse-gallop.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),dir=path.join(root,'data/horse'),cache=path.join(dir,'cache');
 const file=path.join(dir,'horses.db'),tmp=file+'.tmp';await rm(tmp,{force:true});
 const db=new DatabaseSync(tmp);
@@ -17,6 +18,7 @@ CREATE TABLE runs(horse_id INT,date TEXT,track_code TEXT,place INT,surface TEXT,
 CREATE TABLE horses(id INT PRIMARY KEY,name TEXT,origin TEXT,breed TEXT,sex TEXT,color TEXT,foaling_date TEXT,foaling_year INT,death_date TEXT,import_type TEXT,import_date TEXT,
  country_exported TEXT,sire TEXT,sire_origin TEXT,dam TEXT,dam_origin TEXT,dam_sire TEXT,dam_sire_origin TEXT,handicap REAL,trainer TEXT,owner TEXT,prize_try REAL,prize TEXT,
  starts_turf INT,starts_dirt INT,starts_awt INT,starts_tapeta INT,last_race TEXT,observed_at TEXT);
+CREATE TABLE gallops(race_id TEXT,number TEXT,n INT,scored INT,best REAL,avg REAL,days INT,PRIMARY KEY(race_id,number));
 CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT);`);
 const insRace=db.prepare('INSERT OR REPLACE INTO races VALUES('+Array(25).fill('?').join(',')+')'),insEntry=db.prepare('INSERT OR REPLACE INTO entries VALUES('+Array(31).fill('?').join(',')+')');
 const insRun=db.prepare('INSERT OR IGNORE INTO runs VALUES(?,?,?,?,?,?,?,?,?)');
@@ -36,6 +38,15 @@ for(const f of files){
  for(const x of runs)insRun.run(x.horseId,x.date,x.trackCode,x.place,x.surface,x.distance,x.handicap,x.timing,x.ahead);
  races++;
 }
+// Workouts from the cached gallop pages: unique workouts before GALLOP_PARS_BEFORE give the pars, then each runner gets a profile for its race.
+const raceAt=db.prepare('SELECT id,breed FROM races WHERE date=? AND city=? AND number=?'),gallopFiles=(await readdir(cache)).filter(f=>/^galop-\d{4}-\d{2}-\d{2}-[a-z]+-\d+\.json\.gz$/.test(f)&&f.slice(6,16)<today).sort();
+async function* gallopPages(){for(const f of gallopFiles){const [,date,city,number]=f.match(/^galop-(\d{4}-\d{2}-\d{2})-([a-z]+)-(\d+)\.json\.gz$/),page=JSON.parse(gunzipSync(await readFile(path.join(cache,f)))),race=raceAt.get(date,city,Number(number));if(race&&page.runners)yield {date,race,page};}}
+db.exec('CREATE TEMP TABLE gw(horse_id INT,date TEXT,type TEXT,track TEXT,breed TEXT,w TEXT,PRIMARY KEY(horse_id,date,type,track))');
+const insWork=db.prepare('INSERT OR IGNORE INTO gw VALUES(?,?,?,?,?,?)');
+for await(const {race,page} of gallopPages())for(const r of page.runners)for(const w of r.workouts)if(w.date<GALLOP_PARS_BEFORE)insWork.run(r.horseId,w.date,w.type,w.track,race.breed,JSON.stringify(w));
+const gallopPars=buildGallopPars((function*(){for(const x of db.prepare('SELECT breed,w FROM gw').iterate())yield {breed:x.breed,workout:JSON.parse(x.w)};})());db.exec('DROP TABLE gw');
+const insGallop=db.prepare('INSERT OR REPLACE INTO gallops VALUES(?,?,?,?,?,?,?)');let gallopRaces=0;
+for await(const {date,race,page} of gallopPages()){gallopRaces++;for(const r of page.runners){const g=gallopProfile(r.workouts,{date},race.breed,gallopPars);insGallop.run(race.id,String(r.number),g.n,g.scored,g.best,g.avg,g.days);}}
 // Profiles (pedigree, prize, career starts per surface) from the public horse pages, when collected.
 const profiles=path.join(dir,'profiles'),insHorse=db.prepare('INSERT OR REPLACE INTO horses VALUES('+Array(29).fill('?').join(',')+')');let profileCount=0;
 for(const f of await readdir(profiles).catch(()=>[])){
@@ -56,9 +67,9 @@ CREATE INDEX entries_horse ON entries(horse_id);CREATE INDEX races_date ON races
 CREATE VIEW horse_stats AS SELECT horse_id,count(*) starts,sum(place=1) wins,sum(place<=2) top2,sum(place<=3) top3,round(1.0*sum(place=1)/count(*),3) win_rate,
  sum(surface='TURF') turf,sum(surface='TURF' AND place=1) turf_wins,sum(surface='DIRT') dirt,sum(surface='DIRT' AND place=1) dirt_wins,
  sum(surface IN('AWT','TAPETA')) synthetic,sum(surface IN('AWT','TAPETA') AND place=1) synthetic_wins,min(date) first_run,max(date) last_run FROM runs GROUP BY horse_id;`);
-const ins=db.prepare('INSERT INTO meta VALUES(?,?)');ins.run('builtAt',new Date().toISOString());ins.run('source','liderform.com.tr public program pages (SSR __NEXT_DATA__)');ins.run('files',String(files.length));
+const ins=db.prepare('INSERT INTO meta VALUES(?,?)');ins.run('builtAt',new Date().toISOString());ins.run('source','liderform.com.tr public program pages (SSR __NEXT_DATA__)');ins.run('files',String(files.length));ins.run('gallopPars',JSON.stringify(gallopPars));ins.run('gallopParsBefore',GALLOP_PARS_BEFORE);
 db.exec('COMMIT');
 const q=s=>db.prepare(s).get();
-console.log(JSON.stringify({races,skipped,entries:q('SELECT count(*) n FROM entries').n,horses:q('SELECT count(DISTINCT horse_id) n FROM entries').n,profiles:profileCount,runs:q('SELECT count(*) n FROM runs').n,
+console.log(JSON.stringify({races,skipped,entries:q('SELECT count(*) n FROM entries').n,horses:q('SELECT count(DISTINCT horse_id) n FROM entries').n,profiles:profileCount,gallopRaces,gallopPars:Object.keys(gallopPars).length,runs:q('SELECT count(*) n FROM runs').n,
  withWinner:q("SELECT count(*) n FROM races WHERE winners IS NOT NULL").n,placed:q('SELECT count(*) n FROM entries WHERE place IS NOT NULL').n,range:q('SELECT min(date) a,max(date) b FROM races')}));
 db.close();await rename(tmp,file);

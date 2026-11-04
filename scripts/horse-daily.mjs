@@ -11,9 +11,9 @@ const stateFile=path.join(dir,'daily-state.json'),logFile=path.join(dir,'daily.l
 const day=t=>new Date(t).toISOString().slice(0,10),yesterday=day(Date.now()-86400000);
 const log=line=>appendFile(logFile,`${new Date().toISOString()} ${line}\n`);
 const state=await readFile(stateFile,'utf8').then(JSON.parse).catch(()=>({}));
-// Each step runs in its own process with a capped heap; the container shares 1 GB with the web server and football training.
+// Each step runs in its own process with a capped heap; the container (3 GB limit) shares memory with the web server and football training.
 function run(script,args=[]){
- const r=spawnSync(process.execPath,['--no-warnings','--max-old-space-size=320',path.join(root,'scripts',script),...args],{cwd:root,encoding:'utf8',windowsHide:true,timeout:30*60000});
+ const r=spawnSync(process.execPath,['--no-warnings','--max-old-space-size=512',path.join(root,'scripts',script),...args],{cwd:root,encoding:'utf8',windowsHide:true,timeout:30*60000});
  if(r.status!==0)throw Error(`${script} ${r.status??r.signal}: ${(r.stderr||r.stdout||'').trim().split('\n').slice(-3).join(' | ')}`);
  return (r.stdout||'').trim().split('\n').at(-1);
 }
@@ -26,6 +26,8 @@ try{
   // Re-read two days before the archive end so pages first cached on their own race day pick up their final results.
   const from=last?day(Date.parse(last)-2*86400000):'2021-01-01';
   await log(`collect ${from} → ${yesterday}`);run('collect-horses.mjs',['--from',from,'--to',yesterday]);
+  // Gallop pages of the same days; their workouts enter the database with the rebuild below.
+  await log(`gallops ${run('collect-horse-gallops.mjs',['--from',from,'--to',yesterday])}`);
   await log(`db ${run('build-horse-db.mjs')}`);state.collectedTo=yesterday;
   // Profiles of horses new to the archive; they enter the database with the next rebuild.
   await log(`profiles ${run('collect-horse-profiles.mjs')}`);

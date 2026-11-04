@@ -44,6 +44,7 @@ test('meeting index reports who beat whom, under which conditions, only before t
 test('career preference, race-centred features, conditional logit and scoring',()=>{
  const runs=[{date:'2025-01-01',place:1,surface:'TURF',distance:2000},{date:'2025-02-01',place:1,surface:'TURF',distance:2000},{date:'2025-03-01',place:8,surface:'DIRT',distance:1200},{date:'2027-01-01',place:1,surface:'DIRT',distance:1200}];
  const p=careerProfile(runs,race('2026-01-01',{surface:'TURF',distance:2000}));assert.equal(p.starts,3,'future runs are ignored');assert.ok(p.surface.value>0&&p.distance.value>0);
+ assert.deepEqual(p.surfaces,{TURF:{starts:2,wins:2,top3:2},DIRT:{starts:1,wins:0,top3:0}});
  assert.ok(careerProfile(runs,race('2026-01-01',{surface:'DIRT',distance:1200})).surface.value<0);
  const ent=[e(1,null,{handicap:70,agf1:40}),e(2,null,{handicap:60,agf1:10}),e(3,null,{handicap:null,agf1:null})],ratings=ent.map(x=>({number:x.number,base:0,surface:0,distance:0,starts:0}));
  const rows=raceFeatures(race('2026-01-01'),ent,{ratings,runsByHorse:new Map()}),h=FEATURE_NAMES.indexOf('handicap'),a=FEATURE_NAMES.indexOf('agf');
