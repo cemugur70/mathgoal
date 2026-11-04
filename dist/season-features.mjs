@@ -1,4 +1,4 @@
-// Season-to-date team features rebuilt from the archive as of each cutoff. FotMob season tables, player season totals and ratings are never read.
+// Season-to-date team features rebuilt from the archive as of each cutoff. Source season tables, player season totals and ratings are never read.
 const finite=v=>typeof v==='number'&&Number.isFinite(v),stamp=v=>v==null?NaN:typeof v==='number'?v:Date.parse(v);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),DAY=86400000,LAG=10800000,LN2=Math.log(2);
 export const SEASON_FEATURE_NAMES=Object.freeze(['played','ppg','gfPerGame','gaPerGame','xgFor','xgAgainst','finishing','concession','venuePpg','rank','shotsPerGame','sotPerGame','restDays','missingFraction'].map(n=>'season.'+n));

@@ -59,3 +59,17 @@ Finished fixtures whose cached FotMob response was written at least 48 hours aft
 User-selected production domain: https://mathgoal.io . Docker service joins existing `coolify` proxy network. Old `/opt/mathgoal`, old container/image, cron config and logrotate config were explicitly authorized for permanent deletion without a new backup. Existing backups inside the old directory are included in that deletion. Other sites, databases, shared proxy and TLS storage are outside scope. `scripts/replace-remote.sh` is a one-time replacement script, not a routine update command. Production data lives in `/opt/mathgoal/app/data` and `/opt/mathgoal/app/dist/data`.
 
 REA browser evidence: `data/rea-findings.json`; raw source hashes: `data/source-manifest.json`. The browser trace is partial due to event/network limits; source JSON extraction is independently recorded and validated by IDs/dates. No claim of complete network capture.
+
+## Membership
+
+The whole site needs an approved member session; only `/giris.html`, its assets and `/api/health` are open. Anyone can apply, an admin approves on `/yonetim.html`. Accounts live in `data/auth/users.db` (data volume, not in the image). No e-mail is sent: password resets are one-time links from the admin page.
+
+First admin or a lost admin password, on the server:
+
+```bash
+docker compose exec -T mathgoal node --no-warnings scripts/auth-admin.mjs setup-link
+```
+
+```bash
+docker compose exec -T mathgoal node --no-warnings scripts/auth-admin.mjs reset-link e-posta
+```

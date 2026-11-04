@@ -15,7 +15,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const cache=path.join(root,'data/cache');
 await mkdir(cache,{recursive:true});await mkdir(path.join(root,'dist/data'),{recursive:true});
 const matchId=process.argv[2]||'5795493';
-if(!/^\d{4,12}$/.test(matchId)) throw Error('Geçerli sayısal FotMob maç kimliği gerekiyor.');
+if(!/^\d{4,12}$/.test(matchId)) throw Error('Geçerli sayısal maç kimliği gerekiyor.');
 const errors=[],sources=[];
 const get=createFotMobClient({cache,sources,throttleMs:180});
 const T0=performance.now();let TL=T0;const timing={matchId,stages:[],settledCache:process.env.FOTMOB_SETTLED_CACHE!=='0'};const mark=name=>{const t=performance.now();timing.stages.push({name,ms:Math.round(t-TL)});TL=t;};

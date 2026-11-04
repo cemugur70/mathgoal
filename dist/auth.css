@@ -1,0 +1,32 @@
+/* Sign-in page, member admin page and the account block in the sidebars. */
+.auth-page{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:32px 16px}
+.auth-box{width:min(420px,100%);padding:0;margin:0}
+.auth-box .brand{margin-bottom:26px}
+.auth-card{padding:24px}
+.auth-card h1{font:600 22px 'Manrope',sans-serif;letter-spacing:-.4px;margin:0 0 6px}
+.auth-tabs{display:flex;gap:6px;margin-bottom:14px}
+.auth-tabs button{flex:1;min-height:44px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:15px}
+.auth-tabs button[aria-selected=true]{color:var(--green);border-color:#6f8753;background:#28371e}
+#auth-form>div{margin-top:14px}
+#auth-form label{display:block;font-size:14px;color:var(--muted);margin-bottom:6px}
+#auth-form .filter-input{min-height:44px}
+#auth-submit{width:100%;margin-top:18px}
+.auth-message{font-size:14px;line-height:1.6;margin:14px 0 0;padding:10px 12px;border-radius:6px;background:#382423;border:1px solid #7c5047;color:var(--text)}
+.auth-message.info{background:#263320;border-color:#4b6037}
+.auth-foot{font-size:13px;color:var(--muted);text-align:center;margin-top:16px}
+.account{margin:18px 0 0;padding:14px 11px 0;border-top:1px solid var(--border);font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.account b{display:block;font-weight:500;color:#d5dfd5;margin-bottom:8px}
+.account-actions{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.account a,.account button{background:none;border:0;padding:6px 0;font-size:13px;color:var(--green);min-height:32px}
+.account .count{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--orange);color:#1c2517;font-weight:700;text-align:center}
+.admin-page{max-width:1000px;margin:0 auto;padding:32px 16px}
+.admin-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.admin-head h1{margin:0}
+.member-actions{display:flex;gap:8px;flex-wrap:wrap}
+.member-status{font-size:13px;padding:3px 7px;border-radius:4px;border:1px solid var(--border);white-space:nowrap}
+.member-status.pending{color:var(--orange);border-color:#7a5a3a}
+.member-status.approved{color:var(--green);border-color:#46563d}
+.member-status.rejected{color:var(--red);border-color:#664c45}
+.member-link{margin-top:14px;font-size:14px;overflow-wrap:anywhere}
+.admin-page td{vertical-align:middle}
+.admin-page table{white-space:normal}

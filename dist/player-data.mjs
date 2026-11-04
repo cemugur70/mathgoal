@@ -19,6 +19,6 @@ export function normalizeTargetLineup(raw,{target,collectedAt}) {
  return {matchId:String(target.id),type,source:source.source??null,observedAt:collectedAt,eligibleForModel:target.started!==true&&target.finished!==true&&target.cancelled!==true&&Date.parse(collectedAt)<Date.parse(target.date),home:side(source.homeTeam),away:side(source.awayTeam)};
 }
 export function parsePlayerPage(html,id){
- const match=html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);if(!match)throw Error('FotMob oyuncu verisi sayfada bulunamadı.');
+ const match=html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);if(!match)throw Error('Oyuncu verisi kaynak sayfada bulunamadı.');
  const data=JSON.parse(match[1]).props?.pageProps?.data;if(String(data?.id)!==String(id))throw Error('Oyuncu kimliği kaynakla eşleşmiyor.');return data;
 }

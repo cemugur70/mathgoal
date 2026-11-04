@@ -26,7 +26,7 @@ export const PLAYER_STAT_CATEGORIES=Object.freeze([
   {id:'other',label:'Diğer',keys:[]}
 ].map(c=>Object.freeze({...c,keys:Object.freeze(c.keys)})));
 const CATEGORY_BY_KEY=new Map(PLAYER_STAT_CATEGORIES.flatMap(c=>c.keys.map(key=>[key,c.id])));
-const LABELS={rating_title:'FotMob puanı',rating:'Puan',minutes_played:'Oynanan dakika',goals:'Gol',assists:'Asist',
+const LABELS={rating_title:'Oyuncu puanı',rating:'Puan',minutes_played:'Oynanan dakika',goals:'Gol',assists:'Asist',
   expected_goals:'Beklenen gol (xG)',expected_goals_on_target:'İsabetli şut beklenen golü (xGOT)',expected_goals_on_target_variant:'İsabetli şut beklenen golü (xGOT)',expected_assists:'Beklenen asist (xA)',total_shots:'Toplam şut',shots_on_target:'İsabetli şut',ShotsOnTarget:'İsabetli şut',
   shot_accuracy:'Şut isabeti',shots_blocked:'Bloklanan şut',shots_off_target:'İsabetsiz şut',hit_woodwork:'Direkten dönen şut',
   touches_opp_box:'Rakip ceza sahasında dokunuş',touches:'Topla buluşma',dribbles_succeeded:'Başarılı çalım',

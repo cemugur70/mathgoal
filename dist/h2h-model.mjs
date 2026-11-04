@@ -2,7 +2,7 @@ const DAY=86400000,finite=n=>typeof n==='number'&&Number.isFinite(n),time=d=>new
 export function extractH2HMatches(raw){
  return (raw.content?.h2h?.matches||[]).flatMap(m=>{const id=m.id??m.matchUrl?.match(/#(\d+)/)?.[1],date=m.status?.utcTime??m.time?.utcTime;if(!id||!m.home?.id||!m.away?.id||!Number.isFinite(time(date)))return [];
   const score=m.status?.scoreStr?.match(/^\s*(\d+)\s*[-–:]\s*(\d+)\s*$/),reason=[m.status?.reason?.short,m.status?.reason?.shortKey,m.status?.reason?.longKey].filter(Boolean).join(' ');
-  return [{id:String(id),date:new Date(date).toISOString(),home:{id:Number(m.home.id),name:m.home.name},away:{id:Number(m.away.id),name:m.away.name},homeScore:score?Number(score[1]):null,awayScore:score?Number(score[2]):null,leagueId:Number(m.league?.id),leagueName:m.league?.name??'',finished:m.status?.finished===true,cancelled:!!m.status?.cancelled,awarded:!!m.status?.awarded,extraTime:/\baet\b|after.?extra|extra.?time|penalt|\bpen\b/i.test(reason),url:`https://www.fotmob.com/match/${id}`,source:'FotMob H2H'}];
+  return [{id:String(id),date:new Date(date).toISOString(),home:{id:Number(m.home.id),name:m.home.name},away:{id:Number(m.away.id),name:m.away.name},homeScore:score?Number(score[1]):null,awayScore:score?Number(score[2]):null,leagueId:Number(m.league?.id),leagueName:m.league?.name??'',finished:m.status?.finished===true,cancelled:!!m.status?.cancelled,awarded:!!m.status?.awarded,extraTime:/\baet\b|after.?extra|extra.?time|penalt|\bpen\b/i.test(reason),url:`https://www.fotmob.com/match/${id}`,source:'H2H'}];
  });
 }
 export function analyzeH2H(bundle,opts={}){

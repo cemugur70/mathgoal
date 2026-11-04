@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101714"><meta name="robots" content="noindex"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><title>MathGoal · Giriş</title><meta name="description" content="MathGoal üye girişi."><link rel="stylesheet" href="/style.css?v=2026-11-04.3"><link rel="stylesheet" href="/auth.css?v=2026-11-04.3"></head>
+<body class="auth-page"><main class="auth-box">
+<a class="brand" href="/" aria-label="MathGoal"><span class="brandmark">m<span>g</span></span><span>mathgoal<span class="brand-sub">MEMBERS ONLY</span></span></a>
+<section class="card auth-card">
+<div class="auth-tabs" role="tablist" id="auth-tabs"><button type="button" role="tab" id="tab-login" aria-selected="true">Giriş yap</button><button type="button" role="tab" id="tab-register" aria-selected="false">Üye ol</button></div>
+<h1 id="auth-title" class="hidden"></h1>
+<p id="auth-intro" class="inline-note"></p>
+<form id="auth-form" novalidate>
+<div id="email-field"><label for="email">E-posta</label><input id="email" class="filter-input" type="email" name="email" autocomplete="email" maxlength="254" required></div>
+<div><label for="password">Şifre</label><input id="password" class="filter-input" type="password" name="password" autocomplete="current-password" maxlength="200" required></div>
+<p id="auth-message" class="auth-message hidden" role="alert"></p>
+<button id="auth-submit" class="button primary">Giriş yap</button>
+</form>
+</section>
+<p class="auth-foot">Şifreni unuttuysan yöneticiden yeni şifre bağlantısı iste.</p>
+</main><script type="module" src="/giris.mjs?v=2026-11-04.3"></script></body></html>

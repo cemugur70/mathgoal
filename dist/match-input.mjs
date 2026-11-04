@@ -10,7 +10,7 @@ export function parseMatchId(input) {
 
 export function matchContext(raw,observedAt=new Date().toISOString()) {
   const g=raw.general,status=raw.header?.status??{};
-  if(!g?.homeTeam?.id||!g?.awayTeam?.id)throw Error('FotMob hedef maç bilgisi eksik.');
+  if(!g?.homeTeam?.id||!g?.awayTeam?.id)throw Error('Hedef maç bilgisi eksik.');
   const date=new Date(g.matchTimeUTCDate||g.matchTimeUTC).toISOString();
   const collectedAt=new Date(observedAt).toISOString();
   const finished=g.finished===true&&status.finished!==false;

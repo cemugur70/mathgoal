@@ -18,7 +18,7 @@ export function isSettledMatch(data,cachedAtMs){
 // Shared raw-response cache for full collection and targeted archive enrichment.
 export function createFotMobClient({cache,sources=[],settled=settledCacheEnabled(),throttleMs=0}) {
   return async function get(kind,id,refresh=false,{signal,cacheOnly=false}={}) {
-    if(!['matchDetails','teams','leagues'].includes(kind)||!/^\d{1,12}$/.test(String(id)))throw Error('Invalid FotMob source selection');
+    if(!['matchDetails','teams','leagues'].includes(kind)||!/^\d{1,12}$/.test(String(id)))throw Error('Invalid source selection');
     signal?.throwIfAborted();
     const started=performance.now(),file=path.join(cache,`${kind}-${id}.json`);let bytes,cached=false,cachedAt=null,reuse=null,refetch=refresh?'refresh':'missing',wouldSettle=false;
     try {
@@ -32,7 +32,7 @@ export function createFotMobClient({cache,sources=[],settled=settledCacheEnabled
       } else if(!refresh)refetch='expired';
     } catch(error) {if(signal?.aborted)throw signal.reason;if(error.code!=='ENOENT')throw error;}
     const url=`https://www.fotmob.com/api/data/${kind}?${kind==='matchDetails'?'matchId':'id'}=${id}`;
-    if(!cached&&cacheOnly)throw Error(`FotMob cache unavailable: ${kind}-${id}`);
+    if(!cached&&cacheOnly)throw Error(`Source cache unavailable: ${kind}-${id}`);
     if(!cached)for(let attempt=0;attempt<3;attempt++) {
       signal?.throwIfAborted();
       try {
