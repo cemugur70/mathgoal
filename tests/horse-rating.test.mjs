@@ -55,3 +55,30 @@ test('career preference, race-centred features, conditional logit and scoring',(
  const s=scoreForecasts([{probs:[.6,.4],rows:[{number:'1',odds:2},{number:'2',odds:3}],winners:['1']},{probs:[.6,.4],rows:[{number:'1',odds:2},{number:'2',odds:3}],winners:['2']}],{edge:1.1});
  assert.equal(s.top1,.5);assert.equal(s.topRoi,0);assert.equal(s.valueBets,4);assert.ok(Math.abs(s.valueRoi-(5/4-1))<1e-12);
 });
+test('the typed-array fit gives the same weights as the plain per-race fit: dead heats, skipped races, both L2 scalings',()=>{
+ // The fit as first written, on the row objects: the reference for what the fast version must keep computing.
+ const plainFit=(races,use,{l2=.01,iterations=400,rate=.05,scale=true}={})=>{
+  const idx=use.map(f=>FEATURE_NAMES.indexOf(f)),w=new Array(FEATURE_NAMES.length).fill(0),u=w.slice(),m=w.slice(),v=w.slice(),data=races.filter(r=>r.rows.length>1&&r.rows.some(x=>r.winners.includes(x.number)));
+  if(!data.length)return w;
+  const sd=new Array(FEATURE_NAMES.length).fill(1);
+  if(scale)for(const i of idx){let s=0,n=0;for(const r of data)for(const x of r.rows){s+=x.x[i]**2;n++;}sd[i]=Math.sqrt(s/n)||1;}
+  for(let t=1;t<=iterations;t++){
+   const g=new Array(FEATURE_NAMES.length).fill(0);
+   for(const r of data){
+    const p=raceProbabilities(r.rows,w),wins=r.rows.map(x=>r.winners.includes(x.number)?1/r.winners.filter(n=>r.rows.some(y=>y.number===n)).length:0);
+    for(const i of idx){let s=0;for(let k=0;k<r.rows.length;k++)s+=(wins[k]-p[k])*r.rows[k].x[i];g[i]+=s;}
+   }
+   for(const i of idx){const gi=g[i]/data.length/sd[i]-l2*u[i];m[i]=.9*m[i]+.1*gi;v[i]=.999*v[i]+.001*gi*gi;u[i]+=rate*(m[i]/(1-.9**t))/(Math.sqrt(v[i]/(1-.999**t))+1e-8);w[i]=u[i]/sd[i];}
+  }
+  return w;
+ };
+ let seed=7;const rnd=()=>(seed=(seed*1664525+1013904223)%4294967296)/4294967296;
+ const races=Array.from({length:120},(_,i)=>{const n=i%17===0?1:2+i%7,rows=Array.from({length:n},(_,k)=>({number:String(k+1),x:FEATURE_NAMES.map((_,f)=>(rnd()-.5)*(f%5+1))}));
+  return {rows,winners:i%13===0?['99']:i%11===0&&n>2?['1','2','99']:[String(1+Math.floor(rnd()*n))]};});
+ const some=['net','kg','agf','surfaceWin'];
+ for(const [use,opt] of [[FEATURE_NAMES,{iterations:60}],[some,{iterations:60}],[some,{iterations:60,scale:false}],[['agf'],{iterations:60,l2:0}]]){
+  const fast=fitConditionalLogit(races,use,opt),plain=plainFit(races,use,opt);
+  assert.ok(Array.isArray(fast)&&fast.length===FEATURE_NAMES.length);fast.forEach((v,i)=>assert.ok(Math.abs(v-plain[i])<1e-9,FEATURE_NAMES[i]));assert.ok(fast.some(v=>v!==0));
+ }
+ assert.ok(fitConditionalLogit(races.filter(r=>r.rows.length===1),['net']).every(v=>v===0),'no usable race leaves every weight at 0');
+});
