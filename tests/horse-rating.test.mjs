@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {finishingPrefix,compareFinish,createHorseRatingEngine,createMeetingIndex,distanceBucket,RATING_POLICY} from '../dist/horse-rating.mjs';
-import {careerProfile,raceFeatures,raceProbabilities,fitConditionalLogit,scoreForecasts,FEATURE_NAMES} from '../dist/horse-model.mjs';
+import {careerProfile,raceFeatures,raceProbabilities,fitConditionalLogit,scoreForecasts,thinData,FEATURE_NAMES} from '../dist/horse-model.mjs';
 const e=(horseId,place,o={})=>({horseId,number:String(horseId),name:'AT'+horseId,status:'RUNNER',place,kg:56,...o});
 const race=(date,o={})=>({date,surface:'DIRT',distance:1400,breed:'TB',...o});
 test('finishing prefix stops at the first gap; unknown horses are behind the known prefix only',()=>{
@@ -54,6 +54,12 @@ test('career preference, race-centred features, conditional logit and scoring',(
  assert.ok(w.every((v,i)=>i===h||v===0),'unused features keep weight 0');
  const s=scoreForecasts([{probs:[.6,.4],rows:[{number:'1',odds:2},{number:'2',odds:3}],winners:['1']},{probs:[.6,.4],rows:[{number:'1',odds:2},{number:'2',odds:3}],winners:['2']}],{edge:1.1});
  assert.equal(s.top1,.5);assert.equal(s.topRoi,0);assert.equal(s.valueBets,4);assert.ok(Math.abs(s.valueRoi-(5/4-1))<1e-12);
+});
+test('a horse counts as little data below three past starts; a start without a place or on the race day does not count',()=>{
+ const at=(date,place)=>({date,place,surface:'DIRT',distance:1400}),day={date:'2026-11-04',surface:'DIRT',distance:1400},starts=runs=>careerProfile(runs,day).starts;
+ assert.equal(thinData(starts([])),true);assert.equal(thinData(starts([at('2026-05-24',10),at('2026-10-18',9)])),true);
+ assert.equal(thinData(starts([at('2026-05-24',10),at('2026-10-18',9),at('2026-10-20',null),at('2026-11-04',1)])),true);
+ assert.equal(thinData(starts([at('2026-05-24',10),at('2026-09-01',4),at('2026-10-18',9)])),false);
 });
 test('the typed-array fit gives the same weights as the plain per-race fit: dead heats, skipped races, both L2 scalings',()=>{
  // The fit as first written, on the row objects: the reference for what the fast version must keep computing.

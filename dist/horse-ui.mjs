@@ -59,8 +59,9 @@ function raceCard(race,settled){
   const rules=r.rules.length?`<div class="hz-rules">${r.rules.map(x=>`<span class="hz-rule ${x.applied?'applied':''}" title="${esc(x.text)}">${x.applied?'Kural':'İzlemede'} ${pts(x.weight)}</span>`).join('')}</div>`:'';
   const cand=r.candidate?`<span class="hz-cand" title="AGF'de ilk 3 dışında; model AGF payının çok üstünde görüyor">Sürpriz adayı</span>`:'';
   const dry=r.drought?`<span class="hz-dry" title="Son ilk 3'ünden bu yana koşu sayısı. 2024–2026'da 3–5 koşudur ilk 3'e giremeyen atlar %6, 6+ koşudur giremeyenler %4 kazandı (son koşusu ilk 3 olanlar %17).">${r.drought.never?`Hiç ilk 3 yok · ${r.drought.runs} koşu`:`${r.drought.runs} koşudur ilk 3 yok`}</span>`:'';
+  const thin=r.thin?`<span class="hz-thin-tag" title="Geçmiş koşusu 3'ten az: at hakkında net bilgi yok, tahmini temkinli okuyun.">${r.starts?`Az veri · ${r.starts} koşu`:'Az veri · ilk koşu'}</span>`:'';
   return `<tr class="${won?'hz-winner':''}"><td class="hz-rank">${i+1}</td><td class="hz-no">${esc(r.number)}</td>
-   <td class="hz-name"><b>${esc(r.name)}</b>${r.jockey?`<small>${esc(r.jockey)}</small>`:''}${cand}${dry}${rules}</td>
+   <td class="hz-name"><b${r.thin?' class="hz-thin"':''}>${esc(r.name)}</b>${r.jockey?`<small>${esc(r.jockey)}</small>`:''}${cand}${thin}${dry}${rules}</td>
    <td class="hz-prob"><div class="hz-bar"><span style="width:${(100*r.prob/max).toFixed(1)}%"></span></div><b>${pct(r.prob)}</b></td>
    <td>${signed(r.rating.base)} <small class="hz-muted">/ ${signed(r.rating.surface)} / ${signed(r.rating.distance)}</small><small class="hz-sub">${r.rating.starts} ağ koşusu</small></td>
    <td>${pref(r.pref.surface)}${surfaceRecord(r.surfaces,race.surface)}</td><td>${pref(r.pref.distance)}</td><td class="hz-runs">${lastRuns(r.last)}</td>

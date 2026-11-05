@@ -34,6 +34,8 @@ export const MODEL_SETS={
  obsidianGalopsuz:FEATURE_NAMES.filter(f=>!GALLOP_FEATURES.includes(f)),
  obsidian:FEATURE_NAMES,
 };
+/** Fewer past starts than this: too little to know the horse from, shown as "az veri" on the card. Display only, not a model input. */
+export const thinData=starts=>starts<3;
 const placeScore=p=>p>0?1/p:0,PRIOR=3;
 /** DIRT (kum), TURF (çim) or AWT (sentetik, Tapeta included). */
 export const surfaceGroup=s=>s==='TAPETA'?'AWT':s==='DIRT'||s==='TURF'||s==='AWT'?s:null;

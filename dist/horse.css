@@ -39,4 +39,5 @@
 @media(max-width:640px){.hz-kpis.big b{font-size:26px}.hz-race-head h2{font-size:16px}.hz-bar{width:44px}}
 .hz-cand{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;letter-spacing:.3px;padding:1px 7px;border-radius:4px;color:var(--orange);border:1px solid #7a5a3a;background:#e7ab8014}
 .hz-dry{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;letter-spacing:.3px;padding:1px 7px;border-radius:4px;color:var(--muted);border:1px solid var(--border);background:#98a79c0d}.hz-cand+.hz-dry{margin-left:4px}
+.hz-name b.hz-thin{color:#ff5c57;font-weight:800}.hz-thin-tag{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;letter-spacing:.3px;padding:1px 7px;border-radius:4px;color:#ff5c57;border:1px solid #ff5c5766;background:#ff5c5712;cursor:help}.hz-cand+.hz-thin-tag{margin-left:4px}
 .hz-risk{color:var(--muted)}.hz-risk.mid{color:var(--orange);border-color:#7a5a3a}.hz-risk.high{color:var(--red);border-color:#6e3f3e;background:#ef9b9812}

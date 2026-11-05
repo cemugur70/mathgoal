@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createHorseRatingEngine,createMeetingIndex,distanceBucket} from '../dist/horse-rating.mjs';
-import {raceFeatures,raceProbabilities,FEATURE_NAMES} from '../dist/horse-model.mjs';
+import {raceFeatures,raceProbabilities,FEATURE_NAMES,thinData} from '../dist/horse-model.mjs';
 import {normalizeRacePage,SURFACES} from '../dist/horse-data.mjs';
 import {ruleSignals} from '../dist/horse-rules.mjs';
 import {createLiderformClient,createGallopClient,CITIES} from './liderform-source.mjs';
@@ -43,7 +43,8 @@ function raceRecord(race,entries,{ratings,rules,watched,weights,surpriseWeights,
   return {number:r.number,name:r.name,prob:r3(probs[i]),netProb:r3(net?.prob),rating:{base:r3(g.base),surface:r3(g.surface),distance:r3(g.distance),starts:g.starts},
    pref:{surface:{v:r3(p.surface.value),n:p.surface.n},distance:{v:r3(p.distance.value),n:p.distance.n}},surfaces:p.surfaces,last:p.lastPlaces,
    // Three or more starts in a row outside the first three: shown as a warning, not a model input (the blend already prices it).
-   drought:p.sinceTop3>=3?{runs:p.sinceTop3,never:!p.everTop3}:null,start:e?.start??null,kg:e?.kg??null,
+   // Starts for the "little data" mark: the larger of the runs with a known place and the runs the rating network saw (the latest place can still be unknown).
+   drought:p.sinceTop3>=3?{runs:p.sinceTop3,never:!p.everTop3}:null,starts:Math.max(p.starts,g.starts),thin:thinData(Math.max(p.starts,g.starts)),start:e?.start??null,kg:e?.kg??null,
    jockey:e?.jockey??null,handicap:e?.handicap??null,point:e?.point??null,agf:e?.agf1??null,odds:e?.odds??null,place:e?.place??null,candidate:candidates.has(r.number),rules:hits};
  }).sort((a,b)=>b.prob-a.prob);
  const network=meetingIndex.fieldNetwork(entries,date).filter(p=>p.meetings.length||p.commonOpponents)
