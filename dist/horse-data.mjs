@@ -51,7 +51,9 @@ export function normalizeRacePage(page,{date,city,number}){
    // Only finishing positions confirmed by the dividends text are set here; other places come from later past-run records.
    place:race.winners?.includes(String(e.horse_number))?1:placeIndex>0?placeIndex+1:null,comment:e.comments_preview?.[0]?.text??null};
  });
- const runs=page.raceData.flatMap(e=>(e.races||[]).filter(x=>x.meeting_date&&x.meeting_date<race.date).map(x=>({horseId:num(e.horse?.id),date:x.meeting_date,trackCode:x.track?.track_code||null,
-  place:num(x.horse_place),surface:x.surface,distance:num(x.distance_meters),handicap:num(x.handicap),timing:x.timing||null,ahead:x.distance_ahead||null})));
+ // A start on the pooled "KARMA" card is also listed under its real track; only the real listing is kept.
+ const runs=page.raceData.flatMap(e=>{const past=(e.races||[]).filter(x=>x.meeting_date&&x.meeting_date<race.date),real=x=>x.track?.track_code!=='TUR_KRM';
+  return past.filter(x=>real(x)||!past.some(y=>y.meeting_date===x.meeting_date&&real(y))).map(x=>({horseId:num(e.horse?.id),date:x.meeting_date,trackCode:x.track?.track_code||null,
+  place:num(x.horse_place),surface:x.surface,distance:num(x.distance_meters),handicap:num(x.handicap),timing:x.timing||null,ahead:x.distance_ahead||null}));});
  return {race,entries,runs};
 }

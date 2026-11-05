@@ -78,7 +78,7 @@ for(const date of upcoming.filter(d=>d>range.to)){
   for(const n of first.raceTimeList.map(r=>r.race_number)){
    const t=normalizeRacePage(n===1?first:await program(date,city,n),{date,city,number:n});if(!t)continue;
    if(gallopPars)await attachGallops(t,date,city,n);
-   for(const u of t.runs){const runs=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!runs.some(y=>y.date===u.date&&y.trackCode===u.trackCode))runs.push(u);}
+   for(const u of t.runs){const runs=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!runs.some(y=>y.date===u.date))runs.push(u);}
    list.push(raceRecord(t.race,t.entries,{ratings:engine.predict(t.race,t.entries),rules:ruleSignals(t.race,t.entries,model.ruleWeights.production),
     watched:ruleSignals(t.race,t.entries,model.ruleWeights.discovery),weights:model.production,surpriseWeights:model.surprise?.production,date}));
   }

@@ -24,6 +24,13 @@ test('a race page normalizes to rows; past runs on or after the race date are dr
  assert.equal(normalizeRacePage(page,{date:'2026-11-01',city:'istanbul',number:6}),null);
  assert.equal(extractPageProps('<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"a":1}}}</script>').a,1);assert.equal(extractPageProps('<html></html>'),null);
 });
+test('a start also listed on the pooled KARMA card counts once, under its real track; a KARMA-only listing stays',()=>{
+ const run=(date,code,place)=>({meeting_date:date,horse_place:place,track:{track_code:code}});
+ const page={raceTimeList:[{id:9,race_number:1,meeting_date:'2026-11-04',race_status:'PROGRAM',race_type:'MAIDEN',surface:'AWT',distance_meters:1400,track:{track_code:'TUR_IST'}}],
+  raceData:[horse(1,{races:[run('2026-10-18','TUR_KRM',9),run('2026-10-18','TUR_IST',9),run('2026-05-24','TUR_IST',10),run('2026-05-24','TUR_KRM',10),run('2026-03-01','TUR_KRM',4)]}),horse(2,{races:[run('2026-10-18','TUR_KRM',2)]})]};
+ const {runs}=normalizeRacePage(page,{date:'2026-11-04',city:'istanbul',number:1});
+ assert.deepEqual(runs.map(r=>[r.horseId,r.date,r.trackCode,r.place]),[[1001,'2026-10-18','TUR_IST',9],[1001,'2026-05-24','TUR_IST',10],[1001,'2026-03-01','TUR_KRM',4],[1002,'2026-10-18','TUR_KRM',2]]);
+});
 const entry=(number,o)=>({number:String(number),status:'RUNNER',odds:null,agf1:null,handicap:null,point:null,kg:null,start:number,...o});
 test('ranks share ties, skip missing values and exclude non-runners',()=>{
  const c=raceContext({},[entry(1,{odds:2,handicap:70,kg:58}),entry(2,{odds:2,handicap:65,kg:52}),entry(3,{odds:9,handicap:null,kg:55}),entry(4,{odds:1,status:'NONRUNNER'})]);

@@ -24,7 +24,7 @@ const page=await createLiderformClient({cache:path.join(dir,'cache')})(date,city
 if(page.notFound)throw Error('Koşu sayfası bulunamadı.');
 const target=normalizeRacePage(page,{date,city,number});if(!target)throw Error('Koşu sayfasında bu koşu yok.');
 // The target page's own "last runs" fill career gaps (other tracks) for horses missing from the archive.
-for(const u of target.runs){const list=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!list.some(x=>x.date===u.date&&x.trackCode===u.trackCode))list.push(u);}
+for(const u of target.runs){const list=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!list.some(x=>x.date===u.date))list.push(u);}
 attachSpeedFigures(runsByHorse,breedByHorse,buildSpeedPars(runsByHorse,breedByHorse));
 const engine=createHorseRatingEngine(model.policy),past=races.filter(x=>x.race.date<date&&x.race.status==='RESULT');
 const connections=createConnectionStats();
