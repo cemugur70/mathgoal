@@ -5,7 +5,9 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createHorseRatingEngine,createMeetingIndex,distanceBucket} from '../dist/horse-rating.mjs';
-import {raceFeatures,raceProbabilities,blendMarket} from '../dist/horse-model.mjs';
+import {raceFeatures,raceProbabilities,blendMarket,FEATURE_NAMES} from '../dist/horse-model.mjs';
+import {loadEnsemble,ensembleProbabilities} from '../dist/horse-gbdt.mjs';
+import {livePriceProbs,minutesToOff} from '../dist/horse-odds.mjs';
 import {normalizeRacePage,SURFACES} from '../dist/horse-data.mjs';
 import {ruleSignals} from '../dist/horse-rules.mjs';
 import {createLiderformClient,createGallopClient} from './liderform-source.mjs';
@@ -38,9 +40,13 @@ const applied=ruleSignals(race,entries,model.ruleWeights?.production),watched=ru
 const ratings=engine.predict(race,entries),rows=raceFeatures(race,entries,{ratings,runsByHorse,rules:applied,connections,pedigree:createSirePreference(runsByHorse,sireByHorse)});
 const hasAgf=entries.some(e=>e.agf1>0),set=hasAgf?'obsidian':'piyasasiz',base=raceProbabilities(rows,model.production[set]),netProbs=ratings.map(r=>r.prob);
 const agfRows=rows.map(r=>({number:r.number,agf:entries.find(e=>e.number===r.number)?.agf1??null}));
-// The surprise model was fitted on the probabilities before the market blend.
+// The surprise model was fitted on the logit probabilities.
 const risk=model.surprise?surpriseRisk(surpriseInputs(race,agfRows,base),model.surprise.production):null,candidates=model.surprise?surpriseCandidates(agfRows,base,model.surprise.candidates):[];
-const probs=blendMarket(base,agfRows.map(r=>r.agf),model.marketBlend?.production);
+const agf=agfRows.map(r=>r.agf),ensemble=loadEnsemble(await readFile(path.join(dir,'horse-gbdt.json'),'utf8').catch(()=>null),FEATURE_NAMES);
+const modelProbs=ensemble?ensembleProbabilities(rows,base,agf,ensemble.live):blendMarket(base,agf,model.marketBlend?.production);
+// A race without AGF takes the current price, as on the page.
+const oddsLayer=ensemble?await readFile(path.join(dir,'horse-odds-layer.json'),'utf8').then(JSON.parse).catch(()=>null):null;
+const odds=rows.map(r=>entries.find(e=>e.number===r.number)?.odds??null),probs=livePriceProbs(modelProbs,{odds,agf,minutes:minutesToOff(race.time,Date.now()),table:oddsLayer?.live})?.probs??modelProbs;
 const net=createMeetingIndex(past).fieldNetwork(entries,date);
 const ranked=rows.map((r,i)=>({...r,prob:probs[i],netProb:netProbs[i],entry:entries.find(e=>e.number===r.number)})).sort((a,b)=>b.prob-a.prob);
 const pct=v=>(100*v).toFixed(1)+'%',sg=v=>(v>0?'+':'')+v.toFixed(2),B={kisa:'kısa',mil:'mil',orta:'orta',uzun:'uzun'};

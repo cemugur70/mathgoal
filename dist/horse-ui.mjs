@@ -4,11 +4,12 @@ const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const pct=(v,d=1)=>v==null?'–':(100*v).toFixed(d).replace('.',',')+'%';
 const signed=(v,d=2)=>v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(d).replace('.',',');
+const num=(v,d)=>v==null?'–':(d==null?String(v):v.toFixed(d)).replace('.',',');
 const pts=v=>v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(100*v).toFixed(1).replace('.',',');
 const CITY={istanbul:'İstanbul',ankara:'Ankara',izmir:'İzmir',bursa:'Bursa',adana:'Adana'},BREED={TB:'İngiliz',AR:'Arap'},BUCKET={kisa:'kısa',mil:'mil',orta:'orta',uzun:'uzun'};
 const AGE={'2O':'2 yaşlı','3O':'3 yaşlı','3U':'3 ve yukarı','4U':'4 ve yukarı'};
-const MODEL_NAMES={uniform:'Tekdüze (rastgele at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',obsidianHizsiz:'Obsidian, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız',obsidianEski:'Obsidian, ilk özellik seti (jokey/antrenör, galop ve pist kaydı olmadan)',obsidianPistsiz:'Obsidian, ayrıntılı pist kaydı olmadan',obsidianJokeysiz:'Obsidian, jokey AGF üstü başarısı olmadan',obsidianGalopsuz:'Obsidian + kurallar, galop olmadan',obsidian:'Obsidian + kurallar',obsidianSentez:'Obsidian + AGF sentezi (sitede kullanılan)',closingOdds:'Kapanış ganyanı (yarış öncesi bilinmez)'};
-const TITLES={program:'Yarış programı',surprise:'Sürpriz analizi',model:'Model doğrulama',rules:'Kural backtest\'i'};
+const MODEL_NAMES={uniform:'Tekdüze (rastgele at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',obsidianHizsiz:'Obsidian, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız',obsidianEski:'Obsidian, ilk özellik seti (jokey/antrenör, galop ve pist kaydı olmadan)',obsidianPistsiz:'Obsidian, ayrıntılı pist kaydı olmadan',obsidianJokeysiz:'Obsidian, jokey AGF üstü başarısı olmadan',obsidianGalopsuz:'Obsidian + kurallar, galop olmadan',obsidian:'Obsidian + kurallar',obsidianSentez:'Obsidian + AGF sentezi; AGF yoksa piyasasız',obsidianAgac:'Obsidian + ağaç katmanı + AGF',obsidianOran:'Obsidian + ağaç + AGF; AGF yoksa canlı ganyan (sitede kullanılan)',closingOdds:'Kapanış ganyanı (yarış öncesi bilinmez)'};
+const TITLES={program:'Yarış programı',odds:'Ganyan analizi',surprise:'Sürpriz analizi',model:'Model doğrulama',rules:'Kural backtest\'i'};
 const longDate=d=>new Date(d+'T12:00:00Z').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',weekday:'long'});
 // liderform race times are GMT without a zone suffix.
 const raceClock=t=>new Date(/Z|[+-]\d\d:?\d\d$/.test(t)?t:t+'Z').toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Istanbul'});
@@ -20,7 +21,7 @@ const json=async url=>{const r=await fetch(url,{cache:'no-cache'});if(!r.ok)thro
 
 function show(view){
  for(const b of document.querySelectorAll('.nav[data-view]'))b.classList.toggle('active',b.dataset.view===view);
- for(const v of ['program','surprise','model','rules'])$('#view-'+v).classList.toggle('hidden',v!==view);
+ for(const v of ['program','odds','surprise','model','rules'])$('#view-'+v).classList.toggle('hidden',v!==view);
  $('#view-title').textContent=TITLES[view];
 }
 
@@ -52,6 +53,12 @@ function networkHtml(race){
 
 const riskTag=race=>race.surprise?`<span class="tag hz-risk ${race.surprise.level==='yüksek'?'high':race.surprise.level==='orta'?'mid':''}" title="Kazananın ganyanının 10 TL ve üstü olma olasılığı">SÜRPRİZ RİSKİ ${esc(race.surprise.level.toLocaleUpperCase('tr-TR'))} · ${pct(race.surprise.risk,0)}</span>`:'';
 
+// How the model reads the ganyan favourite, with what that group did in the validation period.
+const FAV_CLASS={'güçlü':'strong','zayıf':'weak'},favHistory=level=>state.summary.odds?.favourite.levels.find(l=>l.key===level);
+const oddsTag=race=>race.oddsLayer?`<span class="tag" title="Bu koşuda AGF olmadığı için olasılıklara son yenilemedeki ganyan oranı katıldı${race.oddsLayer.minutes>0?` (yarıştan ${race.oddsLayer.minutes} dk önce)`:''}. Oran yarışa kadar değişebilir.">CANLI GANYAN</span>`:'';
+const favTag=race=>{const f=race.favourite;if(!f)return '';const h=favHistory(f.level);
+ return `<span class="tag hz-fav ${FAV_CLASS[f.level]??''}" title="Ganyan favorisi #${esc(f.number)} ${esc(f.name)}: oran ${num(f.odds)}, piyasa payı ${pct(f.share)}, ${race.oddsLayer?'oran katılmadan model':'model'} ${pct(f.prob)}.${h?` Geçmişte bu gruptaki favoriler %${(100*h.winRate).toFixed(1).replace('.',',')} kazandı.`:''}">FAVORİ #${esc(f.number)} ${esc(f.level.toLocaleUpperCase('tr-TR'))}</span>`;};
+
 function raceCard(race,settled){
  const max=Math.max(...race.runners.map(r=>r.prob));
  const meta=[race.label,`${race.surface} ${race.distance} m (${BUCKET[race.bucket]??''})`,BREED[race.breed]??race.breed,AGE[race.age]??race.age].filter(Boolean).map(esc).join(' · ');
@@ -65,11 +72,11 @@ function raceCard(race,settled){
    <td class="hz-prob"><div class="hz-bar"><span style="width:${(100*r.prob/max).toFixed(1)}%"></span></div><b>${pct(r.prob)}</b></td>
    <td>${signed(r.rating.base)} <small class="hz-muted">/ ${signed(r.rating.surface)} / ${signed(r.rating.distance)}</small><small class="hz-sub">${r.rating.starts} ağ koşusu</small></td>
    <td>${pref(r.pref.surface)}${surfaceRecord(r.surfaces,race.surface)}</td><td>${pref(r.pref.distance)}</td><td class="hz-runs">${lastRuns(r.last)}</td>
-   <td>${r.kg??'–'}</td><td>${r.handicap??'–'}</td><td>${r.agf==null?'–':String(r.agf).replace('.',',')}</td><td>${r.odds==null?'–':String(r.odds).replace('.',',')}</td>
+   <td>${r.kg??'–'}</td><td>${r.handicap??'–'}</td><td>${r.agf==null?'–':String(r.agf).replace('.',',')}</td><td>${r.odds==null?'–':String(r.odds).replace('.',',')}</td><td class="${r.value!=null&&r.value<.6?'hz-down':''}">${num(r.value,2)}</td>
    ${settled?`<td>${placeBadge(won?1:r.place)}</td>`:''}</tr>`;}).join('');
  return `<section class="card spaced hz-race" id="race-${esc(race.id)}"><div class="hz-race-head"><div><h2>${esc(CITY[race.city]??race.city)} · ${esc(race.number)}. koşu${race.time?` <span class="hz-time">${esc(raceClock(race.time))}</span>`:''}</h2><p>${meta}</p></div>
-  <div class="hz-race-tags">${riskTag(race)}<span class="tag">${race.model==='obsidian'?'OBSIDIAN':'OBSIDIAN · AGF YOK'}</span>${verdict(race)}</div></div>
-  <div class="table-wrap"><table class="hz-table"><thead><tr><th>Sıra</th><th>#</th><th>At</th><th>Kazanma olasılığı</th><th>Ağ rating'i <small>genel / pist / mesafe</small></th><th>Pist tercihi <small>koşu · 1. / ilk 3</small></th><th>Mesafe tercihi</th><th>Son dereceler</th><th>Kg</th><th>Hnd</th><th>AGF %</th><th>Ganyan</th>${settled?'<th>Derece</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="hz-race-tags">${riskTag(race)}${favTag(race)}<span class="tag">${race.model==='obsidian'?'OBSIDIAN':'OBSIDIAN · AGF YOK'}</span>${oddsTag(race)}${verdict(race)}</div></div>
+  <div class="table-wrap"><table class="hz-table"><thead><tr><th>Sıra</th><th>#</th><th>At</th><th>Kazanma olasılığı</th><th>Ağ rating'i <small>genel / pist / mesafe</small></th><th>Pist tercihi <small>koşu · 1. / ilk 3</small></th><th>Mesafe tercihi</th><th>Son dereceler</th><th>Kg</th><th>Hnd</th><th>AGF %</th><th>Ganyan</th><th title="Kazanma olasılığı × ganyan. 1 üstü, modelin oranı piyasadan yüksek gördüğünü söyler; bahis önerisi değildir. Ganyan analizi sayfasına bakın.">Değer</th>${settled?'<th>Derece</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>
   <details class="hz-details"><summary>Kim kimi geçti · rakip ağı</summary>${networkHtml(race)}</details></section>`;
 }
 
@@ -82,7 +89,7 @@ async function renderProgram(){
  const options=s.days.map(d=>`<option value="${d.date}" ${d.date===state.day?'selected':''}>${esc(shortDate(d.date))} · ${d.kind==='live'?(d.date>istanbulToday()?'yarının programı':'bugünün programı'):`${d.top1}/${d.races} isabet`}</option>`).join('');
  const summary=settled.length?`<div class="hz-kpis"><div><span>1. tahmin kazandı</span><b>${top1}/${settled.length}</b><small>${pct(top1/settled.length,0)}</small></div><div><span>Kazanan ilk 3 tahminde</span><b>${top3}/${settled.length}</b><small>${pct(top3/settled.length,0)}</small></div><div><span>Koşu</span><b>${races.length}</b><small>${races.length-settled.length?`${races.length-settled.length} sonuç bekliyor`:'hepsi sonuçlandı'}</small></div></div>`:'';
  const note=data.kind==='live'
-  ?`<p class="inline-note">Güncel program: rating'ler ${esc(s.range.to)} dahil tüm sonuçlanmış koşulardan, ağırlıklar tüm dönemden öğrenildi. Kurallardan yalnızca iki backtest döneminde de doğrulananlar olasılığı etkiler. AGF ve ganyan yayın anındaki değerlerdir.</p>`
+  ?`<p class="inline-note">Güncel program: rating'ler ${esc(s.range.to)} dahil tüm sonuçlanmış koşulardan, ağırlıklar tüm dönemden öğrenildi. Kurallardan yalnızca iki backtest döneminde de doğrulananlar olasılığı etkiler. AGF, ganyan ve değer yayın anındaki oranlarladır; yarış günü değişir, erken saatlerde çok oynaktır.</p>`
   :`<p class="inline-note">Geriye dönük tahmin: her koşu yalnızca o günden önceki koşularla ve ${esc(s.split)} öncesinde öğrenilmiş ağırlıklarla tahmin edildi; model bu sonuçları görmedi. Ganyan kapanış değeridir ve modele girmez.</p>`;
  $('#view-program').innerHTML=`<div class="hz-toolbar card"><label>Gün<select id="hz-day">${options}</select></label>
   <div class="pill-row hz-cities" role="group" aria-label="Hipodrom">${['all',...cities].map(c=>`<button class="hz-chip ${c===state.city?'active':''}" data-city="${c}">${c==='all'?'Tümü':esc(CITY[c]??c)}</button>`).join('')}</div></div>
@@ -94,16 +101,16 @@ async function renderProgram(){
 
 // ---------- Model ----------
 function renderModel(){
- const s=state.summary,order=['uniform','handikap','ag','agTercih','hiz','piyasasiz','agf','obsidianHizsiz','obsidianEski','obsidianKuralsiz','obsidianGalopsuz','obsidianJokeysiz','obsidianPistsiz','obsidian','obsidianSentez','closingOdds'];
- const best=s.confirmation.obsidianSentez??s.confirmation.obsidian,mkt=s.confirmation.closingOdds,net=s.confirmation.ag;
- const row=k=>{const m=s.confirmation[k];if(!m)return '';return `<tr class="${k==='obsidianSentez'?'hz-best':k==='closingOdds'?'hz-ref':''}"><td>${esc(MODEL_NAMES[k])}</td><td>${m.races}</td>
+ const s=state.summary,order=['uniform','handikap','ag','agTercih','hiz','piyasasiz','agf','obsidianHizsiz','obsidianEski','obsidianKuralsiz','obsidianGalopsuz','obsidianJokeysiz','obsidianPistsiz','obsidian','obsidianSentez','obsidianAgac','obsidianOran','closingOdds'];
+ const bestKey=['obsidianOran','obsidianAgac','obsidianSentez','obsidian'].find(k=>s.confirmation[k]),best=s.confirmation[bestKey],mkt=s.confirmation.closingOdds,net=s.confirmation.ag;
+ const row=k=>{const m=s.confirmation[k];if(!m)return '';return `<tr class="${k===bestKey?'hz-best':k==='closingOdds'?'hz-ref':''}"><td>${esc(MODEL_NAMES[k])}</td><td>${m.races}</td>
   <td class="hz-prob"><div class="hz-bar"><span style="width:${(100*m.top1/0.45).toFixed(1)}%"></span></div><b>${pct(m.top1)}</b></td><td>${pct(m.top3)}</td><td>${m.logLoss.toFixed(3).replace('.',',')}</td><td class="hz-down">${pct(m.topRoi)}</td></tr>`;};
  const breed=k=>{const b=s.byBreed[k];if(!b)return '';return `<tr><td>${esc(MODEL_NAMES[k])}</td><td>${pct(b.TB?.top1)}</td><td>${pct(b.AR?.top1)}</td></tr>`;};
  $('#view-model').innerHTML=`<div class="hz-kpis big"><div><span>Obsidian 1. tahmin</span><b>${pct(best.top1)}</b><small>${best.races} doğrulama koşusu</small></div><div><span>Kazanan ilk 3 tahminde</span><b>${pct(best.top3)}</b><small>Obsidian</small></div><div><span>Yalnız rakip ağı</span><b>${pct(net.top1)}</b><small>piyasa bilgisi olmadan</small></div><div><span>Kapanış favorisi</span><b>${pct(mkt.top1)}</b><small>yarış öncesi bilinmez</small></div></div>
  <section class="card spaced"><div class="card-title"><h2>Doğrulama dönemi · modelin hiç görmediği koşular</h2><span class="tag">${esc(s.split)} VE SONRASI</span></div>
   <div class="table-wrap"><table><thead><tr><th>Model</th><th>Koşu</th><th>1. tahmin kazandı</th><th>İlk 3'te</th><th>Log-kayıp</th><th>ROI · 1. tahmine 1 TL</th></tr></thead><tbody>${order.map(row).join('')}</tbody></table></div>
   <p class="inline-note">Ağırlıklar ${esc(s.range.from)} – ${esc(s.split)} arasında öğrenildi, ${esc(s.split)} sonrasında sınandı. Log-kayıp düşük olan daha iyi olasılık verir. Hipodrom kesintisi yüzünden hiçbir yöntemin ROI'si artı değil: model kazananı sık bilir ama bunu piyasa da bilir.</p></section>
- <div class="grid hz-two spaced"><section class="card"><div class="card-title"><h2>Irka göre · 1. tahmin</h2></div><div class="table-wrap"><table><thead><tr><th>Model</th><th>İngiliz</th><th>Arap</th></tr></thead><tbody>${['ag','piyasasiz','obsidian','obsidianSentez','closingOdds'].map(breed).join('')}</tbody></table></div></section>
+ <div class="grid hz-two spaced"><section class="card"><div class="card-title"><h2>Irka göre · 1. tahmin</h2></div><div class="table-wrap"><table><thead><tr><th>Model</th><th>İngiliz</th><th>Arap</th></tr></thead><tbody>${['ag','piyasasiz','obsidian','obsidianSentez','obsidianAgac','obsidianOran','closingOdds'].map(breed).join('')}</tbody></table></div></section>
  <section class="card"><div class="card-title"><h2>Yöntem</h2></div><ol class="hz-method">
   <li><b>Kim kimi geçti:</b> her geçmiş koşuda bilinen dereceler; aynı koşudaki her at çifti bir karşılaşmadır.</li>
   <li><b>Rakip ağı rating'i:</b> Plackett–Luce. Güçlü atı geçen çok, zayıfı geçen az puan kazanır; güç ortak rakipler üzerinden yayılır. Tüm yurt içi hipodromlardan öğrenilir.</li>
@@ -111,7 +118,33 @@ function renderModel(){
   <li><b>Hız puanı:</b> atın bitiş derecesi, aynı ırk, hipodrom, pist ve mesafedeki tipik dereceyle karşılaştırılır ve o günün pist koşuluna göre düzeltilir (1000 m başına saniye).</li>
   <li><b>Obsidian:</b> ağ rating'i, tercihler, kilo, handikap, puan, form, dinlenme, hız puanı, apranti, jokey ve antrenör formu, jokeyin AGF üstü başarısı (genel ve ırka göre), mesafe değişimi, koşulan pistteki ayrıntılı kayıt ve baba pist tercihi, galop dereceleri ve yarış öncesi AGF'yi koşu içi softmax ile birleştirir. Handikaplarda ve 11+ atlı koşularda AGF ile ağ rating'ine ayrı ağırlık verir.</li>
   <li><b>Kurallar:</b> yalnızca backtest'in iki döneminde de tutarlı çıkanlar modele girer.</li>
-  <li><b>Piyasa sentezi:</b> Obsidian olasılığı ile AGF payı ikinci bir aşamada birleştirilir; katsayılar modelin görmediği dönemde öğrenilir. AGF'si olmayan koşularda uygulanmaz. Sürpriz riski ve adayları sentez öncesi olasılığı kullanır.</li></ol></section></div>`;
+  <li><b>Piyasa sentezi:</b> Obsidian olasılığı ile AGF payı ikinci bir aşamada birleştirilir; katsayılar modelin görmediği dönemde öğrenilir. AGF'si olmayan koşularda uygulanmaz.</li>
+  <li><b>Ağaç katmanı:</b> aynı özelliklerle koşu içinde gruplanmış gradient boosting; atın yalnız kazanmasından değil, bilinen ilk dört dereceden de öğrenir. Sitedeki olasılık, AGF'li koşularda ağaçlar ile AGF'nin, AGF'si olmayan koşularda piyasasız ağaçlar ile piyasasız Obsidian'ın birleşimidir. Sürpriz riski ve adayları bu aşamalardan önceki olasılığı kullanır.</li>
+  <li><b>Canlı ganyan:</b> AGF'si olmayan koşularda son yenilemedeki ganyan oranı olasılığa katılır; yarışa yaklaştıkça ağırlığı artar. Tablodaki satır bu fiyatı doğrulama döneminde ölçer; geçmiş günlerin kartları oran katılmadan gösterilir. AGF'li koşularda kazanç ölçülmediği için kullanılmaz. Değer ve favori okuması oran katılmadan önceki olasılığı kullanır.</li></ol></section></div>`;
+}
+
+// ---------- Ganyan ----------
+async function renderOdds(){
+ const O=state.summary.odds;if(!O){$('#view-odds').innerHTML='<p class="inline-note">Ganyan raporu henüz üretilmedi.</p>';return;}
+ const today=state.summary.days.find(d=>d.kind==='live'&&d.date===istanbulToday())??state.summary.days.find(d=>d.kind==='live');
+ const data=today?state.cache.get(today.date)??await json(`/data/horse/day-${today.date}.json`):null;if(today)state.cache.set(today.date,data);
+ const open=(data?.races??[]).filter(r=>!r.winners&&r.favourite);
+ const head='<thead><tr><th></th><th>At</th><th>Kazandı</th><th>Gerçek kazanma</th><th>Piyasa payı</th><th>Model</th><th>ROI · ata 1 TL</th><th>ROI aralığı</th></tr></thead>';
+ const row=s=>`<tr><td>${esc(s.key)}</td><td>${s.runners}</td><td>${s.wins}</td><td class="hz-prob"><div class="hz-bar"><span style="width:${Math.min(100,100*s.winRate/.5).toFixed(1)}%"></span></div><b>${pct(s.winRate)}</b></td><td>${pct(s.share)}</td><td>${pct(s.model)}</td><td class="hz-down">${pct(s.roi)}</td><td class="hz-muted">${pct(s.roiCi[0],0)} / ${pct(s.roiCi[1],0)}</td></tr>`;
+ const table=(title,list,note='')=>`<section class="card spaced"><div class="card-title"><h2>${esc(title)}</h2></div><div class="table-wrap"><table>${head}<tbody>${list.map(row).join('')}</tbody></table></div>${note?`<p class="inline-note">${note}</p>`:''}</section>`;
+ const level=k=>O.favourite.levels.find(l=>l.key===k),T=O.withOdds,kpi=(name,s)=>s?`<div><span>${esc(name)}</span><b>${pct(s.winRate)}</b><small>${s.runners} koşu · ROI ${pct(s.roi)}</small></div>`:'';
+ const test=(name,t)=>t?`<tr><td>${esc(name)}</td><td>${t.races}</td><td>${num(t.site.logLoss,3)}</td><td>${num(t.ganyan.logLoss,3)}</td><td>${num(t.mixed.logLoss,3)}</td><td class="${t.ci[1]<0?'hz-up':''}">${signed(t.diff,3)} <small class="hz-muted">(${signed(t.ci[0],3)} / ${signed(t.ci[1],3)})</small></td><td>${pct(t.site.top1)} → ${pct(t.mixed.top1)}</td></tr>`:'';
+ $('#view-odds').innerHTML=`<div class="hz-kpis big"><div><span>1/oran toplamı</span><b>${num(O.overround,2)}</b><small>ortanca · 1'in üstü piyasanın kesintisi</small></div>${kpi('Tüm favoriler',O.favourite.all)}${kpi('Güçlü favori',level('güçlü'))}${kpi('Zayıf favori',level('zayıf'))}</div>
+ <section class="card spaced"><div class="card-title"><h2>${today?`${esc(shortDate(today.date))} · bekleyen koşularda favori`:'Bekleyen koşu yok'}</h2><span class="tag">YAYIN ANINDAKİ ORAN</span></div>
+  ${open.length?`<div class="table-wrap"><table><thead><tr><th>Koşu</th><th>Favori</th><th>Ganyan</th><th>Piyasa payı</th><th>Model</th><th>Model / piyasa</th><th>Durum</th><th>Modelin 1. seçimi</th></tr></thead><tbody>${open.map(r=>{const f=r.favourite,m=r.runners[0];return `<tr><td>${esc(CITY[r.city]??r.city)} ${esc(r.number)}.${r.time?` <small class="hz-muted">${esc(raceClock(r.time))}</small>`:''}</td><td>#${esc(f.number)} ${esc(f.name)}</td><td>${num(f.odds)}</td><td>${pct(f.share)}</td><td>${pct(f.prob)}</td><td>${num(f.ratio,2)}</td><td><span class="tag hz-fav ${FAV_CLASS[f.level]??''}">${esc(f.level.toLocaleUpperCase('tr-TR'))}</span></td><td>${f.agrees?'<span class="hz-muted">favori</span>':`#${esc((f.pick??m).number)} ${esc((f.pick??m).name)}`}</td></tr>`;}).join('')}</tbody></table></div>
+  <p class="inline-note">Oranlar son yenilemedeki değerlerdir ve yarışa kadar değişir; havuz küçükken bir oran dakikalar içinde iki katına çıkabilir. Kapanışa yakın okuma daha anlamlıdır.</p>`:'<p class="inline-note">Şu an oranı açıklanmış, sonucu bekleyen koşu yok.</p>'}</section>
+ ${table('Favori ne kadar güçlü?',O.favourite.levels.map(l=>({...l,key:`${l.key[0].toLocaleUpperCase('tr-TR')}${l.key.slice(1)}${l.key==='zayıf'?' (model / piyasa 0,9 altı)':l.key==='güçlü'?' (1,1 ve üstü)':' (0,9–1,1)'}`})).concat(O.favourite.agreement),'Model favoriye piyasadan az pay verdiğinde favori gerçekten daha az kazanıyor. Yine de model bu durumda abartır: gerçek kazanma oranı modelle piyasanın arasında kalır.')}
+ ${table('Ganyan bandına göre tüm atlar',O.bands,'Kesinti yüzünden her bant zararda. Yüksek oranlı atlar, piyasa paylarının altında kazanır ve en çok zarar ettiren gruptur.')}
+ ${table('Değer bandına göre tüm atlar (olasılık × ganyan)',O.value,'Düşük değerli atlar net biçimde en kötü gruptur. Yüksek değer ise kâr demek değildir: bu bantlarda model abartılıdır ve aralığı sıfırın net üstünde kalan bant yoktur.')}
+ <section class="card spaced"><div class="card-title"><h2>Ganyan modele girse?</h2><span class="tag">ÜST SINIR · MODELDE DEĞİL</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Koşular</th><th>Koşu</th><th>Site</th><th>Yalnız ganyan</th><th>Site × ganyan</th><th>Fark (aralık)</th><th>1. tahmin</th></tr></thead><tbody>${test("AGF'li",T.agf)}${test("AGF'siz",T.free)}</tbody></table></div>
+  <p class="inline-note">Log-kayıp, düşük olan iyi. Üsler dönemin ilk yarısında (${esc(O.half)} öncesi) öğrenildi, ikinci yarıda sınandı. Kapanış ganyanı yarıştan önce bilinmediği için bu kazanç bir üst sınırdır; gerçek değerini yarış öncesi oran kayıtları birikince ölçeceğiz.</p></section>
+ <p class="inline-note">${esc(O.from)} – ${esc(O.to)} arasında ${O.races} koşu; olasılıklar modelin görmediği koşular içindir, ganyan kapanış değeridir. Bu sayfa geçmişi anlatır, bahis önerisi değildir.</p>`;
 }
 
 // ---------- Surprise ----------
@@ -148,7 +181,7 @@ async function start(){
   // Opens on today's programme (the newest published day otherwise); only the hippodrome filter is remembered.
   state.day=(days.find(d=>d.date===istanbulToday())??days[0]).date;state.city=store.get('hz-city')||'all';
   $('#archive-tag').innerHTML=`<span class="live-dot"></span> ${esc(state.summary.range.from)} – ${esc(state.summary.range.to)}`;
-  await renderProgram();renderSurprise();renderModel();renderRules();
+  await renderProgram();await renderOdds();renderSurprise();renderModel();renderRules();
   for(const b of document.querySelectorAll('.nav[data-view]'))b.onclick=()=>show(b.dataset.view);
   $('#loading').classList.add('hidden');$('#app').classList.remove('hidden');
  }catch(error){$('#loading').classList.add('hidden');const e=$('#error');e.textContent=`At yarışı verisi yüklenemedi: ${error.message}. Önce "npm run horse:publish" çalıştırın.`;e.classList.remove('hidden');}
