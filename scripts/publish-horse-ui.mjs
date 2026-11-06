@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createHorseRatingEngine,createMeetingIndex,distanceBucket} from '../dist/horse-rating.mjs';
-import {raceFeatures,raceProbabilities,FEATURE_NAMES,thinData} from '../dist/horse-model.mjs';
+import {raceFeatures,raceProbabilities,blendMarket,FEATURE_NAMES,thinData} from '../dist/horse-model.mjs';
 import {normalizeRacePage,SURFACES} from '../dist/horse-data.mjs';
 import {ruleSignals} from '../dist/horse-rules.mjs';
 import {createLiderformClient,createGallopClient,CITIES} from './liderform-source.mjs';
@@ -32,11 +32,13 @@ const meetingIndex=createMeetingIndex(finished);
 const r3=v=>v==null?null:+v.toFixed(3);
 
 /** One race as the page shows it: runners ranked by model probability, rule hits, and the strongest head-to-head pairs. */
-function raceRecord(race,entries,{ratings,rules,watched,weights,surpriseWeights,date}){
- const rows=raceFeatures(race,entries,{ratings,runsByHorse,rules,connections,pedigree}),set=entries.some(e=>e.agf1>0)?'obsidian':'piyasasiz',probs=raceProbabilities(rows,weights[set]);
+function raceRecord(race,entries,{ratings,rules,watched,weights,surpriseWeights,blend,date}){
+ const rows=raceFeatures(race,entries,{ratings,runsByHorse,rules,connections,pedigree}),set=entries.some(e=>e.agf1>0)?'obsidian':'piyasasiz',base=raceProbabilities(rows,weights[set]);
  // Long-shot risk of the race and the horses outside the AGF top 3 that the model rates well above their AGF share.
+ // These were fitted and judged on the probabilities before the market blend, so they keep using them; the page shows the blended ones.
  const agfRows=rows.map(r=>({number:r.number,agf:entries.find(e=>e.number===r.number)?.agf1??null}));
- const risk=surpriseWeights?surpriseRisk(surpriseInputs(race,agfRows,probs),surpriseWeights):null,candidates=new Set(surpriseWeights?surpriseCandidates(agfRows,probs,model.surprise.candidates):[]);
+ const risk=surpriseWeights?surpriseRisk(surpriseInputs(race,agfRows,base),surpriseWeights):null,candidates=new Set(surpriseWeights?surpriseCandidates(agfRows,base,model.surprise.candidates):[]);
+ const probs=blendMarket(base,agfRows.map(r=>r.agf),blend);
  const runners=rows.map((r,i)=>{const e=entries.find(x=>x.number===r.number),g=r.rating,p=r.profile,net=ratings.find(x=>x.number===r.number);
   const hits=[...rules.get(r.number).rules.map(x=>({text:x.text,weight:r3(x.weight),applied:true})),
    ...watched.get(r.number).rules.filter(x=>!rules.get(r.number).rules.some(y=>y.id===x.id)).map(x=>({text:x.text,weight:r3(x.weight),applied:false}))];
@@ -62,7 +64,7 @@ for(const x of finished){
  if(x.race.date!==day){flush();day=x.race.date;}
  if(shown.has(day)&&predicted(x)){
   const ratings=engine.predict(x.race,x.entries),rules=ruleSignals(x.race,x.entries,model.ruleWeights.discovery);
-  (byDay.get(day)??byDay.set(day,[]).get(day)).push(raceRecord(x.race,x.entries,{ratings,rules,watched:rules,weights:discWeights,surpriseWeights:model.surprise?.weights,date:day}));
+  (byDay.get(day)??byDay.set(day,[]).get(day)).push(raceRecord(x.race,x.entries,{ratings,rules,watched:rules,weights:discWeights,surpriseWeights:model.surprise?.weights,blend:model.marketBlend?.discovery,date:day}));
  }
  pending.push(x);
 }
@@ -81,7 +83,7 @@ for(const date of upcoming.filter(d=>d>range.to)){
    if(gallopPars)await attachGallops(t,date,city,n);
    for(const u of t.runs){const runs=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!runs.some(y=>y.date===u.date))runs.push(u);}
    list.push(raceRecord(t.race,t.entries,{ratings:engine.predict(t.race,t.entries),rules:ruleSignals(t.race,t.entries,model.ruleWeights.production),
-    watched:ruleSignals(t.race,t.entries,model.ruleWeights.discovery),weights:model.production,surpriseWeights:model.surprise?.production,date}));
+    watched:ruleSignals(t.race,t.entries,model.ruleWeights.discovery),weights:model.production,surpriseWeights:model.surprise?.production,blend:model.marketBlend?.production,date}));
   }
  }
  if(list.length)live.set(date,list);

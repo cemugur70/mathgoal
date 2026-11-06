@@ -124,6 +124,42 @@ export function fitConditionalLogit(races,use,{l2=.01,iterations=400,rate=.05,sc
  for(let k=0;k<K;k++)out[idx[k]]=w[k];
  return out;
 }
+/** AGF percentages as shares of the race; a runner without AGF gets a small floor. Null when the race has no AGF at all. */
+export function agfShares(agf,floor=.05){
+ if(!agf.some(v=>v>0))return null;
+ const s=agf.map(v=>v>0?v:floor),z=s.reduce((a,v)=>a+v,0);
+ return s.map(v=>v/z);
+}
+/** Second stage (Benter): p^alpha · agf^theta, normalised within the race. Without AGF or a fitted blend the probabilities pass through. */
+export function blendMarket(probs,agf,blend){
+ const m=blend?agfShares(agf):null;if(!m)return probs;
+ const s=probs.map((p,i)=>blend.alpha*Math.log(Math.max(p,1e-6))+blend.theta*Math.log(m[i])),top=Math.max(...s),ex=s.map(v=>Math.exp(v-top)),z=ex.reduce((a,v)=>a+v,0);
+ return ex.map(v=>v/z);
+}
+/**
+ * Fits alpha and theta by Newton's method on the winner log-likelihood, without a penalty. `races` = [{probs, agf, rows, winners}].
+ * The probabilities must come from weights that did not see these races, or alpha comes out too high.
+ */
+export function fitMarketBlend(races){
+ const data=races.filter(r=>r.rows.length>1&&r.agf.some(v=>v>0)&&r.rows.some(x=>r.winners.includes(x.number))).map(r=>{
+  const m=agfShares(r.agf),n=r.rows.filter(x=>r.winners.includes(x.number)).length;
+  return {a:r.probs.map(p=>Math.log(Math.max(p,1e-6))),b:m.map(Math.log),y:r.rows.map(x=>r.winners.includes(x.number)?1/n:0)};});
+ if(!data.length)return {alpha:1,theta:0};
+ let alpha=.5,theta=.5;
+ for(let it=0;it<30;it++){
+  let ga=0,gb=0,haa=0,hab=0,hbb=0;
+  for(const {a,b,y} of data){
+   const s=a.map((v,i)=>alpha*v+theta*b[i]),top=Math.max(...s),ex=s.map(v=>Math.exp(v-top)),z=ex.reduce((t,v)=>t+v,0);
+   let ma=0,mb=0,aa=0,ab=0,bb=0;
+   for(let i=0;i<a.length;i++){const p=ex[i]/z;ga+=y[i]*a[i];gb+=y[i]*b[i];ma+=p*a[i];mb+=p*b[i];aa+=p*a[i]*a[i];ab+=p*a[i]*b[i];bb+=p*b[i]*b[i];}
+   ga-=ma;gb-=mb;haa+=aa-ma*ma;hab+=ab-ma*mb;hbb+=bb-mb*mb;
+  }
+  const det=haa*hbb-hab*hab,da=(hbb*ga-hab*gb)/det,db=(haa*gb-hab*ga)/det;
+  alpha+=da;theta+=db;
+  if(Math.max(Math.abs(da),Math.abs(db))<1e-7)break;
+ }
+ return {alpha:+alpha.toFixed(4),theta:+theta.toFixed(4)};
+}
 /**
  * Out-of-sample metrics for probability forecasts. ROI uses a 1 TL win stake at the official final ganyan (equal to the paid dividend):
  * "top" bets the most likely horse in every race; "value" bets every horse whose probability × final ganyan ≥ `edge`.

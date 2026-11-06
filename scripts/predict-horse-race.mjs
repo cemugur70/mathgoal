@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createHorseRatingEngine,createMeetingIndex,distanceBucket} from '../dist/horse-rating.mjs';
-import {raceFeatures,raceProbabilities} from '../dist/horse-model.mjs';
+import {raceFeatures,raceProbabilities,blendMarket} from '../dist/horse-model.mjs';
 import {normalizeRacePage,SURFACES} from '../dist/horse-data.mjs';
 import {ruleSignals} from '../dist/horse-rules.mjs';
 import {createLiderformClient,createGallopClient} from './liderform-source.mjs';
@@ -36,9 +36,11 @@ if(gallopPage?.runners){const byNo=new Map(gallopPage.runners.map(r=>[String(r.n
 // Applied rules (confirmed in both backtest periods) move the probability; watched rules (discovery only) are shown, not used.
 const applied=ruleSignals(race,entries,model.ruleWeights?.production),watched=ruleSignals(race,entries,model.ruleWeights?.discovery);
 const ratings=engine.predict(race,entries),rows=raceFeatures(race,entries,{ratings,runsByHorse,rules:applied,connections,pedigree:createSirePreference(runsByHorse,sireByHorse)});
-const hasAgf=entries.some(e=>e.agf1>0),set=hasAgf?'obsidian':'piyasasiz',probs=raceProbabilities(rows,model.production[set]),netProbs=ratings.map(r=>r.prob);
+const hasAgf=entries.some(e=>e.agf1>0),set=hasAgf?'obsidian':'piyasasiz',base=raceProbabilities(rows,model.production[set]),netProbs=ratings.map(r=>r.prob);
 const agfRows=rows.map(r=>({number:r.number,agf:entries.find(e=>e.number===r.number)?.agf1??null}));
-const risk=model.surprise?surpriseRisk(surpriseInputs(race,agfRows,probs),model.surprise.production):null,candidates=model.surprise?surpriseCandidates(agfRows,probs,model.surprise.candidates):[];
+// The surprise model was fitted on the probabilities before the market blend.
+const risk=model.surprise?surpriseRisk(surpriseInputs(race,agfRows,base),model.surprise.production):null,candidates=model.surprise?surpriseCandidates(agfRows,base,model.surprise.candidates):[];
+const probs=blendMarket(base,agfRows.map(r=>r.agf),model.marketBlend?.production);
 const net=createMeetingIndex(past).fieldNetwork(entries,date);
 const ranked=rows.map((r,i)=>({...r,prob:probs[i],netProb:netProbs[i],entry:entries.find(e=>e.number===r.number)})).sort((a,b)=>b.prob-a.prob);
 const pct=v=>(100*v).toFixed(1)+'%',sg=v=>(v>0?'+':'')+v.toFixed(2),B={kisa:'kısa',mil:'mil',orta:'orta',uzun:'uzun'};

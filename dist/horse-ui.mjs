@@ -7,7 +7,7 @@ const signed=(v,d=2)=>v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(d
 const pts=v=>v==null?'–':(v>0?'+':v<0?'−':'')+Math.abs(100*v).toFixed(1).replace('.',',');
 const CITY={istanbul:'İstanbul',ankara:'Ankara',izmir:'İzmir',bursa:'Bursa',adana:'Adana'},BREED={TB:'İngiliz',AR:'Arap'},BUCKET={kisa:'kısa',mil:'mil',orta:'orta',uzun:'uzun'};
 const AGE={'2O':'2 yaşlı','3O':'3 yaşlı','3U':'3 ve yukarı','4U':'4 ve yukarı'};
-const MODEL_NAMES={uniform:'Tekdüze (rastgele at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',obsidianHizsiz:'Obsidian, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız',obsidianEski:'Obsidian, ilk özellik seti (jokey/antrenör, galop ve pist kaydı olmadan)',obsidianPistsiz:'Obsidian, ayrıntılı pist kaydı olmadan',obsidianJokeysiz:'Obsidian, jokey AGF üstü başarısı olmadan',obsidianGalopsuz:'Obsidian + kurallar, galop olmadan',obsidian:'Obsidian + kurallar',closingOdds:'Kapanış ganyanı (yarış öncesi bilinmez)'};
+const MODEL_NAMES={uniform:'Tekdüze (rastgele at)',handikap:'Yalnız handikap',ag:'Rakip ağı rating\'i',agTercih:'Ağ + pist/mesafe tercihi + kilo',hiz:'Yalnız hız puanı',obsidianHizsiz:'Obsidian, hız puanı olmadan',piyasasiz:'Obsidian, piyasasız (AGF hariç)',agf:'Yalnız AGF',obsidianKuralsiz:'Obsidian, kuralsız',obsidianEski:'Obsidian, ilk özellik seti (jokey/antrenör, galop ve pist kaydı olmadan)',obsidianPistsiz:'Obsidian, ayrıntılı pist kaydı olmadan',obsidianJokeysiz:'Obsidian, jokey AGF üstü başarısı olmadan',obsidianGalopsuz:'Obsidian + kurallar, galop olmadan',obsidian:'Obsidian + kurallar',obsidianSentez:'Obsidian + AGF sentezi (sitede kullanılan)',closingOdds:'Kapanış ganyanı (yarış öncesi bilinmez)'};
 const TITLES={program:'Yarış programı',surprise:'Sürpriz analizi',model:'Model doğrulama',rules:'Kural backtest\'i'};
 const longDate=d=>new Date(d+'T12:00:00Z').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',weekday:'long'});
 // liderform race times are GMT without a zone suffix.
@@ -94,23 +94,24 @@ async function renderProgram(){
 
 // ---------- Model ----------
 function renderModel(){
- const s=state.summary,order=['uniform','handikap','ag','agTercih','hiz','piyasasiz','agf','obsidianHizsiz','obsidianEski','obsidianKuralsiz','obsidianGalopsuz','obsidianJokeysiz','obsidianPistsiz','obsidian','closingOdds'];
- const best=s.confirmation.obsidian,mkt=s.confirmation.closingOdds,net=s.confirmation.ag;
- const row=k=>{const m=s.confirmation[k];if(!m)return '';return `<tr class="${k==='obsidian'?'hz-best':k==='closingOdds'?'hz-ref':''}"><td>${esc(MODEL_NAMES[k])}</td><td>${m.races}</td>
+ const s=state.summary,order=['uniform','handikap','ag','agTercih','hiz','piyasasiz','agf','obsidianHizsiz','obsidianEski','obsidianKuralsiz','obsidianGalopsuz','obsidianJokeysiz','obsidianPistsiz','obsidian','obsidianSentez','closingOdds'];
+ const best=s.confirmation.obsidianSentez??s.confirmation.obsidian,mkt=s.confirmation.closingOdds,net=s.confirmation.ag;
+ const row=k=>{const m=s.confirmation[k];if(!m)return '';return `<tr class="${k==='obsidianSentez'?'hz-best':k==='closingOdds'?'hz-ref':''}"><td>${esc(MODEL_NAMES[k])}</td><td>${m.races}</td>
   <td class="hz-prob"><div class="hz-bar"><span style="width:${(100*m.top1/0.45).toFixed(1)}%"></span></div><b>${pct(m.top1)}</b></td><td>${pct(m.top3)}</td><td>${m.logLoss.toFixed(3).replace('.',',')}</td><td class="hz-down">${pct(m.topRoi)}</td></tr>`;};
  const breed=k=>{const b=s.byBreed[k];if(!b)return '';return `<tr><td>${esc(MODEL_NAMES[k])}</td><td>${pct(b.TB?.top1)}</td><td>${pct(b.AR?.top1)}</td></tr>`;};
  $('#view-model').innerHTML=`<div class="hz-kpis big"><div><span>Obsidian 1. tahmin</span><b>${pct(best.top1)}</b><small>${best.races} doğrulama koşusu</small></div><div><span>Kazanan ilk 3 tahminde</span><b>${pct(best.top3)}</b><small>Obsidian</small></div><div><span>Yalnız rakip ağı</span><b>${pct(net.top1)}</b><small>piyasa bilgisi olmadan</small></div><div><span>Kapanış favorisi</span><b>${pct(mkt.top1)}</b><small>yarış öncesi bilinmez</small></div></div>
  <section class="card spaced"><div class="card-title"><h2>Doğrulama dönemi · modelin hiç görmediği koşular</h2><span class="tag">${esc(s.split)} VE SONRASI</span></div>
   <div class="table-wrap"><table><thead><tr><th>Model</th><th>Koşu</th><th>1. tahmin kazandı</th><th>İlk 3'te</th><th>Log-kayıp</th><th>ROI · 1. tahmine 1 TL</th></tr></thead><tbody>${order.map(row).join('')}</tbody></table></div>
   <p class="inline-note">Ağırlıklar ${esc(s.range.from)} – ${esc(s.split)} arasında öğrenildi, ${esc(s.split)} sonrasında sınandı. Log-kayıp düşük olan daha iyi olasılık verir. Hipodrom kesintisi yüzünden hiçbir yöntemin ROI'si artı değil: model kazananı sık bilir ama bunu piyasa da bilir.</p></section>
- <div class="grid hz-two spaced"><section class="card"><div class="card-title"><h2>Irka göre · 1. tahmin</h2></div><div class="table-wrap"><table><thead><tr><th>Model</th><th>İngiliz</th><th>Arap</th></tr></thead><tbody>${['ag','piyasasiz','obsidian','closingOdds'].map(breed).join('')}</tbody></table></div></section>
+ <div class="grid hz-two spaced"><section class="card"><div class="card-title"><h2>Irka göre · 1. tahmin</h2></div><div class="table-wrap"><table><thead><tr><th>Model</th><th>İngiliz</th><th>Arap</th></tr></thead><tbody>${['ag','piyasasiz','obsidian','obsidianSentez','closingOdds'].map(breed).join('')}</tbody></table></div></section>
  <section class="card"><div class="card-title"><h2>Yöntem</h2></div><ol class="hz-method">
   <li><b>Kim kimi geçti:</b> her geçmiş koşuda bilinen dereceler; aynı koşudaki her at çifti bir karşılaşmadır.</li>
   <li><b>Rakip ağı rating'i:</b> Plackett–Luce. Güçlü atı geçen çok, zayıfı geçen az puan kazanır; güç ortak rakipler üzerinden yayılır. Tüm yurt içi hipodromlardan öğrenilir.</li>
   <li><b>Pist ve mesafe tercihi:</b> rakip gücüne göre düzeltilmiş çim / kum / sentetik ve kısa / mil / orta / uzun sapmaları, artı kariyer kaydı.</li>
   <li><b>Hız puanı:</b> atın bitiş derecesi, aynı ırk, hipodrom, pist ve mesafedeki tipik dereceyle karşılaştırılır ve o günün pist koşuluna göre düzeltilir (1000 m başına saniye).</li>
   <li><b>Obsidian:</b> ağ rating'i, tercihler, kilo, handikap, puan, form, dinlenme, hız puanı, apranti, jokey ve antrenör formu, jokeyin AGF üstü başarısı (genel ve ırka göre), mesafe değişimi, koşulan pistteki ayrıntılı kayıt ve baba pist tercihi, galop dereceleri ve yarış öncesi AGF'yi koşu içi softmax ile birleştirir. Handikaplarda ve 11+ atlı koşularda AGF ile ağ rating'ine ayrı ağırlık verir.</li>
-  <li><b>Kurallar:</b> yalnızca backtest'in iki döneminde de tutarlı çıkanlar modele girer.</li></ol></section></div>`;
+  <li><b>Kurallar:</b> yalnızca backtest'in iki döneminde de tutarlı çıkanlar modele girer.</li>
+  <li><b>Piyasa sentezi:</b> Obsidian olasılığı ile AGF payı ikinci bir aşamada birleştirilir; katsayılar modelin görmediği dönemde öğrenilir. AGF'si olmayan koşularda uygulanmaz. Sürpriz riski ve adayları sentez öncesi olasılığı kullanır.</li></ol></section></div>`;
 }
 
 // ---------- Surprise ----------
