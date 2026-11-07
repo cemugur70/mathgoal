@@ -65,10 +65,11 @@ function raceCard(race,settled){
  const rows=race.runners.map((r,i)=>{const won=race.winners?.includes(r.number);
   const rules=r.rules.length?`<div class="hz-rules">${r.rules.map(x=>`<span class="hz-rule ${x.applied?'applied':''}" title="${esc(x.text)}">${x.applied?'Kural':'İzlemede'} ${pts(x.weight)}</span>`).join('')}</div>`:'';
   const cand=r.candidate?`<span class="hz-cand" title="AGF'de ilk 3 dışında; model AGF payının çok üstünde görüyor">Sürpriz adayı</span>`:'';
+  const long=r.longshot?`<span class="hz-cand hz-long" title="Deneme. Ganyanı 10 ve üstü; skor kapanış fiyatının bilmediği bir şans görüyor. Geçmişte adaylar kazanç sağlamadı, kâr garantisi yok.">Uzun atış · deneme</span>`:'';
   const dry=r.drought?`<span class="hz-dry" title="Son ilk 3'ünden bu yana koşu sayısı. 2024–2026'da 3–5 koşudur ilk 3'e giremeyen atlar %6, 6+ koşudur giremeyenler %4 kazandı (son koşusu ilk 3 olanlar %17).">${r.drought.never?`Hiç ilk 3 yok · ${r.drought.runs} koşu`:`${r.drought.runs} koşudur ilk 3 yok`}</span>`:'';
   const thin=r.thin?`<span class="hz-thin-tag" title="Geçmiş koşusu 3'ten az: at hakkında net bilgi yok, tahmini temkinli okuyun.">${r.starts?`Az veri · ${r.starts} koşu`:'Az veri · ilk koşu'}</span>`:'';
   return `<tr class="${won?'hz-winner':''}"><td class="hz-rank">${i+1}</td><td class="hz-no">${esc(r.number)}</td>
-   <td class="hz-name"><b${r.thin?' class="hz-thin"':''}>${esc(r.name)}</b>${r.jockey?`<small>${esc(r.jockey)}</small>`:''}${cand}${thin}${dry}${rules}</td>
+   <td class="hz-name"><b${r.thin?' class="hz-thin"':''}>${esc(r.name)}</b>${r.jockey?`<small>${esc(r.jockey)}</small>`:''}${cand}${long}${thin}${dry}${rules}</td>
    <td class="hz-prob"><div class="hz-bar"><span style="width:${(100*r.prob/max).toFixed(1)}%"></span></div><b>${pct(r.prob)}</b></td>
    <td>${signed(r.rating.base)} <small class="hz-muted">/ ${signed(r.rating.surface)} / ${signed(r.rating.distance)}</small><small class="hz-sub">${r.rating.starts} ağ koşusu</small></td>
    <td>${pref(r.pref.surface)}${surfaceRecord(r.surfaces,race.surface)}</td><td>${pref(r.pref.distance)}</td><td class="hz-runs">${lastRuns(r.last)}</td>
@@ -148,14 +149,29 @@ async function renderOdds(){
 }
 
 // ---------- Surprise ----------
-function renderSurprise(){
+async function longshotSection(){
+ const L=state.summary.longshot;if(!L)return '';
+ const today=state.summary.days.find(d=>d.kind==='live'&&d.date===istanbulToday())??state.summary.days.find(d=>d.kind==='live');
+ const data=today?state.cache.get(today.date)??await json(`/data/horse/day-${today.date}.json`):null;if(today)state.cache.set(today.date,data);
+ const picks=(data?.races??[]).flatMap(r=>r.runners.filter(x=>x.longshot).map(x=>({r,x}))),F=L.forward,V=F.verdict;
+ const line=(name,c)=>`<tr><td>${esc(name)}</td><td>${c.bets}</td><td>${c.wins}</td><td>${pct(c.winRate)}</td><td>${num(c.ratio,2)}${c.ratioCi?` <small class="hz-muted">(${num(c.ratioCi[0],2)} – ${num(c.ratioCi[1],2)})</small>`:''}</td><td class="${c.roi>=0?'hz-up':'hz-down'}">${pct(c.roi)}${c.roiCi?` <small class="hz-muted">(${pct(c.roiCi[0],0)} / ${pct(c.roiCi[1],0)})</small>`:''}</td></tr>`;
+ const status=V.state==='gecti'?'Kuralı geçti':V.state==='kaldi'?'Kuralı geçemedi':`Bekliyor · ${F.candidates.bets} / ${L.minBets} aday`;
+ return `<section class="card spaced"><div class="card-title"><h2>${today?`${esc(shortDate(today.date))} · uzun atış adayları`:'Uzun atış adayları'}</h2><span class="tag">DENEME</span></div>
+  ${picks.length?`<div class="table-wrap"><table><thead><tr><th>Koşu</th><th>At</th><th>Ganyan</th><th>Model</th><th>Sonuç</th></tr></thead><tbody>${picks.map(({r,x})=>`<tr class="${r.winners?.includes(x.number)?'hz-winner':''}"><td>${esc(CITY[r.city]??r.city)} ${esc(r.number)}.${r.time?` <small class="hz-muted">${esc(raceClock(r.time))}</small>`:''}</td><td>#${esc(x.number)} ${esc(x.name)}</td><td>${num(x.odds)}</td><td>${pct(x.prob)}</td><td>${r.winners?(r.winners.includes(x.number)?'Kazandı':'Kazanamadı'):'Bekliyor'}</td></tr>`).join('')}</tbody></table></div>`:`<p class="inline-note">Şu an aday yok. Adaylar yarışa en geç ${L.maxMinutes} dakika kala, tüm atların oranı okununca çıkar.</p>`}
+  <p class="inline-note">Yarış öncesi ganyanı en az 10 olan atlar arasında, kapanış fiyatının bilmediği şansı arayan bir skorun en iyi %10'u. <b>Kâr iddiası yok:</b> oran yarışa kadar değişir, ödeme kapanış oranından yapılır ve geçmişte adaylar kazanç sağlamadı.</p></section>
+ <section class="card spaced"><div class="card-title"><h2>Uzun atış skoru tutuyor mu?</h2><span class="tag">${esc(status.toLocaleUpperCase('tr-TR'))}</span></div>
+  <div class="table-wrap"><table><thead><tr><th>Küme</th><th>At</th><th>Kazandı</th><th>Kazanma</th><th>Kapanışın beklediğine göre</th><th>ROI · ata 1 TL</th></tr></thead><tbody>${line(`Yeni adaylar · ${shortDate(L.frozenFrom)} ve sonrası`,F.candidates)}${line('Eski sürpriz adayları, aynı koşular',F.old)}${line('Tüm uzun atışlar, aynı koşular',F.all)}${line('Geçmiş: 2026 adayları',L.history[2026].candidates)}${line('Geçmiş: 2026 tüm uzun atışlar',L.history[2026].all)}${line('Geçmiş: 2025 adayları',L.history[2025].candidates)}${line('Geçmiş: 2025 tüm uzun atışlar',L.history[2025].all)}</tbody></table></div>
+  <p class="inline-note">Model ${esc(shortDate(L.frozenFrom))} öncesiyle donduruldu; üst satırlar onun hiç görmediği koşulardır. Karar için en az ${L.minBets} aday, beklenene göre oranın alt sınırının 1'in üstünde olması ve ROI'nin eski adaylardan yüksek olması gerekir. Geçmiş satırlardaki 2026, skor geliştirilirken de görüldüğü için tamamen bağımsız değildir.</p></section>`;
+}
+async function renderSurprise(){
  const S=state.summary.surprise;if(!S){$('#view-surprise').innerHTML='<p class="inline-note">Sürpriz modeli henüz eğitilmedi.</p>';return;}
- const R=S.risk,C=S.results,year=esc(state.summary.split.slice(0,4));
+ const R=S.risk,C=S.results,year=esc(state.summary.split.slice(0,4)),longshot=await longshotSection();
  const types=(title,list)=>`<section class="card"><div class="card-title"><h2>${esc(title)}</h2></div><div class="table-wrap"><table><thead><tr><th></th><th>Keşif koşu</th><th>Sürpriz</th><th>${year}+ koşu</th><th>Sürpriz</th></tr></thead><tbody>${list.map(t=>`<tr><td>${esc(t.key)}</td><td>${t.discovery.races}</td>
   <td class="hz-prob"><div class="hz-bar"><span style="width:${Math.min(100,100*t.discovery.rate/.3).toFixed(1)}%"></span></div><b>${pct(t.discovery.rate)}</b></td><td>${t.confirmation.races}</td><td>${pct(t.confirmation.rate)}</td></tr>`).join('')}</tbody></table></div></section>`;
  const cr=(name,c)=>`<tr><td>${esc(name)}</td><td>${c.bets}</td><td>${c.wins}</td><td>${pct(c.winRate)}</td><td class="${c.roi>=0?'hz-up':'hz-down'}">${pct(c.roi)}</td></tr>`;
  $('#view-surprise').innerHTML=`<div class="hz-kpis big"><div><span>Sürpriz oranı</span><b>${pct(R.rate)}</b><small>kazananın ganyanı ≥ ${S.odds} TL · ${R.races} doğrulama koşusu</small></div>
   ${R.levels.map(l=>`<div><span>Risk ${esc(l.level)}</span><b>${pct(l.rate)}</b><small>${l.races} koşu · model ${pct(l.predicted)} dedi</small></div>`).join('')}</div>
+ ${longshot}
  <section class="card spaced"><div class="card-title"><h2>Sürpriz adayları tuttu mu?</h2><span class="tag">${esc(state.summary.split)} VE SONRASI</span></div>
   <div class="table-wrap"><table><thead><tr><th>Küme</th><th>At</th><th>Kazandı</th><th>Kazanma</th><th>ROI · ata 1 TL</th></tr></thead><tbody>${cr('Sürpriz adayları',C.confirmation)}${cr('Adaylar, orta / yüksek riskli koşularda',C.confirmationRisky)}${cr('Karşılaştırma: AGF ilk 3 dışındaki tüm atlar',C.outsideTop3)}${cr('Keşif dönemi adayları (eşik burada seçildi)',C.discovery)}</tbody></table></div>
   <p class="inline-note">Sürpriz adayı: AGF'de ilk 3'te olmayan, model olasılığı en az %${Math.round(100*S.candidates.minProb)} ve AGF payının en az ${String(S.candidates.ratio).replace('.',',')} katı olan at. Risk: kazananın kapanış ganyanının ${S.odds} TL ve üstü olma olasılığı; atlı sayısı, koşu türü, ırk, pist, AGF favorisinin payı ve model olasılıklarının dağınıklığından, yalnız yarış öncesi bilgiyle (AUC ${R.auc==null?'–':R.auc.toFixed(3).replace('.',',')}; 0,5 = şans). ROI kapanış ganyanıyla; hipodrom kesintisi yüzünden eksi olması beklenir, karşılaştırma satırına göre okuyun.</p></section>
@@ -181,7 +197,7 @@ async function start(){
   // Opens on today's programme (the newest published day otherwise); only the hippodrome filter is remembered.
   state.day=(days.find(d=>d.date===istanbulToday())??days[0]).date;state.city=store.get('hz-city')||'all';
   $('#archive-tag').innerHTML=`<span class="live-dot"></span> ${esc(state.summary.range.from)} – ${esc(state.summary.range.to)}`;
-  await renderProgram();await renderOdds();renderSurprise();renderModel();renderRules();
+  await renderProgram();await renderOdds();await renderSurprise();renderModel();renderRules();
   for(const b of document.querySelectorAll('.nav[data-view]'))b.onclick=()=>show(b.dataset.view);
   $('#loading').classList.add('hidden');$('#app').classList.remove('hidden');
  }catch(error){$('#loading').classList.add('hidden');const e=$('#error');e.textContent=`At yarışı verisi yüklenemedi: ${error.message}. Önce "npm run horse:publish" çalıştırın.`;e.classList.remove('hidden');}

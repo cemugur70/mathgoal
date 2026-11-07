@@ -1,4 +1,4 @@
-# Uzun atış skoru (ileriye dönük testte, sitede kullanılmıyor)
+# Uzun atış skoru (ileriye dönük testte, sitede deneme olarak gösteriliyor)
 
 Yarış öncesi ganyanı en az 10 olan atlar arasında, kapanış fiyatının bilmediğini arayan bir skor. Sığ ağaçlar kapanış fiyatının üstüne eğitilir; okuduğu 65 sinyal yarıştan önce bilinir. Skoru eğitim dönemindeki en iyi %10'a giren at adaydır. Ödemeler kapanış fiyatıyla hesaplanır; kendi bahsinin fiyatı düşürmesi hesaba katılmaz. **Kâr iddiası yoktur.**
 
@@ -23,4 +23,6 @@ Model `scripts/horse-longshot-model.json` içinde dondurulmuştur ve 2026-11-06 
 2. Kat aralığının alt sınırı 1'in üstünde olmalıdır.
 3. ROI, aynı koşulardaki eski sürpriz adaylarından yüksek olmalıdır.
 
-Ölçüm: sunucudan kayıtları ve veritabanını yerele alıp `npm run horse:longshotforward`. Geçerse skor sitedeki sürpriz adaylarının yerine önerilir; bunun için sinyalleri canlı yayında üretmek ve 512 MB sınırını sınamak gerekir.
+Sayfa adayları kartlarda "Uzun atış · deneme" olarak, karnesini Sürpriz analizi görünümünde gösterir. Eski sürpriz adayları yerinde kalır. Canlı kartlar yarışa en geç 60 dakika kala o anki fiyatı okur; yarış bittikten sonra kayıtlardaki son fiyata döner, yani sonradan aday yazılmaz. Canlı kartlar üretim kurallarını ve tüm arşivin hız parlarını kullandığı için nadiren karnedeki sonuçtan farklı olabilir; karar karnedeki ölçüme göre verilir.
+
+Ölçüm: sayfadaki karne veya sunucudan kayıtları ve veritabanını yerele alıp `npm run horse:longshotforward`. Geçerse skor sitedeki sürpriz adaylarının yerine önerilir.

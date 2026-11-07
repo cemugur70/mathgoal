@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {LONGSHOT_SIGNALS,createLongshotState,longshotSignals,scaleSignals,signalStats,boostLongshot,longshotScore,longshotPicks,loadLongshot,lastPriceBefore,betSummary,forwardVerdict,FORWARD_MIN_BETS} from '../scripts/horse-longshot-lib.mjs';
+import {LONGSHOT_SIGNALS,createLongshotState,longshotSignals,scaleSignals,signalStats,boostLongshot,longshotScore,longshotPicks,loadLongshot,lastPriceBefore,betSummary,forwardBets,forwardVerdict,FORWARD_MIN_BETS} from '../scripts/horse-longshot-lib.mjs';
 import {FEATURE_NAMES} from '../dist/horse-model.mjs';
 
 const at=name=>LONGSHOT_SIGNALS.indexOf(name);
@@ -66,6 +66,14 @@ test('the summary pays at the closing price and counts the expected wins',()=>{
  const s=betSummary([{meeting:'a',y:1,close:10,expected:.1},{meeting:'a',y:0,close:20,expected:.05},{meeting:'b',y:0,close:10,expected:.1},{meeting:'b',y:0,close:10,expected:.1}]);
  assert.equal(s.bets,4);assert.equal(s.wins,1);assert.ok(Math.abs(s.roi-(10/4-1))<1e-12);assert.ok(Math.abs(s.ratio-1/.35)<1e-12);assert.ok(s.roiCi[0]<=s.roi&&s.roiCi[1]>=s.roi);
  assert.deepEqual(betSummary([]).bets,0);assert.equal(betSummary([]).roi,null);
+});
+test('one race adds its long shots, candidates and old candidates, paid at the closing price',()=>{
+ const stats=LONGSHOT_SIGNALS.map(()=>({m:0,s:1})),frozen={stats,trees:[{f:at('modelRank'),t:.7,l:{v:0},r:{v:2}}],cut:1,nullW:[0,0,0],freeWeights:FEATURE_NAMES.map(()=>0),oldWeights:FEATURE_NAMES.map(()=>0),oldCandidates:{minProb:.99,ratio:1.5}};
+ const f=field({race:{...race,winners:['3']},entries:[entry('1',11,{odds:2}),entry('2',12,{odds:4}),entry('3',13,{odds:30})]}),free=FEATURE_NAMES.map(()=>0);assert.ok(free.length);
+ const bets=forwardBets(frozen,{race:f.race,rows:f.rows,entries:f.entries,prices:[2,4,20],runsByHorse:f.runsByHorse,state:f.state});
+ assert.equal(bets.all.length,1,'only the runner priced at 10 or longer');assert.deepEqual(bets.all[0],{meeting:race.date+'|bursa',y:1,close:30,expected:.5},'the closing price pays, not the price at the read');
+ assert.equal(bets.old.length,0);
+ const none=forwardBets(frozen,{race:f.race,rows:f.rows,entries:f.entries,prices:[2,null,20],runsByHorse:f.runsByHorse,state:f.state});assert.deepEqual(none,{candidates:[],old:[],all:[]},'no full price');
 });
 test('the forward rule waits for enough candidates, then needs both conditions',()=>{
  const c=(bets,lo,roi)=>({bets,ratioCi:[lo,lo+.5],roi});

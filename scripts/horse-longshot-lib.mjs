@@ -1,7 +1,8 @@
-// Long-shot score under forward test; the site does not use it. Boosted shallow trees trained with the closing price as an offset, so the score holds only what the final market misses.
+// Long-shot score under forward test; the page shows its candidates as a trial. Boosted shallow trees trained with the closing price as an offset, so the score holds only what the final market misses.
 // The signals are all known before the off and read the price of that moment, never the closing one. Pure, except enrichArchive, which reads the columns the shared archive loader leaves out.
 import {marketShares} from '../dist/horse-odds.mjs';
-import {FEATURE_NAMES} from '../dist/horse-model.mjs';
+import {FEATURE_NAMES,raceProbabilities} from '../dist/horse-model.mjs';
+import {surpriseCandidates} from '../dist/horse-surprise.mjs';
 
 export const LONGSHOT_MIN_PRICE=10,LONGSHOT_MAX_MINUTES=60,FORWARD_MIN_BETS=500;
 // The order matters: the trees pick columns by position, so a changed order is a different model.
@@ -29,7 +30,7 @@ export function createLongshotState(){
   horse:id=>horses.get(id)??[],day:dayOf,
   jockeyWinRate(id){const o=jockeyRate.get(id);return o?(o[0]+1)/(o[1]+15):null;},
   /** A finished race enters its day's picture at once, since later races of that day may read it. */
-  noteDay(race,entries){const rs=runnersOf(entries);if(!marketShares(rs.map(e=>e.odds)))return;const d=dayOf(race.date,race.city),st=rankShare(rs.map(e=>e.start));rs.forEach((e,i)=>{if(race.winners.includes(e.number)){if(e.odds>=LONGSHOT_MIN_PRICE)d.ls++;d.gates.push(st[i]);}});},
+  noteDay(race,entries){const rs=runnersOf(entries);if(!race.winners||!marketShares(rs.map(e=>e.odds)))return;const d=dayOf(race.date,race.city),st=rankShare(rs.map(e=>e.start));rs.forEach((e,i)=>{if(race.winners.includes(e.number)){if(e.odds>=LONGSHOT_MIN_PRICE)d.ls++;d.gates.push(st[i]);}});},
   /** A finished race enters the records once its day is over. */
   update(race,entries){
    const rs=runnersOf(entries),share=marketShares(rs.map(e=>e.odds)),n=rs.length,rank=share?rankShare(rs.map(e=>e.odds)):null,starts=rankShare(rs.map(e=>e.start));
@@ -131,9 +132,22 @@ export function forwardVerdict(candidates,old,minBets=FORWARD_MIN_BETS){
 }
 /** The stored file; null when there is none or its signal list differs. */
 export function loadLongshot(text){if(!text)return null;const data=JSON.parse(text);return data.signals?.join()===LONGSHOT_SIGNALS.join()?data:null;}
-/** Adds the columns the score reads and the shared archive loader leaves out, under the names the race pages use. */
+/**
+ * What one finished race adds to the forward test: the frozen score's candidates, the old candidates and all long shots, at the prices given. Payouts use the closing price.
+ * `entries` carry the closing odds. Empty unless every runner has a price.
+ */
+export function forwardBets(frozen,{race,rows,entries,prices,runsByHorse,state}){
+ const out={candidates:[],old:[],all:[]},free=raceProbabilities(rows,frozen.freeWeights),signals=longshotSignals({race,rows,entries,free,prices,runsByHorse,state});if(!signals)return out;
+ const meeting=race.date+'|'+race.city,byNumber=new Map(entries.map(e=>[e.number,e])),expected=close=>{const c=-Math.log(close),[a,b,d]=frozen.nullW;return 1/(1+Math.exp(-(a+b*c+d*c*c)));};
+ const bet=r=>{const close=byNumber.get(r.number).odds;return {meeting,y:race.winners.includes(r.number)?1:0,close,expected:expected(close)};};
+ const old=surpriseCandidates(rows.map(r=>({number:r.number,agf:byNumber.get(r.number).agf1??null})),raceProbabilities(rows,frozen.oldWeights),frozen.oldCandidates);
+ rows.forEach((r,i)=>{if(old.includes(r.number))out.old.push(bet(r));if(prices[i]<LONGSHOT_MIN_PRICE)return;out.all.push(bet(r));if(longshotScore(scaleSignals(signals[i],frozen.stats),frozen.trees)>=frozen.cut)out.candidates.push(bet(r));});
+ return out;
+}
+/** Adds the columns the score reads and the shared archive loader leaves out, under the names the race pages use. Reads row by row and shares repeated strings, for the publisher's heap cap. */
 export function enrichArchive(db,races){
- const entries=new Map();for(const e of db.prepare('SELECT race_id,number,handicap_prev,point_prev,equipment,owner FROM entries').iterate())entries.set(e.race_id+'|'+e.number,e);
- const info=new Map();for(const r of db.prepare('SELECT id,prize1,track_code FROM races').iterate())info.set(r.id,r);
- for(const {race,entries:list} of races){const i=info.get(race.id);race.prize1=i?.prize1??null;race.trackCode=i?.track_code??null;for(const e of list){const x=entries.get(race.id+'|'+e.number);e.handicapPrev=x?.handicap_prev??null;e.pointPrev=x?.point_prev??null;e.equipment=x?.equipment??'';e.owner=x?.owner??null;}}
+ const byId=new Map(),names=new Map(),intern=v=>v==null?v:names.get(v)??(names.set(v,v),v);
+ for(const item of races){byId.set(item.race.id,item);for(const e of item.entries){e.handicapPrev=null;e.pointPrev=null;e.equipment='';e.owner=null;}}
+ for(const e of db.prepare('SELECT race_id,number,handicap_prev,point_prev,equipment,owner FROM entries').iterate()){const x=byId.get(e.race_id)?.entries.find(y=>y.number===e.number);if(x){x.handicapPrev=e.handicap_prev;x.pointPrev=e.point_prev;x.equipment=intern(e.equipment??'');x.owner=intern(e.owner);}}
+ for(const r of db.prepare('SELECT id,prize1,track_code FROM races').iterate()){const item=byId.get(r.id);if(item){item.race.prize1=r.prize1;item.race.trackCode=intern(r.track_code);}}
 }

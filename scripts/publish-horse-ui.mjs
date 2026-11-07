@@ -1,7 +1,7 @@
 // Publishes the horse-racing page data to dist/data/horse: the model's validation summary, out-of-sample predictions for the
 // most recent settled race days and predictions for today's and (once published) tomorrow's programme.
 // Usage: node scripts/publish-horse-ui.mjs [--days 21] [--date YYYY-AA-GG]
-import {readFile,writeFile,appendFile,mkdir,rm,rename} from 'node:fs/promises';
+import {readFile,writeFile,appendFile,mkdir,rm,rename,readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
@@ -18,6 +18,7 @@ import {loadHorseArchive} from './horse-archive.mjs';
 import {createConnectionStats} from '../dist/horse-connections.mjs';
 import {createSirePreference} from '../dist/horse-pedigree.mjs';
 import {surpriseInputs,surpriseRisk,surpriseCandidates,riskLevel} from '../dist/horse-surprise.mjs';
+import {createLongshotState,longshotPicks,lastPriceBefore,betSummary,forwardBets,forwardVerdict,loadLongshot,enrichArchive,LONGSHOT_MAX_MINUTES,FORWARD_MIN_BETS} from './horse-longshot-lib.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),dir=path.join(root,'data/horse'),out=path.join(root,'dist/data/horse');
 const arg=k=>{const i=process.argv.indexOf('--'+k);return i>0?process.argv[i+1]:null;};
 const today=new Date().toISOString().slice(0,10),dayCount=Number(arg('days')||21);
@@ -27,7 +28,12 @@ const model=JSON.parse(await readFile(path.join(dir,'horse-model.json'),'utf8'))
 const ensemble=loadEnsemble(await readFile(path.join(dir,'horse-gbdt.json'),'utf8').catch(()=>null),FEATURE_NAMES);
 // Exponents for the current win price on races without AGF. They were measured on the tree layer, so they apply only with it.
 const oddsLayer=ensemble?await readFile(path.join(dir,'horse-odds-layer.json'),'utf8').then(JSON.parse).catch(()=>null):null;
-const {races,runsByHorse,breedByHorse,sireByHorse,gallopPars,range}=loadHorseArchive(new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}));
+// The frozen long-shot score, shown as a trial; without its file the page simply has no such candidates.
+const frozenLongshot=loadLongshot(await readFile(path.join(root,'scripts/horse-longshot-model.json'),'utf8').catch(()=>null)),longshotState=createLongshotState();
+const archiveDb=new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}),{races,runsByHorse,breedByHorse,sireByHorse,gallopPars,range}=loadHorseArchive(archiveDb);if(frozenLongshot)enrichArchive(archiveDb,races);
+// The last price seen before each off since the freeze, from the snapshot log. One snapshot per race is kept, so this stays small as the log grows.
+const snapshotDir=path.join(dir,'odds-snapshots'),lastSnapshot=new Map();
+if(frozenLongshot)for(const f of await readdir(snapshotDir).catch(()=>[])){if(f.slice(0,10)<frozenLongshot.frozenFrom)continue;for(const line of (await readFile(path.join(snapshotDir,f),'utf8')).split('\n')){if(!line)continue;try{const s=JSON.parse(line);if(!s.time||Date.parse(s.at)>=Date.parse(s.time+'Z'))continue;const k=`${s.date}|${s.city}|${s.number}`,o=lastSnapshot.get(k);if(!o||Date.parse(s.at)>Date.parse(o.at))lastSnapshot.set(k,s);}catch{}}}
 // Settled days are shown with pars from the discovery period, matching their weights; live days use pars from the whole archive.
 attachSpeedFigures(runsByHorse,breedByHorse,buildSpeedPars(runsByHorse,breedByHorse,{before:model.split}));
 const finished=races.filter(x=>x.race.status==='RESULT'&&x.race.winners),predicted=x=>x.race.city in CITIES;
@@ -37,6 +43,18 @@ const days=[...new Set(finished.filter(predicted).map(x=>x.race.date))].slice(-d
 const meetingIndex=createMeetingIndex(finished);
 const r3=v=>v==null?null:+v.toFixed(3);
 
+/**
+ * The trial candidates of one race, read from the price known before the off: the current one while the race is near and not yet run, afterwards the last one the log saw.
+ * A finished race never takes the closing price, so a card cannot gain a candidate in hindsight. Null without a usable price.
+ */
+function trialCandidates(race,entries,rows){
+ if(!frozenLongshot||!race.time)return null;
+ const off=Date.parse(/Z$/.test(race.time)?race.time:race.time+'Z'),minutes=minutesToOff(race.time,Date.now()),done=race.winners||race.status==='RESULT',numbers=rows.map(r=>r.number);
+ if(!done&&minutes>LONGSHOT_MAX_MINUTES)return null;
+ const snapshot=lastSnapshot.get(`${race.date}|${race.city}|${race.number}`),prices=!done&&minutes>0?rows.map(r=>entries.find(e=>e.number===r.number)?.odds??null):snapshot?lastPriceBefore([snapshot],off,numbers):null;
+ if(!prices||!prices.every(v=>v>0))return null;
+ return longshotPicks(frozenLongshot,{race,rows,entries,free:raceProbabilities(rows,frozenLongshot.freeWeights),prices,runsByHorse,state:longshotState});
+}
 /** One race as the page shows it: runners ranked by model probability, rule hits, and the strongest head-to-head pairs. */
 function raceRecord(race,entries,{ratings,rules,watched,weights,surpriseWeights,blend,stage,oddsTable,date}){
  const rows=raceFeatures(race,entries,{ratings,runsByHorse,rules,connections,pedigree}),set=entries.some(e=>e.agf1>0)?'obsidian':'piyasasiz',base=raceProbabilities(rows,weights[set]);
@@ -48,7 +66,7 @@ function raceRecord(race,entries,{ratings,rules,watched,weights,surpriseWeights,
  // Ganyan reading: at the stored odds, which are closing on settled days and the current price on live days.
  // Live races without AGF take the current price into the shown probabilities; value and favourite strength stay on the model's own, as the historical bands were measured.
  const odds=rows.map(r=>entries.find(e=>e.number===r.number)?.odds??null),minutes=minutesToOff(race.time,Date.now()),priced=livePriceProbs(modelProbs,{odds,agf,minutes,table:oddsTable}),probs=priced?.probs??modelProbs;
- const shares=marketShares(odds),fav=favouriteRead(modelProbs,odds),pick=rows[modelProbs.indexOf(Math.max(...modelProbs))];
+ const shares=marketShares(odds),fav=favouriteRead(modelProbs,odds),pick=rows[modelProbs.indexOf(Math.max(...modelProbs))],trial=trialCandidates(race,entries,rows);
  const runners=rows.map((r,i)=>{const e=entries.find(x=>x.number===r.number),g=r.rating,p=r.profile,net=ratings.find(x=>x.number===r.number);
   const hits=[...rules.get(r.number).rules.map(x=>({text:x.text,weight:r3(x.weight),applied:true})),
    ...watched.get(r.number).rules.filter(x=>!rules.get(r.number).rules.some(y=>y.id===x.id)).map(x=>({text:x.text,weight:r3(x.weight),applied:false}))];
@@ -57,7 +75,7 @@ function raceRecord(race,entries,{ratings,rules,watched,weights,surpriseWeights,
    // Three or more starts in a row outside the first three: shown as a warning, not a model input (the blend already prices it).
    // Starts for the "little data" mark: the larger of the runs with a known place and the runs the rating network saw (the latest place can still be unknown).
    drought:p.sinceTop3>=3?{runs:p.sinceTop3,never:!p.everTop3}:null,starts:Math.max(p.starts,g.starts),thin:thinData(Math.max(p.starts,g.starts)),start:e?.start??null,kg:e?.kg??null,
-   jockey:e?.jockey??null,handicap:e?.handicap??null,point:e?.point??null,agf:e?.agf1??null,odds:e?.odds??null,value:e?.odds>0?r3(modelProbs[i]*e.odds):null,place:e?.place??null,candidate:candidates.has(r.number),rules:hits};
+   jockey:e?.jockey??null,handicap:e?.handicap??null,point:e?.point??null,agf:e?.agf1??null,odds:e?.odds??null,value:e?.odds>0?r3(modelProbs[i]*e.odds):null,place:e?.place??null,candidate:candidates.has(r.number),...(trial?.includes(r.number)?{longshot:true}:{}),rules:hits};
  }).sort((a,b)=>b.prob-a.prob);
  const network=meetingIndex.fieldNetwork(entries,date).filter(p=>p.meetings.length||p.commonOpponents)
   .sort((a,b)=>b.meetings.length-a.meetings.length||b.commonOpponents-a.commonOpponents).slice(0,12)
@@ -69,13 +87,22 @@ function raceRecord(race,entries,{ratings,rules,watched,weights,surpriseWeights,
 
 // Replay: each shown day is predicted from ratings built on earlier days only, then its results are applied.
 const engine=createHorseRatingEngine(model.policy),connections=createConnectionStats(),pedigree=createSirePreference(runsByHorse,sireByHorse),byDay=new Map();let day=null,pending=[];
-const flush=()=>{for(const x of pending){engine.update(x.race,x.entries);connections.update(x.race,x.entries);}pending=[];};
+const flush=()=>{for(const x of pending){engine.update(x.race,x.entries);connections.update(x.race,x.entries);if(frozenLongshot)longshotState.update(x.race,x.entries);}pending=[];};
+// The trial score's record since its freeze, on the same inputs as scripts/horse-longshot-forward.mjs.
+const forward={races:0,priced:0,candidates:[],old:[],all:[]};
+function scoreForward(x){
+ const {race,entries}=x;if(race.date<frozenLongshot.frozenFrom||!predicted(x)||!race.time||!entries.filter(e=>e.status!=='NONRUNNER').every(e=>e.odds>0))return;
+ const rows=raceFeatures(race,entries,{ratings:engine.predict(race,entries),runsByHorse,rules:ruleSignals(race,entries,model.ruleWeights.discovery),connections,pedigree});if(rows.length<2||!rows.some(r=>race.winners.includes(r.number)))return;
+ forward.races++;const snapshot=lastSnapshot.get(`${race.date}|${race.city}|${race.number}`),prices=snapshot?lastPriceBefore([snapshot],Date.parse(/Z$/.test(race.time)?race.time:race.time+'Z'),rows.map(r=>r.number)):null;if(!prices)return;
+ forward.priced++;const bets=forwardBets(frozenLongshot,{race,rows,entries,prices,runsByHorse,state:longshotState});for(const k of ['candidates','old','all'])forward[k].push(...bets[k]);
+}
 for(const x of finished){
  if(x.race.date!==day){flush();day=x.race.date;}
  if(shown.has(day)&&predicted(x)){
   const ratings=engine.predict(x.race,x.entries),rules=ruleSignals(x.race,x.entries,model.ruleWeights.discovery);
   (byDay.get(day)??byDay.set(day,[]).get(day)).push(raceRecord(x.race,x.entries,{ratings,rules,watched:rules,weights:discWeights,surpriseWeights:model.surprise?.weights,blend:model.marketBlend?.discovery,stage:ensemble?.validation,date:day}));
  }
+ if(frozenLongshot){scoreForward(x);longshotState.noteDay(x.race,x.entries);}
  pending.push(x);
 }
 flush();
@@ -97,13 +124,13 @@ for(const date of upcoming.filter(d=>d>range.to)){
    for(const u of t.runs){const runs=runsByHorse.get(u.horseId)??runsByHorse.set(u.horseId,[]).get(u.horseId);if(!runs.some(y=>y.date===u.date))runs.push(u);}
    list.push(raceRecord(t.race,t.entries,{ratings:engine.predict(t.race,t.entries),rules:ruleSignals(t.race,t.entries,model.ruleWeights.production),
     watched:ruleSignals(t.race,t.entries,model.ruleWeights.discovery),weights:model.production,surpriseWeights:model.surprise?.production,blend:model.marketBlend?.production,stage:ensemble?.live,oddsTable:oddsLayer?.live,date}));
+   if(frozenLongshot)longshotState.noteDay(t.race,t.entries);
   }
  }
  if(list.length)live.set(date,list);
 }
 
 // A failed write loses one snapshot, never the page.
-const snapshotDir=path.join(dir,'odds-snapshots');
 await mkdir(snapshotDir,{recursive:true}).then(()=>Promise.all([...new Set(snapshots.map(s=>s.date))].map(d=>appendFile(path.join(snapshotDir,`${d}.jsonl`),snapshots.filter(s=>s.date===d).map(s=>JSON.stringify(s)+'\n').join(''))))).catch(error=>console.error('Oran kaydı yazılamadı:',error.message));
 
 // Live races take their runners' workouts from the race's gallop page; a missing page leaves the gallop features neutral.
@@ -125,7 +152,8 @@ const byBreed=Object.fromEntries([...Object.entries(allModels).map(([k,m])=>[k,m
 const rules=model.ruleWeights.table.filter(t=>t.discoveryPass).map(t=>({breed:t.breed,text:t.text,n:t.n,discovery:{diff:r3(t.discovery.diff),n:t.discovery.n},
  confirmation:{diff:r3(t.confirmation.diff),p:t.confirmation.p==null?null:+t.confirmation.p.toPrecision(2),n:t.confirmation.n},confirmed:t.confirmed})).sort((a,b)=>b.confirmed-a.confirmed||a.confirmation.diff-b.confirmation.diff);
 const oddsHistory=await readFile(path.join(dir,'horse-odds.json'),'utf8').then(JSON.parse).catch(()=>null);
+const longshotSummary=frozenLongshot?(()=>{const C=betSummary(forward.candidates),O=betSummary(forward.old),H=frozenLongshot.report;return {frozenFrom:frozenLongshot.frozenFrom,minBets:FORWARD_MIN_BETS,maxMinutes:LONGSHOT_MAX_MINUTES,history:{2025:H[2025].read,2026:H[2026].read},forward:{races:forward.races,priced:forward.priced,candidates:C,old:O,all:betSummary(forward.all),verdict:forwardVerdict(C,O)}};})():null;
 await writeFile(path.join(next,'summary.json'),JSON.stringify({generatedAt:new Date().toISOString(),trainedAt:model.trainedAt,range,split:model.split,cities:CITIES,
- confirmation:conf,byBreed,rules,odds:oddsHistory,surprise:model.surprise?{odds:model.surprise.odds,candidates:model.surprise.candidates,risk:model.surprise.risk.confirmation,results:model.surprise.candidateResults,types:model.surprise.types}:null,days:dayList}));
+ confirmation:conf,byBreed,rules,odds:oddsHistory,longshot:longshotSummary,surprise:model.surprise?{odds:model.surprise.odds,candidates:model.surprise.candidates,risk:model.surprise.risk.confirmation,results:model.surprise.candidateResults,types:model.surprise.types}:null,days:dayList}));
 await rm(out,{recursive:true,force:true});await rename(next,out);
 console.log(JSON.stringify({days:dayList.map(d=>`${d.date}:${d.kind}:${d.races}${d.kind==='settled'?` top1 ${d.top1}`:''}`)}));

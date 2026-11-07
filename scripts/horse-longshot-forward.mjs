@@ -5,10 +5,8 @@ import {readFile,readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
-import {raceProbabilities} from '../dist/horse-model.mjs';
-import {surpriseCandidates} from '../dist/horse-surprise.mjs';
 import {buildSpeedPars,attachSpeedFigures} from '../dist/horse-speed.mjs';
-import {LONGSHOT_MIN_PRICE,createLongshotState,longshotSignals,scaleSignals,longshotScore,lastPriceBefore,betSummary,forwardVerdict,loadLongshot,enrichArchive} from './horse-longshot-lib.mjs';
+import {createLongshotState,lastPriceBefore,betSummary,forwardBets,forwardVerdict,loadLongshot,enrichArchive} from './horse-longshot-lib.mjs';
 import {loadHorseArchive} from './horse-archive.mjs';
 import {replayRaces} from './horse-replay.mjs';
 
@@ -21,8 +19,7 @@ const snapshots=new Map();for(const f of await readdir(snapshotDir).catch(()=>[]
 const db=new DatabaseSync(path.join(dir,'horses.db'),{readOnly:true}),{races,runsByHorse,breedByHorse,sireByHorse,range}=loadHorseArchive(db);enrichArchive(db,races);
 attachSpeedFigures(runsByHorse,breedByHorse,buildSpeedPars(runsByHorse,breedByHorse,{before:model.split}));
 const recs=replayRaces({model,races,runsByHorse,sireByHorse,ruleWeights:model.ruleWeights.discovery}),recBy=new Map(recs.map(r=>[`${r.date}|${r.city}|${r.number}`,r]));
-const state=createLongshotState(),expected=close=>{const c=-Math.log(close),[a,b,d]=frozen.nullW;return 1/(1+Math.exp(-(a+b*c+d*c*c)));};
-const lists={candidates:[],old:[],all:[]},count={races:0,priced:0,noSnapshot:0,noPrice:0},seen=new Map();let pending=[],current=null;
+const state=createLongshotState(),lists={candidates:[],old:[],all:[]},count={races:0,priced:0,noSnapshot:0,noPrice:0};let pending=[],current=null;
 const flush=()=>{for(const x of pending)state.update(x.race,x.entries);pending=[];};
 for(const x of races.filter(x=>x.race.status==='RESULT'&&x.race.winners)){
  const {race,entries}=x;if(race.date!==current){flush();current=race.date;}
@@ -31,9 +28,7 @@ for(const x of races.filter(x=>x.race.status==='RESULT'&&x.race.winners)){
   count.races++;const off=Date.parse(/Z$/.test(race.time)?race.time:race.time+'Z'),stored=snapshots.get(key),prices=stored?lastPriceBefore(stored,off,rec.rows.map(r=>r.number)):null;
   if(!stored)count.noSnapshot++;else if(!prices)count.noPrice++;
   if(prices){
-   count.priced++;const free=raceProbabilities(rec.rows,frozen.freeWeights),signals=longshotSignals({race,rows:rec.rows,entries,free,prices,runsByHorse,state}),meeting=race.date+'|'+race.city,bet=(r,kind)=>{lists[kind].push({meeting,y:race.winners.includes(r.number)?1:0,close:r.odds,expected:expected(r.odds)});};
-   rec.rows.forEach((r,i)=>{if(prices[i]<LONGSHOT_MIN_PRICE)return;bet(r,'all');if(longshotScore(scaleSignals(signals[i],frozen.stats),frozen.trees)>=frozen.cut){bet(r,'candidates');seen.set(race.date,(seen.get(race.date)??0)+1);}});
-   const picks=surpriseCandidates(rec.rows,raceProbabilities(rec.rows,frozen.oldWeights),frozen.oldCandidates);for(const r of rec.rows)if(picks.includes(r.number))bet(r,'old');
+   count.priced++;const bets=forwardBets(frozen,{race,rows:rec.rows,entries,prices,runsByHorse,state});for(const k of Object.keys(lists))lists[k].push(...bets[k]);
   }
  }
  state.noteDay(race,entries);pending.push(x);
